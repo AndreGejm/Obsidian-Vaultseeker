@@ -228,6 +228,8 @@ This borrows Mimir's import boundary: external source material is evidence, not 
 
 `packages/core/src/source/source-lexical-search.ts` builds a source-only lexical index over filenames, source section paths, and extracted source chunk text. Results are grouped by source workspace, include matched fields and matched source chunks, and stay read-only. The tokenizer is shared with vault-note lexical search so case and diacritic behavior stays consistent across notes and sources.
 
+`packages/core/src/source/source-semantic-search.ts` adds source-only semantic ranking over stored vector records. It uses the same vector math as vault-note semantic search, but groups results by source workspace instead of note path and only accepts current vectors for `source-chunk:` records whose stored content hash still matches the current source chunk hash. This is a ranking primitive only: it does not run Marker, MarkItDown, Ollama, an embedding queue, or any vault write.
+
 `VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
 
-Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source search UI, attachment staging directory, cancellation controller, or source-to-note proposal path exists yet.
+Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source search UI, source embedding queue/worker integration, attachment staging directory, cancellation controller, or source-to-note proposal path exists yet.

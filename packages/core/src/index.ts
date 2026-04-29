@@ -8,6 +8,7 @@ export { buildRelationshipGraph } from "./relationships/graph";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
 export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
 export { buildSourceLexicalIndex, searchSourceLexicalIndex } from "./source/source-lexical-search";
+export { searchSourceSemanticVectors } from "./source/source-semantic-search";
 export { chunkSourceRecord, chunkSourceRecords } from "./source/chunk-source";
 export {
   buildVectorNamespace,
@@ -60,6 +61,11 @@ export type {
   SourceLexicalSearchInput,
   SourceLexicalSearchResult
 } from "./source/source-lexical-search";
+export type {
+  SourceSemanticMatchedChunk,
+  SourceSemanticSearchInput,
+  SourceSemanticSearchResult
+} from "./source/source-semantic-search";
 export type {
   EmbeddingJobRecord,
   EmbeddingJobStatus,

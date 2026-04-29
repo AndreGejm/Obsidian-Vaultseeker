@@ -194,6 +194,18 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Source search requires every query term to be present in a returned source result.
 - Source search has no Obsidian UI surface yet and does not write source results into notes.
 
+## Phase 4.5 Source Semantic Ranking Guarantees
+
+- `searchSourceSemanticVectors` is read-only and works only on caller-provided source records, source chunks, and stored vector records.
+- The query vector must already be produced by an adapter; core does not call an embedding provider during source search.
+- Ranking only considers vectors from the requested model namespace.
+- Ranking only considers vectors whose dimensions match the query vector.
+- Ranking only considers vectors whose content hash still matches the current source chunk hash.
+- Failed source workspaces are ignored.
+- Zero, empty, or non-finite query vectors return no results.
+- Results are grouped by source workspace and include matched source chunk evidence with cosine similarity scores.
+- Source semantic ranking has no Obsidian UI surface yet and does not write source results into notes.
+
 ## Not Yet Guaranteed
 
 - Automatic persisted embedding queue execution.
@@ -204,7 +216,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - MarkItDown broad file extraction.
 - Built-in text/code source extraction.
 - Source search UI.
-- Source semantic indexing.
+- Source semantic embedding queue/worker integration.
 - Source preview UI.
 - Staged attachment persistence outside the stored metadata shape.
 - Source-to-note proposal creation.
