@@ -36,6 +36,7 @@ describe("InMemoryVaultseerStore", () => {
     await expect(store.getHealth()).resolves.toEqual({
       schemaVersion: 1,
       status: "empty",
+      statusMessage: null,
       lastIndexedAt: null,
       noteCount: 0,
       chunkCount: 0,
@@ -56,6 +57,7 @@ describe("InMemoryVaultseerStore", () => {
     expect(health).toEqual({
       schemaVersion: 1,
       status: "ready",
+      statusMessage: null,
       lastIndexedAt: "2026-04-29T19:00:00.000Z",
       noteCount: 2,
       chunkCount: 0,
@@ -87,9 +89,44 @@ describe("InMemoryVaultseerStore", () => {
     const health = await store.clear();
 
     expect(health.status).toBe("empty");
+    expect(health.statusMessage).toBeNull();
     expect(health.noteCount).toBe(0);
     await expect(store.getNoteRecords()).resolves.toEqual([]);
     await expect(store.getFileVersions()).resolves.toEqual([]);
   });
-});
 
+  it("records indexing, stale, degraded, and error states without dropping the current mirror", async () => {
+    const store = new InMemoryVaultseerStore();
+    const snapshot = buildVaultSnapshot(noteInputs);
+    await store.replaceNoteIndex(snapshot, "2026-04-29T19:00:00.000Z");
+
+    await expect(store.beginIndexing("2026-04-29T19:05:00.000Z")).resolves.toMatchObject({
+      status: "indexing",
+      statusMessage: "Index rebuild started.",
+      lastIndexedAt: "2026-04-29T19:00:00.000Z",
+      noteCount: 2
+    });
+
+    await expect(store.markStale("A.md changed on disk.")).resolves.toMatchObject({
+      status: "stale",
+      statusMessage: "A.md changed on disk.",
+      noteCount: 2
+    });
+
+    await expect(store.markDegraded("Semantic provider unavailable.")).resolves.toMatchObject({
+      status: "degraded",
+      statusMessage: "Semantic provider unavailable.",
+      warnings: ["Semantic provider unavailable."],
+      noteCount: 2
+    });
+
+    await expect(store.markError("Rebuild failed: metadata cache unavailable.")).resolves.toMatchObject({
+      status: "error",
+      statusMessage: "Rebuild failed: metadata cache unavailable.",
+      warnings: ["Semantic provider unavailable.", "Rebuild failed: metadata cache unavailable."],
+      noteCount: 2
+    });
+
+    await expect(store.getNoteRecords()).resolves.toEqual(snapshot.notes);
+  });
+});

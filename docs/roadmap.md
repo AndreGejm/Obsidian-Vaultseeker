@@ -31,7 +31,7 @@ Goal: make Vaultseer a reliable read-only mirror of the vault.
 Implementation steps:
 
 - add persistent local index storage with schema versioning
-- add explicit index states: empty, indexing, ready, stale, degraded, error
+- add explicit index states: empty, indexing, ready, stale, degraded, error (**implemented for the store contract**)
 - detect file changes and mark affected index data stale
 - add clear-index and rebuild-index recovery paths
 - expose index health in the plugin
@@ -158,4 +158,3 @@ Exit gate:
 - bridge can be disabled without affecting Vaultseer
 - exported records are explainable and source-linked
 - no bridge behavior can mutate notes directly
-

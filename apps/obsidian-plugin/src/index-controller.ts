@@ -8,10 +8,17 @@ export type RebuildReadOnlyIndexOptions = {
 };
 
 export async function rebuildReadOnlyIndex(options: RebuildReadOnlyIndexOptions): Promise<IndexHealth> {
-  const inputs = await options.readNoteInputs();
-  const includedInputs = inputs.filter((input) => !isExcluded(input.path, options.excludedFolders));
-  const snapshot = buildVaultSnapshot(includedInputs);
-  return options.store.replaceNoteIndex(snapshot, options.now());
+  await options.store.beginIndexing(options.now());
+
+  try {
+    const inputs = await options.readNoteInputs();
+    const includedInputs = inputs.filter((input) => !isExcluded(input.path, options.excludedFolders));
+    const snapshot = buildVaultSnapshot(includedInputs);
+    return options.store.replaceNoteIndex(snapshot, options.now());
+  } catch (error) {
+    await options.store.markError(`Rebuild failed: ${getErrorMessage(error)}`);
+    throw error;
+  }
 }
 
 export async function clearReadOnlyIndex(store: VaultseerStore): Promise<IndexHealth> {
@@ -22,3 +29,6 @@ function isExcluded(path: string, excludedFolders: string[]): boolean {
   return excludedFolders.some((folder) => path === folder || path.startsWith(`${folder}/`));
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

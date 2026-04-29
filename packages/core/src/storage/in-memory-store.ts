@@ -5,6 +5,19 @@ import type { NoteRecord, VaultSnapshot } from "../types";
 export class InMemoryVaultseerStore implements VaultseerStore {
   private state: StoredVaultIndex = createEmptyState();
 
+  async beginIndexing(_startedAt: string): Promise<IndexHealth> {
+    this.state = {
+      ...this.state,
+      health: {
+        ...this.state.health,
+        status: "indexing",
+        statusMessage: "Index rebuild started."
+      }
+    };
+
+    return clone(this.state.health);
+  }
+
   async replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string): Promise<IndexHealth> {
     const notes = clone(snapshot.notes);
     const fileVersions = createFileVersions(notes);
@@ -21,12 +34,54 @@ export class InMemoryVaultseerStore implements VaultseerStore {
       health: {
         schemaVersion: INDEX_SCHEMA_VERSION,
         status: "ready",
+        statusMessage: null,
         lastIndexedAt: indexedAt,
         noteCount: notes.length,
         chunkCount: 0,
         vectorCount: 0,
         suggestionCount: 0,
         warnings: []
+      }
+    };
+
+    return clone(this.state.health);
+  }
+
+  async markStale(reason: string): Promise<IndexHealth> {
+    this.state = {
+      ...this.state,
+      health: {
+        ...this.state.health,
+        status: "stale",
+        statusMessage: reason
+      }
+    };
+
+    return clone(this.state.health);
+  }
+
+  async markDegraded(reason: string): Promise<IndexHealth> {
+    this.state = {
+      ...this.state,
+      health: {
+        ...this.state.health,
+        status: "degraded",
+        statusMessage: reason,
+        warnings: appendWarning(this.state.health.warnings, reason)
+      }
+    };
+
+    return clone(this.state.health);
+  }
+
+  async markError(message: string): Promise<IndexHealth> {
+    this.state = {
+      ...this.state,
+      health: {
+        ...this.state.health,
+        status: "error",
+        statusMessage: message,
+        warnings: appendWarning(this.state.health.warnings, message)
       }
     };
 
@@ -64,6 +119,7 @@ function createEmptyState(): StoredVaultIndex {
     health: {
       schemaVersion: INDEX_SCHEMA_VERSION,
       status: "empty",
+      statusMessage: null,
       lastIndexedAt: null,
       noteCount: 0,
       chunkCount: 0,
@@ -72,6 +128,11 @@ function createEmptyState(): StoredVaultIndex {
       warnings: []
     }
   };
+}
+
+function appendWarning(warnings: string[], warning: string): string[] {
+  if (warnings.includes(warning)) return warnings;
+  return [...warnings, warning];
 }
 
 function createFileVersions(notes: NoteRecord[]): FileVersionRecord[] {
@@ -88,4 +149,3 @@ function createFileVersions(notes: NoteRecord[]): FileVersionRecord[] {
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
-

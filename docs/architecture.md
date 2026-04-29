@@ -50,6 +50,17 @@ Stored entity shapes are defined for:
 
 The plugin currently uses the in-memory store through `rebuildReadOnlyIndex` and `clearReadOnlyIndex`. Both commands return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
+The index health state model is explicit. Current statuses are:
+
+- `empty`: no useful mirror exists.
+- `indexing`: a rebuild or update is in progress.
+- `ready`: the stored mirror was successfully rebuilt.
+- `stale`: the vault changed after the stored mirror was built.
+- `degraded`: the mirror is usable, but optional analysis failed.
+- `error`: required indexing failed and the mirror should not be trusted without recovery.
+
+The in-memory store preserves the last successful mirror when later indexing enters `indexing`, `stale`, `degraded`, or `error`. A failed rebuild marks the health as `error` and keeps the previous note records available for diagnostics.
+
 Persistent IndexedDB or Obsidian-data storage should implement the same `VaultseerStore` contract rather than changing plugin command behavior.
 
 ## Relationship Graph

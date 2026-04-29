@@ -2,11 +2,12 @@ import type { NoteRecord, VaultSnapshot } from "../types";
 
 export const INDEX_SCHEMA_VERSION = 1;
 
-export type IndexStatus = "empty" | "ready" | "error";
+export type IndexStatus = "empty" | "indexing" | "ready" | "stale" | "degraded" | "error";
 
 export type IndexHealth = {
   schemaVersion: number;
   status: IndexStatus;
+  statusMessage: string | null;
   lastIndexedAt: string | null;
   noteCount: number;
   chunkCount: number;
@@ -83,10 +84,13 @@ export type StoredVaultIndex = {
 };
 
 export interface VaultseerStore {
+  beginIndexing(startedAt: string): Promise<IndexHealth>;
   replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string): Promise<IndexHealth>;
+  markStale(reason: string): Promise<IndexHealth>;
+  markDegraded(reason: string): Promise<IndexHealth>;
+  markError(message: string): Promise<IndexHealth>;
   getHealth(): Promise<IndexHealth>;
   getNoteRecords(): Promise<NoteRecord[]>;
   getFileVersions(): Promise<FileVersionRecord[]>;
   clear(): Promise<IndexHealth>;
 }
-

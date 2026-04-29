@@ -50,5 +50,32 @@ describe("index-controller", () => {
     expect(health.status).toBe("empty");
     await expect(store.getNoteRecords()).resolves.toEqual([]);
   });
-});
 
+  it("marks the mirror as error when a rebuild fails without dropping the previous index", async () => {
+    const store = new InMemoryVaultseerStore();
+    await rebuildReadOnlyIndex({
+      readNoteInputs: async () => inputs,
+      store,
+      excludedFolders: ["Archive"],
+      now: () => "2026-04-29T20:00:00.000Z"
+    });
+
+    await expect(
+      rebuildReadOnlyIndex({
+        readNoteInputs: async () => {
+          throw new Error("metadata cache unavailable");
+        },
+        store,
+        excludedFolders: [],
+        now: () => "2026-04-29T20:05:00.000Z"
+      })
+    ).rejects.toThrow("metadata cache unavailable");
+
+    await expect(store.getHealth()).resolves.toMatchObject({
+      status: "error",
+      statusMessage: "Rebuild failed: metadata cache unavailable",
+      noteCount: 1
+    });
+    await expect(store.getNoteRecords()).resolves.toMatchObject([{ path: "A.md" }]);
+  });
+});
