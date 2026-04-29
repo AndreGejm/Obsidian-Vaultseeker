@@ -110,7 +110,7 @@ These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plug
 - Existing vectors for the same namespace with an old content hash are counted as stale and queued for refresh.
 - `maxJobs` limits how much work is planned at once while reporting how many chunks were skipped by that limit.
 
-These guarantees apply only to queue planning. Core also exposes pure queue transitions and an injected-provider worker batch controller. The Obsidian plugin can run one explicit persisted batch through an Ollama-compatible provider, but it does not yet expose cancellation controls, schedule background jobs, or merge semantic results into search.
+These guarantees apply only to queue planning. Core also exposes pure queue transitions and an injected-provider worker batch controller. The Obsidian plugin can run one explicit persisted batch through an Ollama-compatible provider, but it does not yet expose cancellation controls or schedule background jobs.
 
 ## Phase 4 Semantic Storage Guarantees
 
@@ -154,10 +154,12 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Query embedding happens through an injected `EmbeddingProviderPort`; the controller does not know about Ollama-specific HTTP details.
 - Provider failures and query vector-shape failures return degraded search results instead of mutating stored vectors or jobs.
 - Semantic query search reads only stored notes, chunks, and vectors from `VaultseerStore`.
+- The search modal merges ready semantic results with lexical results without direct note writes.
+- If semantic search degrades, lexical search results remain visible and the degraded message is shown.
+- Duplicate lexical and semantic hits for the same note become one hybrid row with combined evidence.
 
 ## Not Yet Guaranteed
 
-- Plugin semantic search UI.
 - Automatic persisted embedding queue execution.
 - Automatic background scheduling.
 - Embedding providers other than the first Ollama-compatible adapter.

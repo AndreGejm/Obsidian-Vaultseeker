@@ -1,6 +1,7 @@
 import { App, Modal, Notice, Setting } from "obsidian";
 import type { ChunkRecord, IndexHealth, LexicalIndexRecord, NoteRecord, VaultseerStore } from "@vaultseer/core";
-import { buildSearchModalState, type SearchModalResult } from "./search-modal-state";
+import { buildSearchModalState, type SearchModalResult, type SearchModalState } from "./search-modal-state";
+import { buildSearchModalQueryState, type SearchModalSemanticSearch } from "./search-modal-query";
 
 type SearchMirrorData = {
   health: IndexHealth;
@@ -13,7 +14,8 @@ export class VaultseerSearchModal extends Modal {
   constructor(
     app: App,
     private readonly store: VaultseerStore,
-    private readonly openNote: (path: string) => Promise<void>
+    private readonly openNote: (path: string) => Promise<void>,
+    private readonly semanticSearch?: SearchModalSemanticSearch
   ) {
     super(app);
   }
@@ -61,9 +63,9 @@ export class VaultseerSearchModal extends Modal {
 
     const statusEl = contentEl.createEl("p");
     const resultsEl = contentEl.createEl("div");
+    let activeRequestId = 0;
 
-    const renderResults = (query: string): void => {
-      const state = buildSearchModalState({ query, ...data });
+    const renderState = (state: SearchModalState): void => {
       statusEl.textContent = state.message;
       resultsEl.empty();
 
@@ -72,6 +74,20 @@ export class VaultseerSearchModal extends Modal {
       for (const result of state.results) {
         this.renderResult(resultsEl, result);
       }
+    };
+
+    const renderResults = (query: string): void => {
+      const requestId = ++activeRequestId;
+      const initialState = buildSearchModalState({ query, ...data });
+      renderState(initialState);
+
+      if (!this.semanticSearch || initialState.status === "blocked" || !query.trim()) return;
+
+      statusEl.textContent = `${initialState.message} Semantic search is running...`;
+      void buildSearchModalQueryState({ query, ...data, semanticSearch: this.semanticSearch }).then((state) => {
+        if (requestId !== activeRequestId) return;
+        renderState(state);
+      });
     };
 
     new Setting(contentEl)
@@ -96,6 +112,7 @@ export class VaultseerSearchModal extends Modal {
     });
 
     resultEl.createEl("div", { text: result.notePath, cls: "vaultseer-search-result-path" });
+    resultEl.createEl("div", { text: formatSourceLabel(result.source), cls: "vaultseer-search-result-source" });
     if (result.reason) {
       resultEl.createEl("div", { text: result.reason, cls: "vaultseer-search-result-reason" });
     }
@@ -107,4 +124,15 @@ export class VaultseerSearchModal extends Modal {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function formatSourceLabel(source: SearchModalResult["source"]): string {
+  switch (source) {
+    case "lexical":
+      return "Lexical";
+    case "semantic":
+      return "Semantic";
+    case "hybrid":
+      return "Lexical + semantic";
+  }
 }

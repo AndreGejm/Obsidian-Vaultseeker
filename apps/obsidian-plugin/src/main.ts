@@ -8,6 +8,8 @@ import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
 import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
 import { planSemanticIndexQueue, runSemanticIndexBatch } from "./semantic-index-controller";
+import { searchSemanticIndex } from "./semantic-search-controller";
+import type { SearchModalSemanticSearch } from "./search-modal-query";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
@@ -144,9 +146,14 @@ export default class VaultseerPlugin extends Plugin {
       new Notice("Vaultseer could not check index freshness before search.");
     }
 
-    new VaultseerSearchModal(this.app, this.store, async (path) => {
-      await this.app.workspace.openLinkText(path, "", false);
-    }).open();
+    new VaultseerSearchModal(
+      this.app,
+      this.store,
+      async (path) => {
+        await this.app.workspace.openLinkText(path, "", false);
+      },
+      this.createSearchModalSemanticSearch()
+    ).open();
   }
 
   async openWorkbench(): Promise<void> {
@@ -229,5 +236,39 @@ export default class VaultseerPlugin extends Plugin {
 
   getHealth(): IndexHealth | null {
     return this.health;
+  }
+
+  private createSearchModalSemanticSearch(): SearchModalSemanticSearch | undefined {
+    if (!this.settings.semanticSearchEnabled) return undefined;
+
+    if (this.settings.embeddingProviderId !== "ollama") {
+      return async () => ({
+        status: "degraded",
+        message: `Semantic search provider '${this.settings.embeddingProviderId}' is not supported in the search modal.`,
+        results: []
+      });
+    }
+
+    const provider = new OllamaEmbeddingProvider({
+      endpoint: this.settings.embeddingEndpoint,
+      modelId: this.settings.embeddingModelId
+    });
+    const modelProfile = {
+      providerId: this.settings.embeddingProviderId,
+      modelId: this.settings.embeddingModelId,
+      dimensions: this.settings.embeddingDimensions
+    };
+
+    return (query) =>
+      searchSemanticIndex({
+        enabled: true,
+        store: this.store,
+        provider,
+        modelProfile,
+        query,
+        limit: 10,
+        minScore: 0.1,
+        maxChunksPerNote: 3
+      });
   }
 }

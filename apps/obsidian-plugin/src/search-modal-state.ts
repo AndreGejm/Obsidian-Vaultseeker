@@ -1,10 +1,19 @@
-import type { ChunkRecord, IndexHealth, LexicalIndexRecord, LexicalSearchResult, NoteRecord } from "@vaultseer/core";
+import type {
+  ChunkRecord,
+  IndexHealth,
+  LexicalIndexRecord,
+  LexicalSearchResult,
+  NoteRecord,
+  SemanticSearchResult
+} from "@vaultseer/core";
 import { searchLexicalIndex } from "@vaultseer/core";
+import type { SemanticSearchControllerResult } from "./semantic-search-controller";
 
 export type SearchModalResult = {
   notePath: string;
   title: string;
   score: number;
+  source: "lexical" | "semantic" | "hybrid";
   reason: string;
   excerpt: string;
 };
@@ -27,6 +36,7 @@ export type BuildSearchModalStateInput = {
   notes: NoteRecord[];
   chunks: ChunkRecord[];
   lexicalIndex: LexicalIndexRecord[];
+  semantic?: SemanticSearchControllerResult;
   limit?: number;
 };
 
@@ -48,17 +58,22 @@ export function buildSearchModalState(input: BuildSearchModalStateInput): Search
     };
   }
 
-  const results = searchLexicalIndex({
+  const lexicalResults = searchLexicalIndex({
     query: input.query,
     index: input.lexicalIndex,
     notes: input.notes,
     chunks: input.chunks,
     limit: input.limit ?? 20
   }).map(toModalResult);
+  const results = mergeResults(
+    lexicalResults,
+    input.semantic?.status === "ready" ? input.semantic.results.map(toSemanticModalResult) : [],
+    input.limit ?? 20
+  );
 
   return {
     status: "ready",
-    message: getSearchableMessage(input.health, results.length),
+    message: appendSemanticMessage(getSearchableMessage(input.health, results.length), input.semantic),
     results
   };
 }
@@ -100,9 +115,54 @@ function toModalResult(result: LexicalSearchResult): SearchModalResult {
     notePath: result.notePath,
     title: result.title,
     score: result.score,
+    source: "lexical",
     reason: formatReason(result),
     excerpt: formatExcerpt(result)
   };
+}
+
+function toSemanticModalResult(result: SemanticSearchResult): SearchModalResult {
+  return {
+    notePath: result.notePath,
+    title: result.title,
+    score: result.score,
+    source: "semantic",
+    reason: formatSemanticReason(result),
+    excerpt: formatSemanticExcerpt(result)
+  };
+}
+
+function mergeResults(
+  lexicalResults: SearchModalResult[],
+  semanticResults: SearchModalResult[],
+  limit: number
+): SearchModalResult[] {
+  const mergedByPath = new Map<string, SearchModalResult>();
+  const order: string[] = [];
+
+  for (const result of lexicalResults) {
+    mergedByPath.set(result.notePath, result);
+    order.push(result.notePath);
+  }
+
+  for (const result of semanticResults) {
+    const existing = mergedByPath.get(result.notePath);
+    if (!existing) {
+      mergedByPath.set(result.notePath, result);
+      order.push(result.notePath);
+      continue;
+    }
+
+    mergedByPath.set(result.notePath, {
+      ...existing,
+      score: Math.max(existing.score, result.score),
+      source: "hybrid",
+      reason: joinReasons(existing.reason, result.reason),
+      excerpt: existing.excerpt || result.excerpt
+    });
+  }
+
+  return order.map((path) => mergedByPath.get(path)!).slice(0, limit);
 }
 
 function formatReason(result: LexicalSearchResult): string {
@@ -126,4 +186,32 @@ function formatExcerpt(result: LexicalSearchResult): string {
   const text = bestChunk.text.replace(/\s+/g, " ").trim();
   if (text.length <= 160) return text;
   return `${text.slice(0, 157).trimEnd()}...`;
+}
+
+function formatSemanticReason(result: SemanticSearchResult): string {
+  const bestChunk = result.matchedChunks[0];
+  const score = result.score.toFixed(2);
+  if (!bestChunk) return `semantic match ${score}`;
+  const location = bestChunk.headingPath.length > 0 ? bestChunk.headingPath.join(" > ") : "note body";
+  return `semantic match ${score} in ${location}`;
+}
+
+function formatSemanticExcerpt(result: SemanticSearchResult): string {
+  const bestChunk = result.matchedChunks[0];
+  if (!bestChunk) return "";
+
+  const text = bestChunk.text.replace(/\s+/g, " ").trim();
+  if (text.length <= 160) return text;
+  return `${text.slice(0, 157).trimEnd()}...`;
+}
+
+function appendSemanticMessage(message: string, semantic: SemanticSearchControllerResult | undefined): string {
+  if (!semantic || semantic.status !== "degraded") return message;
+  return `${message} ${semantic.message}`;
+}
+
+function joinReasons(left: string, right: string): string {
+  if (!left) return right;
+  if (!right) return left;
+  return `${left}; ${right}`;
 }

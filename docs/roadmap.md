@@ -100,7 +100,7 @@ Exit gate:
 
 ## Phase 4: Semantic Search Queue
 
-Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, explicit worker batch controller, core semantic vector ranking, Ollama-compatible provider adapter, provider-backed query search controller, and manual batch command are implemented; cancellation UI, background scheduling, and semantic search UI are not implemented yet.
+Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, explicit worker batch controller, core semantic vector ranking, Ollama-compatible provider adapter, provider-backed query search controller, semantic search modal integration, and manual batch command are implemented; cancellation UI, background scheduling, and worker resume behavior are not implemented yet.
 
 Goal: add embeddings without making them a platform dependency.
 
@@ -120,7 +120,8 @@ Next implementation steps:
 - add an Ollama-compatible provider adapter behind the `EmbeddingProviderPort` (**implemented for explicit manual batches**)
 - add an explicit command to run one semantic batch manually before adding background scheduling (**implemented**)
 - add a pure core semantic ranking function over stored vectors (**implemented**)
-- add a plugin controller that embeds a query and ranks stored vectors without mutating the vault (**implemented; not exposed in the modal yet**)
+- add a plugin controller that embeds a query and ranks stored vectors without mutating the vault (**implemented and exposed in the modal when semantic search is enabled**)
+- merge semantic evidence into the read-only search modal without hiding lexical results (**implemented**)
 - plugin command `Vaultseer: Plan semantic indexing queue` now plans jobs without provider calls when semantic indexing is enabled
 - plugin command `Vaultseer: Run one semantic indexing batch` processes one queued batch through the configured local Ollama-compatible endpoint when semantic indexing is enabled
 

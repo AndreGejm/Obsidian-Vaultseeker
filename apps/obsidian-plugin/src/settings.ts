@@ -31,6 +31,16 @@ export class VaultseerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Semantic search")
+      .setDesc("Use stored vectors and the local embedding endpoint for optional semantic results in Vaultseer search.")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.semanticSearchEnabled).onChange(async (value) => {
+          this.plugin.settings.semanticSearchEnabled = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
       .setName("Semantic indexing")
       .setDesc("Prepare semantic vectors from the local mirror. Keep this off unless you are intentionally testing embeddings.")
       .addToggle((toggle) =>

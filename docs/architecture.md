@@ -59,7 +59,7 @@ The plugin uses `PersistentVaultseerStore` through an Obsidian data backend. Plu
 
 The data store also accepts the original root-level settings shape as a legacy input so early local installs can load settings without requiring manual cleanup.
 
-Semantic indexing settings are explicit but disabled by default. The plugin stores `semanticIndexingEnabled`, embedding endpoint, provider id, model id, expected dimensions, and batch size. These settings do not call a provider by themselves; they only prepare the operator-controlled surface for a later adapter.
+Semantic settings are explicit but disabled by default. The plugin stores `semanticSearchEnabled`, `semanticIndexingEnabled`, embedding endpoint, provider id, model id, expected dimensions, and batch size. Indexing and search are separate switches: indexing prepares vectors through explicit commands, while search only embeds a query when the search modal is open and semantic search is enabled.
 
 `rebuildReadOnlyIndex` and `clearReadOnlyIndex` return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
@@ -197,6 +197,8 @@ The queue module also owns pure job transitions: claim due queued jobs, complete
 
 `searchSemanticIndex` is the first plugin-side semantic query controller. It honors the disabled-by-default semantic search setting, uses an injected `EmbeddingProviderPort` to embed one query, reads notes/chunks/vectors from the persisted mirror, and delegates ranking to `searchSemanticVectors`. Provider failures and vector-shape mismatches return degraded results instead of changing the stored mirror.
 
+The search modal now uses `buildSearchModalQueryState` to merge semantic evidence with lexical results when semantic search is enabled. Lexical results remain visible if the provider fails, and duplicate note rows are merged into a hybrid result instead of appearing twice.
+
 `Vaultseer: Plan semantic indexing queue` is the first plugin-facing semantic command. It is disabled by default through settings, and when enabled it only plans queued jobs from stored chunks and vectors. It does not call an embedding provider.
 
-Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler, no cancellation UI, no user-facing semantic search command, and no semantic search result blending yet.
+Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler, no cancellation UI, and no automatic worker resume yet.

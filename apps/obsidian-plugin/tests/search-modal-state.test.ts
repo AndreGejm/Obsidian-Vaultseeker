@@ -128,4 +128,102 @@ describe("buildSearchModalState", () => {
       message: "Showing the last indexed mirror. Vault changed since last index: 1 modified."
     });
   });
+
+  it("adds semantic-only results with matched chunk evidence", () => {
+    const state = buildSearchModalState({
+      query: "adjacent mythic topic",
+      health: health({ status: "ready" }),
+      notes: snapshot.notes,
+      chunks,
+      lexicalIndex,
+      semantic: {
+        status: "ready",
+        message: "1 semantic result found.",
+        results: [
+          {
+            notePath: "Literature/Mimisbrunnr Retrieval.md",
+            title: "Mimisbrunnr Retrieval",
+            score: 0.82,
+            matchedChunks: [
+              {
+                chunkId: chunks[0]!.id,
+                headingPath: ["Mimisbrunnr Retrieval"],
+                text: "Governed memory retrieval keeps agent context bounded.",
+                score: 0.82
+              }
+            ]
+          }
+        ]
+      }
+    });
+
+    expect(state).toMatchObject({
+      status: "ready",
+      message: "1 result found.",
+      results: [
+        {
+          notePath: "Literature/Mimisbrunnr Retrieval.md",
+          source: "semantic",
+          reason: "semantic match 0.82 in Mimisbrunnr Retrieval",
+          excerpt: "Governed memory retrieval keeps agent context bounded."
+        }
+      ]
+    });
+  });
+
+  it("merges semantic evidence into an existing lexical result for the same note", () => {
+    const state = buildSearchModalState({
+      query: "memory retrieval",
+      health: health({ status: "ready" }),
+      notes: snapshot.notes,
+      chunks,
+      lexicalIndex,
+      semantic: {
+        status: "ready",
+        message: "1 semantic result found.",
+        results: [
+          {
+            notePath: "Literature/Mimisbrunnr Retrieval.md",
+            title: "Mimisbrunnr Retrieval",
+            score: 0.91,
+            matchedChunks: [
+              {
+                chunkId: chunks[0]!.id,
+                headingPath: ["Mimisbrunnr Retrieval"],
+                text: "Governed memory retrieval keeps agent context bounded.",
+                score: 0.91
+              }
+            ]
+          }
+        ]
+      }
+    });
+
+    expect(state.results).toHaveLength(1);
+    expect(state.results[0]).toMatchObject({
+      source: "hybrid",
+      reason: expect.stringContaining("semantic match 0.91 in Mimisbrunnr Retrieval")
+    });
+  });
+
+  it("keeps lexical results visible when semantic search degrades", () => {
+    const state = buildSearchModalState({
+      query: "memory",
+      health: health({ status: "ready" }),
+      notes: snapshot.notes,
+      chunks,
+      lexicalIndex,
+      semantic: {
+        status: "degraded",
+        message: "Semantic search failed: Ollama offline",
+        results: []
+      }
+    });
+
+    expect(state).toMatchObject({
+      status: "ready",
+      message: "1 result found. Semantic search failed: Ollama offline"
+    });
+    expect(state.results).toHaveLength(1);
+  });
 });
