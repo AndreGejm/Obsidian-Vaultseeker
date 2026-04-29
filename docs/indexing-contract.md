@@ -127,6 +127,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Completed jobs move to `completed` and clear retry metadata.
 - Cancelled jobs move to `cancelled` and clear retry scheduling.
 - The plugin cancellation controller cancels queued/running jobs and preserves completed jobs.
+- Startup recovery requeues jobs left in `running` state by an interrupted plugin session and records a recovery diagnostic in `lastError`.
 - Failed jobs increment `attemptCount`; retryable failures return to `queued` with a future `nextAttemptAt`, and terminal failures move to `failed`.
 
 ## Phase 4 Worker Batch Guarantees

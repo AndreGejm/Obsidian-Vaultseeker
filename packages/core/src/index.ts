@@ -14,7 +14,8 @@ export {
   completeEmbeddingJob,
   createEmbeddingJobId,
   failEmbeddingJob,
-  planEmbeddingQueue
+  planEmbeddingQueue,
+  recoverRunningEmbeddingJobs
 } from "./semantic/embedding-queue";
 export { runEmbeddingWorkerBatch } from "./semantic/embedding-worker";
 export { searchSemanticVectors } from "./semantic/semantic-search";
@@ -58,7 +59,8 @@ export type {
   CompleteEmbeddingJobInput,
   CancelEmbeddingJobsInput,
   FailEmbeddingJobInput,
-  PlanEmbeddingQueueInput
+  PlanEmbeddingQueueInput,
+  RecoverRunningEmbeddingJobsInput
 } from "./semantic/embedding-queue";
 export type {
   EmbeddingProviderPort,

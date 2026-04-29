@@ -1,6 +1,7 @@
 import {
   cancelEmbeddingJobs,
   planEmbeddingQueue,
+  recoverRunningEmbeddingJobs,
   runEmbeddingWorkerBatch,
   type EmbeddingProviderPort,
   type EmbeddingJobRecord,
@@ -45,6 +46,19 @@ export type CancelSemanticIndexQueueSummary = {
   remainingQueuedJobCount: number;
   remainingRunningJobCount: number;
 };
+
+export type RecoverSemanticIndexQueueOptions = {
+  store: VaultseerStore;
+  now: string;
+};
+
+export type RecoverSemanticIndexQueueSummary = {
+  recoveredJobCount: number;
+  totalJobCount: number;
+  remainingRunningJobCount: number;
+};
+
+const RUNNING_JOB_RECOVERY_REASON = "Recovered after plugin restart before completion.";
 
 export async function planSemanticIndexQueue(options: PlanSemanticIndexQueueOptions): Promise<SemanticIndexQueueSummary> {
   const [chunks, vectors] = await Promise.all([
@@ -104,4 +118,24 @@ export async function cancelSemanticIndexQueue(
 
 function isActiveJob(job: EmbeddingJobRecord): boolean {
   return job.status === "queued" || job.status === "running";
+}
+
+export async function recoverSemanticIndexQueue(
+  options: RecoverSemanticIndexQueueOptions
+): Promise<RecoverSemanticIndexQueueSummary> {
+  const jobs = await options.store.getEmbeddingJobRecords();
+  const result = recoverRunningEmbeddingJobs({
+    jobs,
+    now: options.now,
+    reason: RUNNING_JOB_RECOVERY_REASON
+  });
+  const persistedJobs = result.changedJobIds.length > 0
+    ? await options.store.replaceEmbeddingQueue(result.jobs)
+    : jobs;
+
+  return {
+    recoveredJobCount: result.changedJobIds.length,
+    totalJobCount: persistedJobs.length,
+    remainingRunningJobCount: persistedJobs.filter((job) => job.status === "running").length
+  };
 }

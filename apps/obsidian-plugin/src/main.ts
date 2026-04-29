@@ -10,6 +10,7 @@ import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
 import {
   cancelSemanticIndexQueue,
   planSemanticIndexQueue,
+  recoverSemanticIndexQueue,
   runSemanticIndexBatch
 } from "./semantic-index-controller";
 import { searchSemanticIndex } from "./semantic-search-controller";
@@ -29,6 +30,9 @@ export default class VaultseerPlugin extends Plugin {
     this.settings = await this.dataStore.loadSettings();
     this.store = await PersistentVaultseerStore.create(this.dataStore.createIndexBackend());
     this.health = await this.store.getHealth();
+    await this.recoverSemanticQueueOnStartup().catch(() => {
+      new Notice("Vaultseer could not recover interrupted semantic jobs.");
+    });
 
     this.addSettingTab(new VaultseerSettingTab(this.app, this));
     this.registerView(
@@ -249,6 +253,19 @@ export default class VaultseerPlugin extends Plugin {
       );
     }
     await this.refreshWorkbenchViews();
+  }
+
+  private async recoverSemanticQueueOnStartup(): Promise<void> {
+    const summary = await recoverSemanticIndexQueue({
+      store: this.store,
+      now: new Date().toISOString()
+    });
+
+    if (summary.recoveredJobCount > 0) {
+      new Notice(
+        `Vaultseer recovered ${summary.recoveredJobCount} interrupted semantic job${summary.recoveredJobCount === 1 ? "" : "s"}.`
+      );
+    }
   }
 
   private async refreshWorkbenchViews(): Promise<void> {

@@ -7,6 +7,7 @@ import {
   createEmbeddingJobId,
   failEmbeddingJob,
   planEmbeddingQueue,
+  recoverRunningEmbeddingJobs,
   type ChunkRecord,
   type EmbeddingJobRecord,
   type VectorRecord
@@ -235,6 +236,38 @@ describe("embedding queue transitions", () => {
         lastError: "bad vector dimension",
         nextAttemptAt: null
       })
+    ]);
+  });
+
+  it("recovers running jobs from a previous session back to queued", () => {
+    const jobs = [
+      job({ id: "job-running-a", status: "running", updatedAt: "2026-04-29T23:10:00.000Z" }),
+      job({ id: "job-queued", status: "queued" }),
+      job({ id: "job-completed", status: "completed" }),
+      job({ id: "job-failed", status: "failed" }),
+      job({ id: "job-cancelled", status: "cancelled" })
+    ];
+
+    const result = recoverRunningEmbeddingJobs({
+      jobs,
+      now: "2026-04-30T00:05:00.000Z",
+      reason: "Recovered after plugin restart before completion."
+    });
+
+    expect(result.changedJobIds).toEqual(["job-running-a"]);
+    expect(result.jobs).toEqual([
+      expect.objectContaining({
+        id: "job-running-a",
+        status: "queued",
+        attemptCount: 0,
+        updatedAt: "2026-04-30T00:05:00.000Z",
+        lastError: "Recovered after plugin restart before completion.",
+        nextAttemptAt: null
+      }),
+      expect.objectContaining({ id: "job-queued", status: "queued", lastError: null }),
+      expect.objectContaining({ id: "job-completed", status: "completed" }),
+      expect.objectContaining({ id: "job-failed", status: "failed" }),
+      expect.objectContaining({ id: "job-cancelled", status: "cancelled" })
     ]);
   });
 });

@@ -189,7 +189,7 @@ This borrows Mimir's separation between embedding provider and vector index, whi
 
 The core store now persists vector records and embedding job records alongside the mirror. This makes planned semantic work reloadable across plugin restarts. Rebuilding or clearing the read-only mirror discards semantic records so stale vectors and jobs cannot silently survive a changed mirror.
 
-The queue module also owns pure job transitions: claim due queued jobs, complete a running job, cancel jobs, and record retryable or terminal failures with `nextAttemptAt` backoff. These helpers make the later background worker deterministic and testable before it exists.
+The queue module also owns pure job transitions: claim due queued jobs, complete a running job, cancel jobs, recover interrupted running jobs, and record retryable or terminal failures with `nextAttemptAt` backoff. These helpers make the later background worker deterministic and testable before it exists.
 
 `runEmbeddingWorkerBatch` is the first explicit worker controller. It claims due queued jobs, sends chunk text to an injected `EmbeddingProviderPort`, validates vector count and dimensions, writes vector records, and updates job state. Tests use a fake provider so this remains provider-independent core behavior.
 
@@ -203,4 +203,6 @@ The search modal now uses `buildSearchModalQueryState` to merge semantic evidenc
 
 `Vaultseer: Cancel active semantic indexing jobs` is an operator-facing cancellation command. It cancels only queued/running semantic jobs in the persisted queue and preserves completed jobs for diagnostics.
 
-Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler and no automatic worker resume yet.
+On plugin startup, Vaultseer recovers semantic jobs left in `running` state by a previous interrupted session. Those jobs are requeued with a recovery diagnostic so the next explicit batch can retry them.
+
+Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler yet.

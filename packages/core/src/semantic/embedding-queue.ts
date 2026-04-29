@@ -60,6 +60,12 @@ export type FailEmbeddingJobInput = {
   maxAttempts: number;
 };
 
+export type RecoverRunningEmbeddingJobsInput = {
+  jobs: EmbeddingJobRecord[];
+  now: string;
+  reason: string;
+};
+
 export function buildVectorNamespace(profile: EmbeddingModelProfile): string {
   const providerId = profile.providerId.trim();
   const modelId = profile.modelId.trim();
@@ -192,6 +198,24 @@ export function failEmbeddingJob(input: FailEmbeddingJobInput): EmbeddingQueueTr
       nextAttemptAt: retryable ? addMilliseconds(input.now, input.retryDelayMs) : null
     };
   });
+}
+
+export function recoverRunningEmbeddingJobs(input: RecoverRunningEmbeddingJobsInput): EmbeddingQueueTransitionResult {
+  const changedJobIds: string[] = [];
+  const jobs = input.jobs.map((job) => {
+    if (job.status !== "running") return cloneJob(job);
+
+    changedJobIds.push(job.id);
+    return {
+      ...cloneJob(job),
+      status: "queued" as const,
+      updatedAt: input.now,
+      lastError: input.reason,
+      nextAttemptAt: null
+    };
+  });
+
+  return { jobs, changedJobIds };
 }
 
 function groupVectorsByChunkId(vectors: VectorRecord[]): Map<string, VectorRecord[]> {
