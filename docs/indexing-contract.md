@@ -147,9 +147,17 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Zero, empty, or non-finite query vectors return no results.
 - Results are grouped by note and include matched chunk evidence with cosine similarity scores.
 
+## Phase 4 Semantic Query Controller Guarantees
+
+- `searchSemanticIndex` is disabled by default through settings-driven input.
+- Blank semantic queries do not call an embedding provider.
+- Query embedding happens through an injected `EmbeddingProviderPort`; the controller does not know about Ollama-specific HTTP details.
+- Provider failures and query vector-shape failures return degraded search results instead of mutating stored vectors or jobs.
+- Semantic query search reads only stored notes, chunks, and vectors from `VaultseerStore`.
+
 ## Not Yet Guaranteed
 
-- Query embedding and plugin semantic search UI.
+- Plugin semantic search UI.
 - Automatic persisted embedding queue execution.
 - Automatic background scheduling.
 - Embedding providers other than the first Ollama-compatible adapter.
