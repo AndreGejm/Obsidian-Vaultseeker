@@ -7,6 +7,7 @@ export { compareFileVersions } from "./storage/file-version-diff";
 export { buildRelationshipGraph } from "./relationships/graph";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
 export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
+export { buildVectorNamespace, createEmbeddingJobId, planEmbeddingQueue } from "./semantic/embedding-queue";
 export type {
   AdapterMetadata,
   HeadingInput,
@@ -36,3 +37,10 @@ export type { FileVersionDiff } from "./storage/file-version-diff";
 export type { RelationshipGraph, ResolvedLink, TagCoOccurrence, TagStat } from "./relationships/types";
 export type { ChunkingOptions } from "./chunking/chunk-note";
 export type { LexicalMatchedChunk, LexicalMatchedField, LexicalSearchInput, LexicalSearchResult } from "./search/lexical-search";
+export type {
+  EmbeddingJobRecord,
+  EmbeddingJobStatus,
+  EmbeddingModelProfile,
+  EmbeddingQueuePlan,
+  PlanEmbeddingQueueInput
+} from "./semantic/embedding-queue";

@@ -102,9 +102,20 @@ These guarantees apply to `chunkNoteInput`, `chunkVaultInputs`, and the read-onl
 
 These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plugin rebuild path persists lexical records, `Vaultseer: Search read-only vault index` exposes a modal search field over the persisted mirror, and `Vaultseer: Open read-only workbench` uses the same mirror for active-note related-note evidence.
 
+## Phase 4 Semantic Queue Planning Guarantees
+
+- Vector records are namespaced by provider id, model id, and dimensions, for example `ollama/nomic-embed-text:768`.
+- `planEmbeddingQueue` compares chunk records with existing vector records and queues only chunks without a matching namespace, dimension count, and normalized text hash.
+- Existing vectors for other model namespaces are not treated as replacements.
+- Existing vectors for the same namespace with an old content hash are counted as stale and queued for refresh.
+- `maxJobs` limits how much work is planned at once while reporting how many chunks were skipped by that limit.
+
+These guarantees apply only to planning. Vaultseer does not yet call an embedding model, persist queue state, cancel jobs, or merge semantic results into search.
+
 ## Not Yet Guaranteed
 
 - Semantic search.
+- Persisted embedding queue execution.
 - Dataview-compatible querying.
 - Metadata Menu schema validation.
 - Task indexing.

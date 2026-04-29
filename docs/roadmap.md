@@ -100,14 +100,16 @@ Exit gate:
 
 ## Phase 4: Semantic Search Queue
 
+Status: in progress. The core model namespace and deterministic queue planner are implemented; persisted queue state, provider calls, and semantic search UI are not implemented yet.
+
 Goal: add embeddings without making them a platform dependency.
 
 Implementation steps:
 
-- add cancellable embedding jobs
+- add cancellable embedding jobs (**planner records explicit job status; cancellation runner is not implemented yet**)
 - add resumable queue state
-- store model metadata and vector dimensions
-- namespace vectors by provider and model
+- store model metadata and vector dimensions (**implemented for planning profile and vector namespace**)
+- namespace vectors by provider and model (**implemented as provider/model:dimensions namespace**)
 - enforce max batch size and backoff
 - keep lexical search as fallback
 - mark semantic search degraded when provider calls fail

@@ -177,3 +177,11 @@ The view refreshes when Obsidian opens another file and after Vaultseer rebuilds
 The workbench toolbar exposes `Rebuild index` and `Clear index`. These actions operate only on Vaultseer's disposable mirror through the same plugin methods as the command palette commands. They do not edit Markdown notes, frontmatter, tags, links, aliases, or vault files.
 
 Current limitation: the workbench is still a read-only mirror inspector. It does not yet show guarded actions, suggestion decisions, semantic results, or gardener queues.
+
+## Semantic Queue Foundation
+
+The first Phase 4 foundation is core-only and does not call an embedding provider. `packages/core/src/semantic/embedding-queue.ts` defines a model namespace from provider id, model id, and dimensions, then plans deterministic embedding jobs for chunks that do not already have a reusable vector record for that namespace.
+
+This borrows Mimir's separation between embedding provider and vector index, while keeping Vaultseer smaller: lexical search remains the primary usable search path, and semantic work starts as queued chunk work rather than synchronous UI work.
+
+Current limitation: the queue planner is not yet persisted or executed. There is no Ollama adapter, no background worker, no cancellation UI, and no semantic search result blending yet.
