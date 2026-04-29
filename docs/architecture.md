@@ -1,14 +1,20 @@
 # Vaultseer Architecture
 
+Vaultseer is a stable personal note-management platform for an Obsidian vault. The architecture should favor correctness, explainability, recovery, and safe change review over rapid feature delivery.
+
 Vaultseer is built around a strict analysis-before-write rule:
 
 > No analysis result may directly mutate a note. All mutations must first become an explicit proposed operation with a target path, expected file hash, preview diff, and decision record.
+
+The near-term architecture target is a trustworthy read-only mirror of the vault. Search, suggestions, semantic indexing, and write actions must build on that mirror rather than bypass it.
 
 ## Boundaries
 
 - `packages/core` is Obsidian-free. It receives normalized adapter input, validates it, and builds deterministic indexes.
 - `apps/obsidian-plugin` owns Obsidian integration, settings, commands, views, and later guarded writes.
 - Markdown files are the source of truth. Indexes, vectors, suggestions, and decisions are rebuildable support data unless explicitly written back through a guarded operation.
+
+See [platform principles](platform-principles.md) for the platform invariants and [roadmap](roadmap.md) for the gated implementation sequence.
 
 ## Metadata Contract
 
