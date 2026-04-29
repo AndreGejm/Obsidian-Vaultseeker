@@ -4,10 +4,12 @@ import {
   buildVectorNamespace,
   chunkVaultInputs,
   InMemoryVaultseerStore,
+  planEmbeddingQueue,
+  type EmbeddingProviderPort,
   type NoteRecordInput,
   type VectorRecord
 } from "@vaultseer/core";
-import { planSemanticIndexQueue } from "../src/semantic-index-controller";
+import { planSemanticIndexQueue, runSemanticIndexBatch } from "../src/semantic-index-controller";
 
 const now = "2026-04-29T23:30:00.000Z";
 const modelProfile = {
@@ -50,6 +52,15 @@ async function createStore(): Promise<InMemoryVaultseerStore> {
   const chunks = chunkVaultInputs(noteInputs);
   await store.replaceNoteIndex(snapshot, "2026-04-29T23:20:00.000Z", chunks);
   return store;
+}
+
+class FakeEmbeddingProvider implements EmbeddingProviderPort {
+  readonly embeddedTexts: string[] = [];
+
+  async embedTexts(texts: string[]): Promise<number[][]> {
+    this.embeddedTexts.push(...texts);
+    return texts.map((_, index) => Array.from({ length: 768 }, (_, dimension) => index + dimension / 1000));
+  }
 }
 
 describe("planSemanticIndexQueue", () => {
@@ -120,5 +131,50 @@ describe("planSemanticIndexQueue", () => {
       skippedByLimitCount: 1
     });
     await expect(store.getEmbeddingJobRecords()).resolves.toHaveLength(1);
+  });
+});
+
+describe("runSemanticIndexBatch", () => {
+  it("runs one explicit persisted queue batch through an injected provider", async () => {
+    const store = await createStore();
+    const chunks = await store.getChunkRecords();
+    const plan = planEmbeddingQueue({
+      chunks,
+      vectors: [],
+      modelProfile,
+      createdAt: now
+    });
+    await store.replaceEmbeddingQueue(plan.jobs);
+    const provider = new FakeEmbeddingProvider();
+
+    const summary = await runSemanticIndexBatch({
+      store,
+      provider,
+      modelProfile,
+      now: "2026-04-29T23:35:00.000Z",
+      batchSize: 1,
+      retryDelayMs: 30_000,
+      maxAttempts: 3
+    });
+
+    expect(summary).toEqual({
+      claimed: 1,
+      completed: 1,
+      failed: 0,
+      vectorCount: 1
+    });
+    expect(provider.embeddedTexts).toEqual([chunks[0]!.text]);
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ status: "completed" }),
+      expect.objectContaining({ status: "queued" })
+    ]);
+    await expect(store.getVectorRecords()).resolves.toEqual([
+      expect.objectContaining({
+        chunkId: chunks[0]!.id,
+        model: modelNamespace,
+        dimensions: 768,
+        contentHash: chunks[0]!.normalizedTextHash
+      })
+    ]);
   });
 });

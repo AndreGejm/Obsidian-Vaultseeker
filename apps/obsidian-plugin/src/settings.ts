@@ -42,7 +42,7 @@ export class VaultseerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Embedding endpoint")
-      .setDesc("Local embedding service endpoint. This is stored but not called until a provider adapter is added.")
+      .setDesc("Local embedding service endpoint used only by the explicit semantic batch command.")
       .addText((text) =>
         text.setValue(this.plugin.settings.embeddingEndpoint).onChange(async (value) => {
           this.plugin.settings.embeddingEndpoint = value.trim();

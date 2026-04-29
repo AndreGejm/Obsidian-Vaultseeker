@@ -6,8 +6,12 @@ import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from ".
 import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
-import { planSemanticIndexQueue } from "./semantic-index-controller";
+import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
+import { planSemanticIndexQueue, runSemanticIndexBatch } from "./semantic-index-controller";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
+
+const SEMANTIC_RETRY_DELAY_MS = 30_000;
+const SEMANTIC_MAX_ATTEMPTS = 3;
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
@@ -89,6 +93,14 @@ export default class VaultseerPlugin extends Plugin {
         await this.planSemanticIndex();
       }
     });
+
+    this.addCommand({
+      id: "run-semantic-index-batch",
+      name: "Run one semantic indexing batch",
+      callback: async () => {
+        await this.runSemanticIndexBatch();
+      }
+    });
   }
 
   async saveSettings(): Promise<void> {
@@ -163,6 +175,44 @@ export default class VaultseerPlugin extends Plugin {
     new Notice(
       `Vaultseer planned ${summary.queuedJobCount} semantic job${summary.queuedJobCount === 1 ? "" : "s"}.`
     );
+    await this.refreshWorkbenchViews();
+  }
+
+  async runSemanticIndexBatch(): Promise<void> {
+    if (!this.settings.semanticIndexingEnabled) {
+      new Notice("Vaultseer semantic indexing is disabled in settings.");
+      return;
+    }
+
+    if (this.settings.embeddingProviderId !== "ollama") {
+      new Notice(`Vaultseer cannot run semantic batches for provider '${this.settings.embeddingProviderId}'.`);
+      return;
+    }
+
+    const summary = await runSemanticIndexBatch({
+      store: this.store,
+      provider: new OllamaEmbeddingProvider({
+        endpoint: this.settings.embeddingEndpoint,
+        modelId: this.settings.embeddingModelId
+      }),
+      modelProfile: {
+        providerId: this.settings.embeddingProviderId,
+        modelId: this.settings.embeddingModelId,
+        dimensions: this.settings.embeddingDimensions
+      },
+      now: new Date().toISOString(),
+      batchSize: this.settings.embeddingBatchSize,
+      retryDelayMs: SEMANTIC_RETRY_DELAY_MS,
+      maxAttempts: SEMANTIC_MAX_ATTEMPTS
+    });
+
+    if (summary.claimed === 0) {
+      new Notice("Vaultseer found no queued semantic jobs ready to run.");
+    } else {
+      new Notice(
+        `Vaultseer semantic batch completed ${summary.completed}/${summary.claimed} job${summary.claimed === 1 ? "" : "s"}; ${summary.failed} failed.`
+      );
+    }
     await this.refreshWorkbenchViews();
   }
 

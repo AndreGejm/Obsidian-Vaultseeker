@@ -110,7 +110,7 @@ These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plug
 - Existing vectors for the same namespace with an old content hash are counted as stale and queued for refresh.
 - `maxJobs` limits how much work is planned at once while reporting how many chunks were skipped by that limit.
 
-These guarantees apply only to queue planning. Core also exposes pure queue transitions and an injected-provider worker batch controller, but the Obsidian plugin does not yet call an embedding provider, run persisted jobs from the UI, expose cancellation controls, or merge semantic results into search.
+These guarantees apply only to queue planning. Core also exposes pure queue transitions and an injected-provider worker batch controller. The Obsidian plugin can run one explicit persisted batch through an Ollama-compatible provider, but it does not yet expose cancellation controls, schedule background jobs, or merge semantic results into search.
 
 ## Phase 4 Semantic Storage Guarantees
 
@@ -140,9 +140,9 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 ## Not Yet Guaranteed
 
 - Semantic search.
-- Persisted embedding queue execution.
+- Automatic persisted embedding queue execution.
 - Automatic background scheduling.
-- Ollama or other embedding-provider adapters.
+- Embedding providers other than the first Ollama-compatible adapter.
 - Vector preservation across mirror rebuilds.
 - Dataview-compatible querying.
 - Metadata Menu schema validation.
