@@ -80,16 +80,16 @@ Exit gate:
 
 ## Phase 3: Read-Only Workbench Panel
 
-Status: not started. A modal search command exists, but the docked workbench panel does not.
+Status: in progress. A docked read-only workbench exists for the active note; rebuild/clear buttons inside the panel are not implemented yet.
 
 Goal: make the plugin useful without allowing writes.
 
 Implementation steps:
 
-- show current note metadata
-- show outgoing links, backlinks, unresolved links, and weak relationship warnings
-- show related notes from lexical search and relationship graph data
-- show index health and last rebuild time
+- show current note metadata (**implemented**)
+- show outgoing links, backlinks, unresolved links, and weak relationship warnings (**implemented**)
+- show related notes from lexical search and relationship graph data (**implemented**)
+- show index health and last rebuild time (**implemented as health summary; last rebuild detail remains available through health command**)
 - provide buttons for rebuild and clear index
 
 Exit gate:

@@ -61,12 +61,13 @@ The data store also accepts the original root-level settings shape as a legacy i
 
 `rebuildReadOnlyIndex` and `clearReadOnlyIndex` return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
-The plugin currently exposes four operator commands:
+The plugin currently exposes five operator commands:
 
 - `Vaultseer: Rebuild read-only vault index`
 - `Vaultseer: Clear read-only vault index`
 - `Vaultseer: Check read-only vault index health`
 - `Vaultseer: Search read-only vault index`
+- `Vaultseer: Open read-only workbench`
 
 The health command checks file-version staleness before showing a status notice, so the operator can see whether the current mirror is empty, ready, stale, degraded, or failed.
 
@@ -155,4 +156,22 @@ The Obsidian command `Vaultseer: Search read-only vault index` opens a modal bac
 
 The modal is intentionally thin. `search-modal-state.ts` owns the presentable state and messages, while `search-modal.ts` only renders it. This keeps search behavior testable outside Obsidian UI runtime.
 
-Current limitation: there is no docked workbench panel yet. The next Phase 3 slice should expose current-note relationships and search results in a persistent read-only view before adding semantic search or gardening suggestions.
+## Read-Only Workbench
+
+The first Phase 3 slice adds a docked Obsidian view registered as `vaultseer-workbench` and exposed through `Vaultseer: Open read-only workbench`.
+
+The workbench is backed by the persisted mirror, not live Markdown parsing. `workbench-state.ts` owns the testable presentation state and `workbench-view.ts` owns Obsidian rendering.
+
+For the active note, the view shows:
+
+- index health summary and freshness warning;
+- current note title, path, tags, and aliases;
+- resolved outgoing links;
+- backlinks;
+- unresolved links;
+- relationship warnings such as weak connection or unresolved links;
+- related notes from linked notes, backlinks, shared tags, and lexical matches.
+
+The view refreshes when Obsidian opens another file and after Vaultseer rebuilds or clears the index. It opens notes through Obsidian when the operator clicks a related note or link. It does not mutate notes.
+
+Current limitation: the workbench is still a read-only mirror inspector. It does not yet show guarded actions, suggestion decisions, semantic results, or gardener queues.

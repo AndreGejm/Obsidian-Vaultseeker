@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from ".
 import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
+import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
@@ -19,6 +20,18 @@ export default class VaultseerPlugin extends Plugin {
     this.health = await this.store.getHealth();
 
     this.addSettingTab(new VaultseerSettingTab(this.app, this));
+    this.registerView(
+      VAULTSEER_WORKBENCH_VIEW_TYPE,
+      (leaf) =>
+        new VaultseerWorkbenchView(
+          leaf,
+          this.store,
+          () => this.app.workspace.getActiveFile()?.path ?? null,
+          async (path) => {
+            await this.app.workspace.openLinkText(path, "", false);
+          }
+        )
+    );
 
     this.addCommand({
       id: "rebuild-index",
@@ -51,6 +64,14 @@ export default class VaultseerPlugin extends Plugin {
         await this.showSearch();
       }
     });
+
+    this.addCommand({
+      id: "open-workbench",
+      name: "Open read-only workbench",
+      callback: async () => {
+        await this.openWorkbench();
+      }
+    });
   }
 
   async saveSettings(): Promise<void> {
@@ -65,11 +86,13 @@ export default class VaultseerPlugin extends Plugin {
       now: () => new Date().toISOString()
     });
     new Notice(`Vaultseer indexed ${this.health.noteCount} notes.`);
+    await this.refreshWorkbenchViews();
   }
 
   async clearIndex(): Promise<void> {
     this.health = await clearReadOnlyIndex(this.store);
     new Notice("Vaultseer index cleared.");
+    await this.refreshWorkbenchViews();
   }
 
   async showIndexHealth(): Promise<void> {
@@ -95,6 +118,24 @@ export default class VaultseerPlugin extends Plugin {
     new VaultseerSearchModal(this.app, this.store, async (path) => {
       await this.app.workspace.openLinkText(path, "", false);
     }).open();
+  }
+
+  async openWorkbench(): Promise<void> {
+    const leaf = await activateVaultseerWorkbench(this.app);
+    if (!leaf) {
+      new Notice("Vaultseer could not open the workbench.");
+    }
+  }
+
+  private async refreshWorkbenchViews(): Promise<void> {
+    await Promise.all(
+      this.app.workspace.getLeavesOfType(VAULTSEER_WORKBENCH_VIEW_TYPE).map(async (leaf) => {
+        const view = leaf.view;
+        if (view instanceof VaultseerWorkbenchView) {
+          await view.refresh();
+        }
+      })
+    );
   }
 
   getHealth(): IndexHealth | null {
