@@ -27,3 +27,21 @@ The initial implementation includes:
 
 No note write operations exist yet.
 
+## Storage And Index Health
+
+The core package defines the storage contract before semantic search or suggestion writes exist. The first implementation is `InMemoryVaultseerStore`; it is deliberately replaceable by a later persistent backend.
+
+Stored entity shapes are defined for:
+
+- note records
+- file version records
+- chunk records
+- lexical index records
+- vector records
+- suggestion records
+- suggestion decision records
+- index health metadata
+
+The plugin currently uses the in-memory store through `rebuildReadOnlyIndex` and `clearReadOnlyIndex`. Both commands return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
+
+Persistent IndexedDB or Obsidian-data storage should implement the same `VaultseerStore` contract rather than changing plugin command behavior.

@@ -1,11 +1,13 @@
 import { Notice, Plugin } from "obsidian";
-import { buildVaultSnapshot, type VaultSnapshot } from "@vaultseer/core";
+import { InMemoryVaultseerStore, type IndexHealth, type VaultseerStore } from "@vaultseer/core";
+import { clearReadOnlyIndex, rebuildReadOnlyIndex } from "./index-controller";
 import { readVaultNoteInputs, type VaultReaderApp } from "./obsidian-adapter";
 import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from "./settings";
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
-  private snapshot: VaultSnapshot | null = null;
+  private readonly store: VaultseerStore = new InMemoryVaultseerStore();
+  private health: IndexHealth | null = null;
 
   async onload(): Promise<void> {
     this.settings = {
@@ -22,6 +24,14 @@ export default class VaultseerPlugin extends Plugin {
         await this.rebuildIndex();
       }
     });
+
+    this.addCommand({
+      id: "clear-index",
+      name: "Clear read-only vault index",
+      callback: async () => {
+        await this.clearIndex();
+      }
+    });
   }
 
   async saveSettings(): Promise<void> {
@@ -29,18 +39,21 @@ export default class VaultseerPlugin extends Plugin {
   }
 
   async rebuildIndex(): Promise<void> {
-    const inputs = await readVaultNoteInputs(this.app as unknown as VaultReaderApp);
-    const includedInputs = inputs.filter((input) => !this.isExcluded(input.path));
-    this.snapshot = buildVaultSnapshot(includedInputs);
-    new Notice(`Vaultseer indexed ${this.snapshot.notes.length} notes.`);
+    this.health = await rebuildReadOnlyIndex({
+      readNoteInputs: () => readVaultNoteInputs(this.app as unknown as VaultReaderApp),
+      store: this.store,
+      excludedFolders: this.settings.excludedFolders,
+      now: () => new Date().toISOString()
+    });
+    new Notice(`Vaultseer indexed ${this.health.noteCount} notes.`);
   }
 
-  getSnapshot(): VaultSnapshot | null {
-    return this.snapshot;
+  async clearIndex(): Promise<void> {
+    this.health = await clearReadOnlyIndex(this.store);
+    new Notice("Vaultseer index cleared.");
   }
 
-  private isExcluded(path: string): boolean {
-    return this.settings.excludedFolders.some((folder) => path === folder || path.startsWith(`${folder}/`));
+  getHealth(): IndexHealth | null {
+    return this.health;
   }
 }
-
