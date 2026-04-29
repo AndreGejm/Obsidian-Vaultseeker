@@ -52,6 +52,7 @@ export type VectorRecord = {
 };
 
 export type EmbeddingJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+export type EmbeddingJobTargetKind = "note" | "source";
 
 export type EmbeddingJobBase = {
   id: string;

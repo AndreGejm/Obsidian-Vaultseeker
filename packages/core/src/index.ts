@@ -17,6 +17,7 @@ export {
   completeEmbeddingJob,
   createEmbeddingJobId,
   failEmbeddingJob,
+  getEmbeddingJobTargetKind,
   planEmbeddingQueue,
   planSourceEmbeddingQueue,
   recoverRunningEmbeddingJobs
@@ -72,6 +73,7 @@ export type {
 export type {
   EmbeddingJobRecord,
   EmbeddingJobStatus,
+  EmbeddingJobTargetKind,
   EmbeddingModelProfile,
   EmbeddingQueuePlan,
   EmbeddingQueueTransitionResult,

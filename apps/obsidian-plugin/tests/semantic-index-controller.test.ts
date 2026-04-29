@@ -3,11 +3,15 @@ import {
   buildVaultSnapshot,
   buildVectorNamespace,
   chunkVaultInputs,
+  getEmbeddingJobTargetKind,
   InMemoryVaultseerStore,
   planEmbeddingQueue,
+  planSourceEmbeddingQueue,
   type EmbeddingProviderPort,
   type EmbeddingJobRecord,
   type NoteRecordInput,
+  type SourceChunkRecord,
+  type SourceRecord,
   type VectorRecord
 } from "@vaultseer/core";
 import {
@@ -58,6 +62,66 @@ async function createStore(): Promise<InMemoryVaultseerStore> {
   const chunks = chunkVaultInputs(noteInputs);
   await store.replaceNoteIndex(snapshot, "2026-04-29T23:20:00.000Z", chunks);
   return store;
+}
+
+function source(overrides: Partial<SourceRecord>): SourceRecord {
+  return {
+    id: "source:paper",
+    status: "extracted",
+    sourcePath: "Sources/Papers/paper.pdf",
+    filename: "paper.pdf",
+    extension: ".pdf",
+    sizeBytes: 100,
+    contentHash: "source-hash",
+    importedAt: now,
+    extractor: {
+      id: "marker",
+      name: "Marker",
+      version: "1.0.0"
+    },
+    extractionOptions: {},
+    extractedMarkdown: "# Paper\n\nExtracted source text.",
+    diagnostics: [],
+    attachments: [],
+    ...overrides
+  };
+}
+
+function sourceChunk(overrides: Partial<SourceChunkRecord>): SourceChunkRecord {
+  return {
+    id: "source-chunk:paper-a",
+    sourceId: "source:paper",
+    sourcePath: "Sources/Papers/paper.pdf",
+    sectionPath: ["Paper"],
+    normalizedTextHash: "source-hash-a",
+    ordinal: 0,
+    text: "Extracted source text.",
+    provenance: { kind: "unknown" },
+    ...overrides
+  };
+}
+
+async function addSourceQueueJob(
+  store: InMemoryVaultseerStore,
+  status: EmbeddingJobRecord["status"] = "queued"
+): Promise<EmbeddingJobRecord> {
+  const sourceRecord = source({});
+  const sourceChunks = [sourceChunk({})];
+  await store.replaceSourceWorkspace([sourceRecord], sourceChunks);
+  const sourcePlan = planSourceEmbeddingQueue({
+    sources: [sourceRecord],
+    sourceChunks,
+    vectors: [],
+    modelProfile,
+    createdAt: now
+  });
+  const sourceJob: EmbeddingJobRecord = {
+    ...sourcePlan.jobs[0]!,
+    status,
+    updatedAt: status === "queued" ? sourcePlan.jobs[0]!.updatedAt : "2026-04-29T23:36:00.000Z"
+  };
+  await store.replaceEmbeddingQueue([sourceJob]);
+  return sourceJob;
 }
 
 class FakeEmbeddingProvider implements EmbeddingProviderPort {
@@ -137,6 +201,29 @@ describe("planSemanticIndexQueue", () => {
       skippedByLimitCount: 1
     });
     await expect(store.getEmbeddingJobRecords()).resolves.toHaveLength(1);
+  });
+
+  it("preserves source embedding jobs when replanning note embedding jobs", async () => {
+    const store = await createStore();
+    const sourceJob = await addSourceQueueJob(store);
+
+    const summary = await planSemanticIndexQueue({
+      store,
+      modelProfile,
+      now,
+      maxJobs: 1
+    });
+
+    expect(summary).toMatchObject({
+      queuedJobCount: 1,
+      skippedByLimitCount: 1
+    });
+    const persistedJobs = await store.getEmbeddingJobRecords();
+    expect(persistedJobs).toEqual([
+      expect.objectContaining({ id: sourceJob.id, targetKind: "source", status: "queued" }),
+      expect.objectContaining({ notePath: expect.any(String), status: "queued" })
+    ]);
+    expect(getEmbeddingJobTargetKind(persistedJobs[1]!)).toBe("note");
   });
 });
 
@@ -218,6 +305,26 @@ describe("cancelSemanticIndexQueue", () => {
     ]);
   });
 
+  it("does not cancel source embedding jobs from the note semantic queue command", async () => {
+    const store = await createStore();
+    const sourceJob = await addSourceQueueJob(store, "running");
+
+    const summary = await cancelSemanticIndexQueue({
+      store,
+      now: "2026-04-29T23:40:00.000Z"
+    });
+
+    expect(summary).toEqual({
+      cancelledJobCount: 0,
+      totalJobCount: 0,
+      remainingQueuedJobCount: 0,
+      remainingRunningJobCount: 0
+    });
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ id: sourceJob.id, targetKind: "source", status: "running" })
+    ]);
+  });
+
   it("returns a zero summary when there are no active semantic jobs", async () => {
     const store = await createStore();
 
@@ -270,6 +377,25 @@ describe("recoverSemanticIndexQueue", () => {
         nextAttemptAt: null
       }),
       expect.objectContaining({ id: jobs[1]!.id, status: "completed", updatedAt: "2026-04-29T23:37:00.000Z" })
+    ]);
+  });
+
+  it("does not recover source embedding jobs from the note semantic startup recovery", async () => {
+    const store = await createStore();
+    const sourceJob = await addSourceQueueJob(store, "running");
+
+    const summary = await recoverSemanticIndexQueue({
+      store,
+      now: "2026-04-30T00:10:00.000Z"
+    });
+
+    expect(summary).toEqual({
+      recoveredJobCount: 0,
+      totalJobCount: 0,
+      remainingRunningJobCount: 0
+    });
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ id: sourceJob.id, targetKind: "source", status: "running" })
     ]);
   });
 });

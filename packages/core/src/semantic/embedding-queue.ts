@@ -1,4 +1,10 @@
-import type { ChunkRecord, EmbeddingJobRecord, EmbeddingJobStatus, VectorRecord } from "../storage/types";
+import type {
+  ChunkRecord,
+  EmbeddingJobRecord,
+  EmbeddingJobStatus,
+  EmbeddingJobTargetKind,
+  VectorRecord
+} from "../storage/types";
 import type { SourceChunkRecord, SourceRecord } from "../source/types";
 
 export type EmbeddingModelProfile = {
@@ -7,7 +13,7 @@ export type EmbeddingModelProfile = {
   dimensions: number;
 };
 
-export type { EmbeddingJobRecord, EmbeddingJobStatus };
+export type { EmbeddingJobRecord, EmbeddingJobStatus, EmbeddingJobTargetKind };
 
 export type EmbeddingQueuePlan = {
   modelNamespace: string;
@@ -43,6 +49,7 @@ export type ClaimEmbeddingJobsInput = {
   jobs: EmbeddingJobRecord[];
   now: string;
   limit: number;
+  targetKind?: EmbeddingJobTargetKind;
 };
 
 export type ClaimEmbeddingJobsResult = EmbeddingQueueTransitionResult & {
@@ -213,7 +220,7 @@ export function claimEmbeddingJobs(input: ClaimEmbeddingJobsInput): ClaimEmbeddi
 
   const claimedJobIds: string[] = [];
   const jobs = input.jobs.map((job) => {
-    if (claimedJobIds.length >= input.limit || !isClaimable(job, input.now)) return cloneJob(job);
+    if (claimedJobIds.length >= input.limit || !isClaimable(job, input.now, input.targetKind)) return cloneJob(job);
 
     claimedJobIds.push(job.id);
     return {
@@ -316,8 +323,13 @@ function updateOneJob(
   return { jobs: nextJobs, changedJobIds: changed ? [jobId] : [] };
 }
 
-function isClaimable(job: EmbeddingJobRecord, now: string): boolean {
+function isClaimable(job: EmbeddingJobRecord, now: string, targetKind?: EmbeddingJobTargetKind): boolean {
+  if (targetKind && getEmbeddingJobTargetKind(job) !== targetKind) return false;
   return job.status === "queued" && (!job.nextAttemptAt || Date.parse(job.nextAttemptAt) <= Date.parse(now));
+}
+
+export function getEmbeddingJobTargetKind(job: EmbeddingJobRecord): EmbeddingJobTargetKind {
+  return job.targetKind ?? "note";
 }
 
 function addMilliseconds(isoTimestamp: string, milliseconds: number): string {

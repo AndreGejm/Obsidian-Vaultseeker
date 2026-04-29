@@ -1,5 +1,6 @@
 import {
   cancelEmbeddingJobs,
+  getEmbeddingJobTargetKind,
   planEmbeddingQueue,
   recoverRunningEmbeddingJobs,
   runEmbeddingWorkerBatch,
@@ -61,9 +62,10 @@ export type RecoverSemanticIndexQueueSummary = {
 const RUNNING_JOB_RECOVERY_REASON = "Recovered after plugin restart before completion.";
 
 export async function planSemanticIndexQueue(options: PlanSemanticIndexQueueOptions): Promise<SemanticIndexQueueSummary> {
-  const [chunks, vectors] = await Promise.all([
+  const [chunks, vectors, jobs] = await Promise.all([
     options.store.getChunkRecords(),
-    options.store.getVectorRecords()
+    options.store.getVectorRecords(),
+    options.store.getEmbeddingJobRecords()
   ]);
   const plan = planEmbeddingQueue({
     chunks,
@@ -73,7 +75,10 @@ export async function planSemanticIndexQueue(options: PlanSemanticIndexQueueOpti
     maxJobs: options.maxJobs
   });
 
-  await options.store.replaceEmbeddingQueue(plan.jobs);
+  await options.store.replaceEmbeddingQueue([
+    ...jobs.filter((job) => !isNoteJob(job)),
+    ...plan.jobs
+  ]);
 
   return {
     modelNamespace: plan.modelNamespace,
@@ -100,19 +105,20 @@ export async function cancelSemanticIndexQueue(
   options: CancelSemanticIndexQueueOptions
 ): Promise<CancelSemanticIndexQueueSummary> {
   const jobs = await options.store.getEmbeddingJobRecords();
-  const activeJobIds = jobs.filter(isActiveJob).map((job) => job.id);
+  const activeJobIds = jobs.filter(isNoteJob).filter(isActiveJob).map((job) => job.id);
   const result = cancelEmbeddingJobs({
     jobs,
     jobIds: activeJobIds,
     now: options.now
   });
   const persistedJobs = await options.store.replaceEmbeddingQueue(result.jobs);
+  const persistedNoteJobs = persistedJobs.filter(isNoteJob);
 
   return {
     cancelledJobCount: result.changedJobIds.length,
-    totalJobCount: persistedJobs.length,
-    remainingQueuedJobCount: persistedJobs.filter((job) => job.status === "queued").length,
-    remainingRunningJobCount: persistedJobs.filter((job) => job.status === "running").length
+    totalJobCount: persistedNoteJobs.length,
+    remainingQueuedJobCount: persistedNoteJobs.filter((job) => job.status === "queued").length,
+    remainingRunningJobCount: persistedNoteJobs.filter((job) => job.status === "running").length
   };
 }
 
@@ -120,22 +126,29 @@ function isActiveJob(job: EmbeddingJobRecord): boolean {
   return job.status === "queued" || job.status === "running";
 }
 
+function isNoteJob(job: EmbeddingJobRecord): boolean {
+  return getEmbeddingJobTargetKind(job) === "note";
+}
+
 export async function recoverSemanticIndexQueue(
   options: RecoverSemanticIndexQueueOptions
 ): Promise<RecoverSemanticIndexQueueSummary> {
   const jobs = await options.store.getEmbeddingJobRecords();
+  const sourceJobs = jobs.filter((job) => !isNoteJob(job));
+  const noteJobs = jobs.filter(isNoteJob);
   const result = recoverRunningEmbeddingJobs({
-    jobs,
+    jobs: noteJobs,
     now: options.now,
     reason: RUNNING_JOB_RECOVERY_REASON
   });
   const persistedJobs = result.changedJobIds.length > 0
-    ? await options.store.replaceEmbeddingQueue(result.jobs)
+    ? await options.store.replaceEmbeddingQueue([...sourceJobs, ...result.jobs])
     : jobs;
+  const persistedNoteJobs = persistedJobs.filter(isNoteJob);
 
   return {
     recoveredJobCount: result.changedJobIds.length,
-    totalJobCount: persistedJobs.length,
-    remainingRunningJobCount: persistedJobs.filter((job) => job.status === "running").length
+    totalJobCount: persistedNoteJobs.length,
+    remainingRunningJobCount: persistedNoteJobs.filter((job) => job.status === "running").length
   };
 }

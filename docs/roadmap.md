@@ -100,7 +100,7 @@ Exit gate:
 
 ## Phase 4: Semantic Search Queue
 
-Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, explicit worker batch controller, core semantic vector ranking, Ollama-compatible provider adapter, provider-backed query search controller, semantic search modal integration, manual batch command, active-job cancellation command, and startup recovery of interrupted running jobs are implemented; background scheduling is not implemented yet.
+Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, explicit worker batch controller, core semantic vector ranking, Ollama-compatible provider adapter, provider-backed query search controller, semantic search modal integration, manual batch command, active-job cancellation command, and startup recovery of interrupted running note jobs are implemented; background scheduling is not implemented yet.
 
 Goal: add embeddings without making them a platform dependency.
 
@@ -126,6 +126,7 @@ Next implementation steps:
 - plugin command `Vaultseer: Run one semantic indexing batch` processes one queued batch through the configured local Ollama-compatible endpoint when semantic indexing is enabled
 - plugin command `Vaultseer: Cancel active semantic indexing jobs` now cancels queued/running jobs without touching completed jobs
 - plugin startup now requeues semantic jobs that were left `running` by a previous interrupted session
+- note semantic worker and plugin controls now preserve source jobs for future source-specific workers
 
 Exit gate:
 
@@ -136,7 +137,7 @@ Exit gate:
 
 ## Phase 4.5: High-Fidelity Source Intake
 
-Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, and pure source embedding queue planning are implemented. No extractor adapter, source preview UI, source search UI, source embedding worker/provider integration, attachment staging, or source-to-note proposal path exists yet.
+Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, and source-job protection from note semantic controls are implemented. No extractor adapter, source preview UI, source search UI, source embedding worker/provider integration, attachment staging, or source-to-note proposal path exists yet.
 
 Goal: turn external source files into searchable, reviewable source workspaces before any Obsidian note is written.
 

@@ -42,7 +42,8 @@ export async function runEmbeddingWorkerBatch(input: RunEmbeddingWorkerBatchInpu
   const claim = claimEmbeddingJobs({
     jobs: storedJobs,
     now: input.now,
-    limit: input.batchSize
+    limit: input.batchSize,
+    targetKind: "note"
   });
   let jobs = claim.jobs;
   let vectors = storedVectors;

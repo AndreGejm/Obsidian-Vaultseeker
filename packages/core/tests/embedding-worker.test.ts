@@ -5,9 +5,12 @@ import {
   chunkVaultInputs,
   InMemoryVaultseerStore,
   planEmbeddingQueue,
+  planSourceEmbeddingQueue,
   runEmbeddingWorkerBatch,
   type EmbeddingProviderPort,
   type NoteRecordInput,
+  type SourceChunkRecord,
+  type SourceRecord,
   type VectorRecord
 } from "../src";
 
@@ -74,6 +77,43 @@ async function createQueuedStore(): Promise<InMemoryVaultseerStore> {
   return store;
 }
 
+function source(overrides: Partial<SourceRecord>): SourceRecord {
+  return {
+    id: "source:paper",
+    status: "extracted",
+    sourcePath: "Sources/Papers/paper.pdf",
+    filename: "paper.pdf",
+    extension: ".pdf",
+    sizeBytes: 100,
+    contentHash: "source-hash",
+    importedAt: indexedAt,
+    extractor: {
+      id: "marker",
+      name: "Marker",
+      version: "1.0.0"
+    },
+    extractionOptions: {},
+    extractedMarkdown: "# Paper\n\nExtracted source text.",
+    diagnostics: [],
+    attachments: [],
+    ...overrides
+  };
+}
+
+function sourceChunk(overrides: Partial<SourceChunkRecord>): SourceChunkRecord {
+  return {
+    id: "source-chunk:paper-a",
+    sourceId: "source:paper",
+    sourcePath: "Sources/Papers/paper.pdf",
+    sectionPath: ["Paper"],
+    normalizedTextHash: "source-hash-a",
+    ordinal: 0,
+    text: "Extracted source text.",
+    provenance: { kind: "unknown" },
+    ...overrides
+  };
+}
+
 describe("runEmbeddingWorkerBatch", () => {
   it("embeds claimed queued jobs and stores completed vector records", async () => {
     const store = await createQueuedStore();
@@ -121,6 +161,63 @@ describe("runEmbeddingWorkerBatch", () => {
     await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
       expect.objectContaining({ status: "completed", updatedAt: workerNow }),
       expect.objectContaining({ status: "completed", updatedAt: workerNow })
+    ]);
+  });
+
+  it("skips source embedding jobs so the note worker cannot fail them as missing note chunks", async () => {
+    const store = await createQueuedStore();
+    const noteChunks = await store.getChunkRecords();
+    const notePlan = planEmbeddingQueue({
+      chunks: noteChunks,
+      vectors: [],
+      modelProfile,
+      createdAt: indexedAt
+    });
+    const sourceRecord = source({});
+    const sourceChunks = [sourceChunk({})];
+    await store.replaceSourceWorkspace([sourceRecord], sourceChunks);
+    const sourcePlan = planSourceEmbeddingQueue({
+      sources: [sourceRecord],
+      sourceChunks,
+      vectors: [],
+      modelProfile,
+      createdAt: indexedAt
+    });
+    await store.replaceEmbeddingQueue([
+      sourcePlan.jobs[0]!,
+      notePlan.jobs[0]!
+    ]);
+    const provider = new FakeEmbeddingProvider([[0.1, 0.2, 0.3]]);
+
+    const summary = await runEmbeddingWorkerBatch({
+      store,
+      provider,
+      modelProfile,
+      now: workerNow,
+      batchSize: 1,
+      retryDelayMs: 30_000,
+      maxAttempts: 3
+    });
+
+    expect(summary).toEqual({
+      claimed: 1,
+      completed: 1,
+      failed: 0,
+      vectorCount: 1
+    });
+    expect(provider.embeddedTexts).toEqual([noteChunks[0]!.text]);
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({
+        id: sourcePlan.jobs[0]!.id,
+        targetKind: "source",
+        status: "queued",
+        attemptCount: 0,
+        lastError: null
+      }),
+      expect.objectContaining({
+        id: notePlan.jobs[0]!.id,
+        status: "completed"
+      })
     ]);
   });
 

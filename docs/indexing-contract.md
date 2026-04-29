@@ -133,6 +133,8 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 ## Phase 4 Worker Batch Guarantees
 
 - `runEmbeddingWorkerBatch` processes only jobs claimed from the persisted embedding queue.
+- `runEmbeddingWorkerBatch` claims only note jobs. Legacy jobs without `targetKind` are treated as note jobs.
+- Source jobs with `targetKind: "source"` remain queued for a future source worker instead of being failed as missing note chunks.
 - The worker receives an injected `EmbeddingProviderPort`; core does not know about Ollama or any HTTP endpoint.
 - The provider receives chunk text from stored chunk records.
 - Returned vectors must match the claimed job count and configured dimensions.
@@ -159,6 +161,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - The search modal merges ready semantic results with lexical results without direct note writes.
 - If semantic search degrades, lexical search results remain visible and the degraded message is shown.
 - Duplicate lexical and semantic hits for the same note become one hybrid row with combined evidence.
+- Note semantic plugin planning, cancellation, and startup recovery preserve source embedding jobs instead of deleting, cancelling, or requeueing them.
 
 ## Phase 4.5 Source Workspace Storage Guarantees
 
