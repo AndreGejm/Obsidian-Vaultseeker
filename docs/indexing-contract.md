@@ -110,7 +110,7 @@ These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plug
 - Existing vectors for the same namespace with an old content hash are counted as stale and queued for refresh.
 - `maxJobs` limits how much work is planned at once while reporting how many chunks were skipped by that limit.
 
-These guarantees apply only to planning. Vaultseer does not yet call an embedding model, run queued jobs, cancel jobs, or merge semantic results into search.
+These guarantees apply only to queue planning. Core also exposes pure queue transitions and an injected-provider worker batch controller, but the Obsidian plugin does not yet call an embedding provider, run persisted jobs from the UI, expose cancellation controls, or merge semantic results into search.
 
 ## Phase 4 Semantic Storage Guarantees
 
