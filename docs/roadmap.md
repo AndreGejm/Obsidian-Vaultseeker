@@ -131,6 +131,43 @@ Exit gate:
 - model dimension changes do not corrupt old vector records
 - failed semantic indexing does not break lexical search
 
+## Phase 4.5: High-Fidelity Source Intake
+
+Goal: turn external source files into searchable, reviewable source workspaces before any Obsidian note is written.
+
+This phase is intentionally separate from guarded writes. Imported sources are evidence, not notes. Vaultseer should extract, preserve provenance, chunk, search, and preview source material first. A reviewed source can later become a proposed Obsidian note through the guarded write path.
+
+Extractor order:
+
+1. **Marker adapter for serious PDF intake.** Use Marker as the primary PDF engine for papers, datasheets, manuals, literature, scanned or OCR-heavy documents, tables, equations, images, and layout-sensitive PDFs. Marker should run as an external job, not inside the Obsidian UI thread.
+2. **Microsoft MarkItDown adapter for broad file intake.** Use MarkItDown for DOCX, PPTX, XLSX, HTML, EPUB, text-based formats, and other non-PDF sources where broad coverage matters more than high-fidelity PDF layout.
+3. **Built-in text and code intake.** Use native Vaultseer extraction for Markdown, plain text, scripts, batch files, source code, JSON, YAML, and similar readable files. Code-like sources should preserve language, path, and line-range provenance.
+
+Implementation steps:
+
+- define a `SourceExtractorPort` with explicit supported file types, dependencies, and failure modes
+- define normalized source records separate from Obsidian note records
+- store original source metadata: path, filename, extension, size, content hash, import time, extractor name, extractor version, and extraction options
+- store extracted Markdown separately from the final Obsidian note proposal
+- store extracted images and attachments in a staging area before any vault write
+- preserve source provenance at page, section, image, table, and line level when the extractor provides it
+- chunk extracted source content using the same stable chunking principles as vault notes, but keep source chunk IDs in a separate namespace
+- support lexical search over extracted sources without embeddings
+- support semantic indexing of extracted source chunks when semantic search is enabled
+- expose a source preview panel with extracted text, images, tables, diagnostics, and searchable chunks
+- let AI propose note title, summary, headings, tags, aliases, links, and related notes from the extracted source
+- require user review before turning any source proposal into a vault write operation
+
+Exit gate:
+
+- PDF extraction uses the high-fidelity Marker path when configured
+- source extraction cannot freeze Obsidian; long work is cancellable or safely resumable
+- failed extraction leaves diagnostics and does not affect the vault mirror
+- extracted source content is searchable before it becomes a note
+- source chunks and vault-note chunks are distinguishable in storage and search results
+- images and attachments are staged, previewable, and not silently copied into the vault
+- no source intake path can write a final Obsidian note directly
+
 ## Phase 5: Read-Only Suggestions
 
 Goal: produce explainable gardening suggestions without applying them.
@@ -139,6 +176,7 @@ Implementation steps:
 
 - suggest tags from existing vault vocabulary
 - suggest related notes from links, tags, lexical search, and semantic search
+- suggest note structure, tags, links, and related notes from reviewed source intake workspaces
 - suggest missing links from unresolved mentions and strong related-note evidence
 - detect narrow formatting issues only: missing frontmatter field, duplicate aliases, empty title, malformed tag, broken internal link
 - store suggestion evidence and confidence separately
@@ -157,6 +195,7 @@ Implementation steps:
 
 - add `VaultWritePort`
 - create proposed operations for tag insertion, link insertion, and frontmatter cleanup
+- create proposed operations for source-to-note creation after source intake review
 - generate preview diffs
 - verify current file hash before apply
 - record decisions and write results
@@ -166,6 +205,7 @@ Exit gate:
 
 - no analysis result can write directly
 - every write has preview, approval, hash check, and decision record
+- source-created notes show both the final Markdown preview and the staged attachment plan before apply
 - stale suggestions fail closed
 
 ## Phase 7: Mimisbrunnr Bridge

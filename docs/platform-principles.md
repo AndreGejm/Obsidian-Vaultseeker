@@ -11,6 +11,7 @@ It should support:
 - reading and searching notes
 - seeing relationships between notes
 - finding weakly connected or duplicate notes
+- turning external source files into searchable, reviewable note proposals
 - suggesting tags, links, and structure
 - preparing safe note changes for explicit review
 
@@ -60,9 +61,11 @@ The default decision should be: study first, adapt second, implement third.
 - Obsidian metadata is the production metadata authority.
 - Core logic consumes normalized records; it does not depend on Obsidian APIs.
 - Generated indexes are disposable and rebuildable.
+- Imported source files are evidence workspaces before they are notes.
 - Search must keep a lexical fallback even when semantic search exists.
 - Analysis results must not directly mutate notes.
 - Every proposed write must include a target path, expected file hash, preview diff, and decision record.
+- Source-to-note creation must preview final Markdown and attachment writes before applying anything.
 - Suggestions must include evidence, not only confidence.
 - Index storage must be schema-versioned before it becomes persistent.
 - Failed indexing must be recoverable by clearing and rebuilding the index.
@@ -84,6 +87,10 @@ The plugin shell owns Obsidian commands, settings, views, and user confirmation.
 ### Index Store
 
 The index store owns rebuildable derived data: notes, file versions, chunks, lexical entries, vectors, suggestions, decisions, and health metadata.
+
+### Source Intake
+
+Source intake owns external-file extraction before vault writes. It may call external tools such as Marker for high-fidelity PDF conversion or MarkItDown for broad document conversion. It produces normalized source records, extracted Markdown, staged images, diagnostics, and source chunks. Source intake must not create or modify Obsidian notes directly.
 
 ### AI And Embeddings
 
@@ -134,5 +141,6 @@ No suggestion engine may skip this ladder.
 - Treating tags as proof that a note is connected. Tags describe notes; links and backlinks connect notes.
 - Making embeddings mandatory for search. Lexical search must remain the primary fallback.
 - Parsing production Markdown in core when Obsidian already parsed it. Core validates normalized input; adapters handle source-specific extraction.
+- Treating PDF conversion output as a finished note. Extracted source Markdown is evidence; the final note is a reviewed derivative.
 - Adding automatic cleanup before guarded writes exist.
 - Creating UI panels before the underlying index health and recovery model is trustworthy.
