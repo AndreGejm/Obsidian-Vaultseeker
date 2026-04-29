@@ -7,6 +7,7 @@ import {
   planEmbeddingQueue,
   planSourceEmbeddingQueue,
   runEmbeddingWorkerBatch,
+  runSourceEmbeddingWorkerBatch,
   type EmbeddingProviderPort,
   type NoteRecordInput,
   type SourceChunkRecord,
@@ -290,6 +291,60 @@ describe("runEmbeddingWorkerBatch", () => {
         nextAttemptAt: null
       }),
       expect.objectContaining({ status: "queued", attemptCount: 0 })
+    ]);
+  });
+});
+
+describe("runSourceEmbeddingWorkerBatch", () => {
+  it("embeds source jobs without claiming note jobs from the shared queue", async () => {
+    const store = await createQueuedStore();
+    const noteJobs = await store.getEmbeddingJobRecords();
+    const sourceRecord = source({});
+    const sourceChunks = [sourceChunk({})];
+    await store.replaceSourceWorkspace([sourceRecord], sourceChunks);
+    const sourcePlan = planSourceEmbeddingQueue({
+      sources: [sourceRecord],
+      sourceChunks,
+      vectors: [],
+      modelProfile,
+      createdAt: indexedAt
+    });
+    await store.replaceEmbeddingQueue([
+      noteJobs[0]!,
+      sourcePlan.jobs[0]!
+    ]);
+    const provider = new FakeEmbeddingProvider([[0.9, 0.8, 0.7]]);
+
+    const summary = await runSourceEmbeddingWorkerBatch({
+      store,
+      provider,
+      modelProfile,
+      now: workerNow,
+      batchSize: 1,
+      retryDelayMs: 30_000,
+      maxAttempts: 3
+    });
+
+    expect(summary).toEqual({
+      claimed: 1,
+      completed: 1,
+      failed: 0,
+      vectorCount: 1
+    });
+    expect(provider.embeddedTexts).toEqual(["Extracted source text."]);
+    await expect(store.getVectorRecords()).resolves.toEqual([
+      {
+        chunkId: sourceChunks[0]!.id,
+        model: modelNamespace,
+        dimensions: 3,
+        contentHash: sourceChunks[0]!.normalizedTextHash,
+        vector: [0.9, 0.8, 0.7],
+        embeddedAt: workerNow
+      }
+    ]);
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ id: noteJobs[0]!.id, status: "queued", attemptCount: 0 }),
+      expect.objectContaining({ id: sourcePlan.jobs[0]!.id, targetKind: "source", status: "completed" })
     ]);
   });
 });

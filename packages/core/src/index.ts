@@ -22,7 +22,7 @@ export {
   planSourceEmbeddingQueue,
   recoverRunningEmbeddingJobs
 } from "./semantic/embedding-queue";
-export { runEmbeddingWorkerBatch } from "./semantic/embedding-worker";
+export { runEmbeddingWorkerBatch, runSourceEmbeddingWorkerBatch } from "./semantic/embedding-worker";
 export { searchSemanticVectors } from "./semantic/semantic-search";
 export type {
   AdapterMetadata,

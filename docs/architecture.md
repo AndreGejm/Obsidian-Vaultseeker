@@ -195,7 +195,7 @@ The queue module also owns pure job transitions: claim due queued jobs, complete
 
 `runEmbeddingWorkerBatch` is the first explicit worker controller. It claims due queued jobs, sends chunk text to an injected `EmbeddingProviderPort`, validates vector count and dimensions, writes vector records, and updates job state. Tests use a fake provider so this remains provider-independent core behavior.
 
-The note embedding worker is target-aware. Legacy jobs without `targetKind` are treated as note jobs, while source jobs use `targetKind: "source"`. The existing note worker claims only note jobs, and the plugin's note semantic planning, cancellation, and startup recovery preserve source jobs for a future source worker instead of deleting, cancelling, or requeueing them.
+The note embedding worker is target-aware. Legacy jobs without `targetKind` are treated as note jobs, while source jobs use `targetKind: "source"`. The existing note worker claims only note jobs, and the plugin's note semantic planning, cancellation, and startup recovery preserve source jobs instead of deleting, cancelling, or requeueing them.
 
 `searchSemanticVectors` is the first read-only semantic ranking primitive. It accepts a query vector that has already been produced by an external adapter, filters stored vectors to the requested model namespace and current chunk content hash, ranks chunks by cosine similarity, and groups the best chunk evidence by note. It does not call an embedding provider, schedule work, mutate notes, or blend with lexical results.
 
@@ -209,7 +209,7 @@ The search modal now uses `buildSearchModalQueryState` to merge semantic evidenc
 
 On plugin startup, Vaultseer recovers semantic jobs left in `running` state by a previous interrupted session. Those jobs are requeued with a recovery diagnostic so the next explicit batch can retry them.
 
-Current limitation: the note queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler yet, and there is not yet a source embedding worker.
+Current limitation: the note queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler yet, and source embedding has no plugin command yet.
 
 ## Source Intake Foundation
 
@@ -232,8 +232,10 @@ This borrows Mimir's import boundary: external source material is evidence, not 
 
 `packages/core/src/source/source-semantic-search.ts` adds source-only semantic ranking over stored vector records. It uses the same vector math as vault-note semantic search, but groups results by source workspace instead of note path and only accepts current vectors for `source-chunk:` records whose stored content hash still matches the current source chunk hash. This is a ranking primitive only: it does not run Marker, MarkItDown, Ollama, an embedding queue, or any vault write.
 
-`planSourceEmbeddingQueue` adds source-only semantic queue planning. It reuses the same model namespace and vector freshness rules as note chunk planning, but creates jobs with `targetKind: "source"`, `sourceId`, and `sourcePath` instead of pretending source chunks are note chunks. Failed source workspaces and orphan source chunks are skipped. Source jobs are now protected from the note worker and note semantic plugin controls. This is still only planning: it does not run an embedding provider or persist jobs through a plugin command yet.
+`planSourceEmbeddingQueue` adds source-only semantic queue planning. It reuses the same model namespace and vector freshness rules as note chunk planning, but creates jobs with `targetKind: "source"`, `sourceId`, and `sourcePath` instead of pretending source chunks are note chunks. Failed source workspaces and orphan source chunks are skipped. Source jobs are protected from the note worker and note semantic plugin controls.
+
+`runSourceEmbeddingWorkerBatch` is the core source counterpart to the note worker. It claims only `targetKind: "source"` jobs, reads stored source chunks, sends source chunk text to an injected `EmbeddingProviderPort`, validates vector shape, stores vector records under source chunk IDs, and completes or fails source jobs through the same retry rules. It does not call Marker, MarkItDown, Ollama directly, run in the Obsidian UI, persist a newly planned queue through a plugin command, or write final notes.
 
 `VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
 
-Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source search UI, source embedding worker/provider integration, attachment staging directory, cancellation controller, or source-to-note proposal path exists yet.
+Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source search UI, plugin source embedding command/provider integration, attachment staging directory, cancellation controller, or source-to-note proposal path exists yet.

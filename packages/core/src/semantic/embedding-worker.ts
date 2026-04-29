@@ -1,4 +1,5 @@
-import type { ChunkRecord, EmbeddingJobRecord, VaultseerStore, VectorRecord } from "../storage/types";
+import type { ChunkRecord, EmbeddingJobRecord, EmbeddingJobTargetKind, VaultseerStore, VectorRecord } from "../storage/types";
+import type { SourceChunkRecord } from "../source/types";
 import {
   buildVectorNamespace,
   claimEmbeddingJobs,
@@ -30,20 +31,49 @@ export type EmbeddingWorkerBatchSummary = {
 
 type ClaimableJob = {
   job: EmbeddingJobRecord;
-  chunk: ChunkRecord;
+  chunk: EmbeddableChunk;
+};
+
+type EmbeddableChunk = Pick<ChunkRecord | SourceChunkRecord, "id" | "normalizedTextHash" | "text">;
+
+type WorkerTargetConfig = {
+  targetKind: EmbeddingJobTargetKind;
+  getChunks: (store: VaultseerStore) => Promise<EmbeddableChunk[]>;
+  missingChunkLabel: string;
 };
 
 export async function runEmbeddingWorkerBatch(input: RunEmbeddingWorkerBatchInput): Promise<EmbeddingWorkerBatchSummary> {
+  return runEmbeddingWorkerBatchForTarget(input, {
+    targetKind: "note",
+    getChunks: (store) => store.getChunkRecords(),
+    missingChunkLabel: "Chunk"
+  });
+}
+
+export async function runSourceEmbeddingWorkerBatch(
+  input: RunEmbeddingWorkerBatchInput
+): Promise<EmbeddingWorkerBatchSummary> {
+  return runEmbeddingWorkerBatchForTarget(input, {
+    targetKind: "source",
+    getChunks: (store) => store.getSourceChunkRecords(),
+    missingChunkLabel: "Source chunk"
+  });
+}
+
+async function runEmbeddingWorkerBatchForTarget(
+  input: RunEmbeddingWorkerBatchInput,
+  target: WorkerTargetConfig
+): Promise<EmbeddingWorkerBatchSummary> {
   const [storedJobs, chunks, storedVectors] = await Promise.all([
     input.store.getEmbeddingJobRecords(),
-    input.store.getChunkRecords(),
+    target.getChunks(input.store),
     input.store.getVectorRecords()
   ]);
   const claim = claimEmbeddingJobs({
     jobs: storedJobs,
     now: input.now,
     limit: input.batchSize,
-    targetKind: "note"
+    targetKind: target.targetKind
   });
   let jobs = claim.jobs;
   let vectors = storedVectors;
@@ -66,7 +96,7 @@ export async function runEmbeddingWorkerBatch(input: RunEmbeddingWorkerBatchInpu
       jobs = failEmbeddingJob({
         jobs,
         jobId: job.id,
-        error: `Chunk '${job.chunkId}' is no longer indexed.`,
+        error: `${target.missingChunkLabel} '${job.chunkId}' is no longer indexed.`,
         now: input.now,
         retryDelayMs: input.retryDelayMs,
         maxAttempts: input.maxAttempts

@@ -221,6 +221,15 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - `maxJobs` limits how much source work is planned at once while reporting how many source chunks were skipped by that limit.
 - Source queue planning does not call an embedding provider, persist jobs through a plugin command, run a worker, or write Obsidian notes.
 
+## Phase 4.5 Source Embedding Worker Guarantees
+
+- `runSourceEmbeddingWorkerBatch` processes only source jobs claimed from the persisted embedding queue.
+- Note jobs, including legacy jobs without `targetKind`, are not claimed by the source worker.
+- The worker reads source chunk text from stored source chunk records, not from vault note chunks.
+- Returned vectors are stored under `source-chunk:` IDs and use the same provider/model/dimensions namespace as note vectors.
+- Provider failures, missing source chunks, or wrong vector shapes move claimed source jobs through the same retry/failure transition rules as note jobs.
+- Source embedding execution does not call Marker, MarkItDown, or Obsidian APIs, does not schedule background work, and does not write Obsidian notes.
+
 ## Not Yet Guaranteed
 
 - Automatic persisted embedding queue execution.
@@ -231,7 +240,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - MarkItDown broad file extraction.
 - Built-in text/code source extraction.
 - Source search UI.
-- Source semantic embedding worker/provider integration.
+- Plugin source semantic embedding provider integration.
 - Source preview UI.
 - Staged attachment persistence outside the stored metadata shape.
 - Source-to-note proposal creation.
