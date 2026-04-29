@@ -100,7 +100,7 @@ Exit gate:
 
 ## Phase 4: Semantic Search Queue
 
-Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, explicit worker batch controller, Ollama-compatible provider adapter, and manual batch command are implemented; cancellation UI, background scheduling, and semantic search UI are not implemented yet.
+Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, explicit worker batch controller, core semantic vector ranking, Ollama-compatible provider adapter, and manual batch command are implemented; cancellation UI, background scheduling, query embedding, and semantic search UI are not implemented yet.
 
 Goal: add embeddings without making them a platform dependency.
 
@@ -119,6 +119,7 @@ Next implementation steps:
 - add an Obsidian setting for semantic indexing mode without enabling it by default (**implemented with disabled-by-default endpoint, provider id, model id, dimensions, and batch size settings**)
 - add an Ollama-compatible provider adapter behind the `EmbeddingProviderPort` (**implemented for explicit manual batches**)
 - add an explicit command to run one semantic batch manually before adding background scheduling (**implemented**)
+- add a pure core semantic ranking function over stored vectors (**implemented; provider/query embedding integration is not implemented yet**)
 - plugin command `Vaultseer: Plan semantic indexing queue` now plans jobs without provider calls when semantic indexing is enabled
 - plugin command `Vaultseer: Run one semantic indexing batch` processes one queued batch through the configured local Ollama-compatible endpoint when semantic indexing is enabled
 

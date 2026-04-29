@@ -8,5 +8,5 @@ dist/
 coverage/
 .vitest/
 .obsidian/
+.codesight/
 research/
-

@@ -193,6 +193,8 @@ The queue module also owns pure job transitions: claim due queued jobs, complete
 
 `runEmbeddingWorkerBatch` is the first explicit worker controller. It claims due queued jobs, sends chunk text to an injected `EmbeddingProviderPort`, validates vector count and dimensions, writes vector records, and updates job state. Tests use a fake provider so this remains provider-independent core behavior.
 
+`searchSemanticVectors` is the first read-only semantic ranking primitive. It accepts a query vector that has already been produced by an external adapter, filters stored vectors to the requested model namespace and current chunk content hash, ranks chunks by cosine similarity, and groups the best chunk evidence by note. It does not call an embedding provider, schedule work, mutate notes, or blend with lexical results.
+
 `Vaultseer: Plan semantic indexing queue` is the first plugin-facing semantic command. It is disabled by default through settings, and when enabled it only plans queued jobs from stored chunks and vectors. It does not call an embedding provider.
 
-Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no Ollama adapter, no background scheduler, no cancellation UI, and no semantic search result blending yet.
+Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler, no cancellation UI, no query embedding command, and no semantic search result blending yet.

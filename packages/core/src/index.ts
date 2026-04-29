@@ -17,6 +17,7 @@ export {
   planEmbeddingQueue
 } from "./semantic/embedding-queue";
 export { runEmbeddingWorkerBatch } from "./semantic/embedding-worker";
+export { searchSemanticVectors } from "./semantic/semantic-search";
 export type {
   AdapterMetadata,
   HeadingInput,
@@ -64,3 +65,8 @@ export type {
   EmbeddingWorkerBatchSummary,
   RunEmbeddingWorkerBatchInput
 } from "./semantic/embedding-worker";
+export type {
+  SemanticMatchedChunk,
+  SemanticSearchInput,
+  SemanticSearchResult
+} from "./semantic/semantic-search";

@@ -137,9 +137,19 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Successful jobs store vector records and move to `completed`.
 - Provider or vector-shape failures leave existing vectors intact and move affected jobs through the retry/failure transition rules.
 
+## Phase 4 Semantic Ranking Guarantees
+
+- `searchSemanticVectors` is read-only and works only on stored vectors, stored chunks, and stored notes.
+- The query vector must already be produced by an adapter; core does not call an embedding provider during search.
+- Ranking only considers vectors from the requested model namespace.
+- Ranking only considers vectors whose dimensions match the query vector.
+- Ranking only considers vectors whose content hash still matches the current chunk hash.
+- Zero, empty, or non-finite query vectors return no results.
+- Results are grouped by note and include matched chunk evidence with cosine similarity scores.
+
 ## Not Yet Guaranteed
 
-- Semantic search.
+- Query embedding and plugin semantic search UI.
 - Automatic persisted embedding queue execution.
 - Automatic background scheduling.
 - Embedding providers other than the first Ollama-compatible adapter.
