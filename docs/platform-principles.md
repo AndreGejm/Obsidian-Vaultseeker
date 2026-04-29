@@ -34,6 +34,26 @@ This creates three platform stages:
 
 The stages are ordered. A later stage must not bypass an earlier stage.
 
+## Reuse-First Rule
+
+Vaultseer should not rewrite mature ideas from scratch when a local reference already exists.
+
+Before implementing a new subsystem, check:
+
+- `research/` for the studied Obsidian plugins and their design patterns.
+- `F:\Dev\scripts\Mimir\mimir` for Mimir/Mimisbrunnr contracts, indexing ideas, state handling, and safety patterns.
+- existing Vaultseer code for the smallest reusable boundary.
+
+Reuse does not mean copying blindly. Each borrowed idea must be adapted to Vaultseer's scale and safety model:
+
+- keep Obsidian as the source of production metadata;
+- keep core logic Obsidian-free;
+- prefer small, explicit interfaces over broad framework adoption;
+- copy concepts and contracts before copying implementation;
+- cite the borrowed source in tests or docs when the design depends on it.
+
+The default decision should be: study first, adapt second, implement third.
+
 ## Non-Negotiable Invariants
 
 - Markdown files are the source of truth.
@@ -116,4 +136,3 @@ No suggestion engine may skip this ladder.
 - Parsing production Markdown in core when Obsidian already parsed it. Core validates normalized input; adapters handle source-specific extraction.
 - Adding automatic cleanup before guarded writes exist.
 - Creating UI panels before the underlying index health and recovery model is trustworthy.
-

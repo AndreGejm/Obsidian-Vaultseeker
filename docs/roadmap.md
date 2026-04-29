@@ -2,6 +2,8 @@
 
 This roadmap favors a stable personal note-management platform over rapid feature delivery. Each phase has an exit gate. Do not move to the next phase just because the previous one has visible UI.
 
+Before starting any new subsystem, run a reuse check against `research/` and the local Mimir repo. The goal is to borrow proven concepts, contracts, and safety patterns instead of rewriting everything from scratch.
+
 ## Phase 0: Foundation Scaffold
 
 Status: implemented.
@@ -49,6 +51,12 @@ Exit gate:
 ## Phase 2: Chunking And Lexical Search
 
 Goal: search useful pieces of notes without relying on embeddings.
+
+Reuse check before implementation:
+
+- study Mimir/Mimisbrunnr chunk identity, bounded retrieval, and lexical search contracts;
+- review Omnisearch-style query behavior from `research/`;
+- keep only the pieces that fit Vaultseer's personal-vault scope.
 
 Implementation steps:
 
