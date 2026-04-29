@@ -123,4 +123,4 @@ The chunker is adapted from the local Mimir/Mimisbrunnr chunking idea, but scope
 
 This keeps unchanged chunks stable when nearby prose is inserted or removed. It also keeps the feature read-only: chunk records are derived analysis data, not note mutations.
 
-Current limitation: chunks are not yet written into the persistent plugin index and there is no lexical search API. The next Phase 2 slice should connect chunk records to the store before building search over them.
+The read-only rebuild path now stores chunk records through `VaultseerStore`, and index health reports `chunkCount`. The next Phase 2 slice should build an explainable lexical index over note titles, aliases, headings, tags, and chunk text.

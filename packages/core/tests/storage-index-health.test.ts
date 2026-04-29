@@ -1,30 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { buildVaultSnapshot, InMemoryVaultseerStore } from "../src/index";
+import { buildVaultSnapshot, chunkVaultInputs, InMemoryVaultseerStore } from "../src/index";
 import type { NoteRecordInput } from "../src/index";
 
 const noteInputs: NoteRecordInput[] = [
   {
     path: "A.md",
     basename: "A",
-    content: "Alpha body",
-    stat: { ctime: 1, mtime: 2, size: 10 },
+    content: "# Alpha\n\nAlpha body",
+    stat: { ctime: 1, mtime: 2, size: 19 },
     metadata: {
       frontmatter: { tags: ["alpha"] },
       tags: ["#alpha"],
       links: [],
-      headings: []
+      headings: [{ level: 1, heading: "Alpha", position: { line: 0, column: 1 } }]
     }
   },
   {
     path: "B.md",
     basename: "B",
-    content: "Beta body",
-    stat: { ctime: 3, mtime: 4, size: 20 },
+    content: "# Beta\n\nBeta body",
+    stat: { ctime: 3, mtime: 4, size: 17 },
     metadata: {
       frontmatter: { tags: ["beta"] },
       tags: ["#beta"],
       links: [{ raw: "[[A]]", target: "A" }],
-      headings: []
+      headings: [{ level: 1, heading: "Beta", position: { line: 0, column: 1 } }]
     }
   }
 ];
@@ -51,8 +51,9 @@ describe("InMemoryVaultseerStore", () => {
   it("replaces the note index and records file versions from the snapshot", async () => {
     const store = new InMemoryVaultseerStore();
     const snapshot = buildVaultSnapshot(noteInputs);
+    const chunks = chunkVaultInputs(noteInputs);
 
-    const health = await store.replaceNoteIndex(snapshot, "2026-04-29T19:00:00.000Z");
+    const health = await store.replaceNoteIndex(snapshot, "2026-04-29T19:00:00.000Z", chunks);
 
     expect(health).toEqual({
       schemaVersion: 1,
@@ -60,23 +61,24 @@ describe("InMemoryVaultseerStore", () => {
       statusMessage: null,
       lastIndexedAt: "2026-04-29T19:00:00.000Z",
       noteCount: 2,
-      chunkCount: 0,
+      chunkCount: 2,
       vectorCount: 0,
       suggestionCount: 0,
       warnings: []
     });
     await expect(store.getNoteRecords()).resolves.toEqual(snapshot.notes);
+    await expect(store.getChunkRecords()).resolves.toEqual(chunks);
     await expect(store.getFileVersions()).resolves.toEqual([
       {
         path: "A.md",
         mtime: 2,
-        size: 10,
+        size: 19,
         contentHash: snapshot.notesByPath["A.md"]!.contentHash
       },
       {
         path: "B.md",
         mtime: 4,
-        size: 20,
+        size: 17,
         contentHash: snapshot.notesByPath["B.md"]!.contentHash
       }
     ]);
@@ -91,7 +93,9 @@ describe("InMemoryVaultseerStore", () => {
     expect(health.status).toBe("empty");
     expect(health.statusMessage).toBeNull();
     expect(health.noteCount).toBe(0);
+    expect(health.chunkCount).toBe(0);
     await expect(store.getNoteRecords()).resolves.toEqual([]);
+    await expect(store.getChunkRecords()).resolves.toEqual([]);
     await expect(store.getFileVersions()).resolves.toEqual([]);
   });
 

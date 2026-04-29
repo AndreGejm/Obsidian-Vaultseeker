@@ -1,4 +1,11 @@
-import type { FileVersionRecord, IndexHealth, StoredVaultIndex, VaultseerStore, VaultseerStorageBackend } from "./types";
+import type {
+  ChunkRecord,
+  FileVersionRecord,
+  IndexHealth,
+  StoredVaultIndex,
+  VaultseerStore,
+  VaultseerStorageBackend
+} from "./types";
 import { INDEX_SCHEMA_VERSION } from "./types";
 import type { NoteRecord, VaultSnapshot } from "../types";
 import {
@@ -28,8 +35,8 @@ export class PersistentVaultseerStore implements VaultseerStore {
     return cloneHealth(this.state);
   }
 
-  async replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string): Promise<IndexHealth> {
-    this.state = createReadyStoredVaultIndex(snapshot, indexedAt);
+  async replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string, chunks: ChunkRecord[] = []): Promise<IndexHealth> {
+    this.state = createReadyStoredVaultIndex(snapshot, indexedAt, chunks);
     await this.persist();
     return cloneHealth(this.state);
   }
@@ -58,6 +65,10 @@ export class PersistentVaultseerStore implements VaultseerStore {
 
   async getNoteRecords(): Promise<NoteRecord[]> {
     return cloneStoredValue(this.state.notes);
+  }
+
+  async getChunkRecords(): Promise<ChunkRecord[]> {
+    return cloneStoredValue(this.state.chunks);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {

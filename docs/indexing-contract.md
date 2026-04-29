@@ -29,11 +29,11 @@ Vaultseer currently indexes these fields from normalized adapter records:
 
 ## Chunked In Phase 2 Core
 
-`packages/core` can now derive deterministic chunk records from normalized note input. This is still a core capability, not yet a persisted search feature.
+`packages/core` can derive deterministic chunk records from normalized note input, and the read-only index rebuild now stores those chunk records. This is still not a search feature until the lexical index is implemented.
 
 | Data | Source | Current use |
 |---|---|---|
-| Chunk text | Markdown content supplied by the adapter | Future lexical and semantic search |
+| Chunk text | Markdown content supplied by the adapter | Persisted rebuildable input for future lexical and semantic search |
 | Chunk note path | Normalized note path | Stable note ownership |
 | Chunk heading path | Obsidian metadata cache heading hierarchy plus note title context | Explaining where a chunk came from |
 | Normalized text hash | Trimmed chunk text with stable line endings | Stable identity across nearby edits |
@@ -90,11 +90,10 @@ Tests pair these Markdown files with normalized adapter records. This is intenti
 - Unchanged prose blocks keep stable chunk IDs when nearby blocks are inserted.
 - Duplicate blocks under the same note and heading path receive different IDs through a collision ordinal.
 
-These guarantees apply to `chunkNoteInput` and `chunkVaultInputs`. They do not yet mean chunks are persisted by the plugin or searchable in the UI.
+These guarantees apply to `chunkNoteInput`, `chunkVaultInputs`, and the read-only rebuild path that stores chunk records through `VaultseerStore`. They do not yet mean chunks are searchable in the UI.
 
 ## Not Yet Guaranteed
 
-- Persisted chunk records in the plugin index.
 - Chunk-level search.
 - Semantic search.
 - Dataview-compatible querying.

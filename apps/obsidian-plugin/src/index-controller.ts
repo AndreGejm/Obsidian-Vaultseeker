@@ -1,4 +1,11 @@
-import { buildVaultSnapshot, compareFileVersions, type IndexHealth, type NoteRecordInput, type VaultseerStore } from "@vaultseer/core";
+import {
+  buildVaultSnapshot,
+  chunkVaultInputs,
+  compareFileVersions,
+  type IndexHealth,
+  type NoteRecordInput,
+  type VaultseerStore
+} from "@vaultseer/core";
 
 export type RebuildReadOnlyIndexOptions = {
   readNoteInputs: () => Promise<NoteRecordInput[]>;
@@ -16,7 +23,8 @@ export async function rebuildReadOnlyIndex(options: RebuildReadOnlyIndexOptions)
     const inputs = await options.readNoteInputs();
     const includedInputs = inputs.filter((input) => !isExcluded(input.path, options.excludedFolders));
     const snapshot = buildVaultSnapshot(includedInputs);
-    return options.store.replaceNoteIndex(snapshot, options.now());
+    const chunks = chunkVaultInputs(includedInputs);
+    return options.store.replaceNoteIndex(snapshot, options.now(), chunks);
   } catch (error) {
     await options.store.markError(`Rebuild failed: ${getErrorMessage(error)}`);
     throw error;

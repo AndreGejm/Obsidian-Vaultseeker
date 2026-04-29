@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { buildVaultSnapshot, PersistentVaultseerStore } from "../src/index";
+import { buildVaultSnapshot, chunkVaultInputs, PersistentVaultseerStore } from "../src/index";
 import type { NoteRecordInput, StoredVaultIndex, VaultseerStorageBackend } from "../src/index";
 
 const noteInputs: NoteRecordInput[] = [
   {
     path: "A.md",
     basename: "A",
-    content: "Alpha body",
-    stat: { ctime: 1, mtime: 2, size: 10 },
+    content: "# Alpha\n\nAlpha body",
+    stat: { ctime: 1, mtime: 2, size: 19 },
     metadata: {
       frontmatter: { tags: ["alpha"] },
       tags: ["#alpha"],
       links: [],
-      headings: []
+      headings: [{ level: 1, heading: "Alpha", position: { line: 0, column: 1 } }]
     }
   }
 ];
@@ -37,9 +37,10 @@ describe("PersistentVaultseerStore", () => {
   it("persists a rebuilt note index and reloads it from the backend", async () => {
     const backend = new MemoryBackend();
     const snapshot = buildVaultSnapshot(noteInputs);
+    const chunks = chunkVaultInputs(noteInputs);
     const store = await PersistentVaultseerStore.create(backend);
 
-    await store.replaceNoteIndex(snapshot, "2026-04-29T21:00:00.000Z");
+    await store.replaceNoteIndex(snapshot, "2026-04-29T21:00:00.000Z", chunks);
     const reloaded = await PersistentVaultseerStore.create(backend);
 
     await expect(reloaded.getHealth()).resolves.toEqual({
@@ -48,17 +49,18 @@ describe("PersistentVaultseerStore", () => {
       statusMessage: null,
       lastIndexedAt: "2026-04-29T21:00:00.000Z",
       noteCount: 1,
-      chunkCount: 0,
+      chunkCount: 1,
       vectorCount: 0,
       suggestionCount: 0,
       warnings: []
     });
     await expect(reloaded.getNoteRecords()).resolves.toEqual(snapshot.notes);
+    await expect(reloaded.getChunkRecords()).resolves.toEqual(chunks);
     await expect(reloaded.getFileVersions()).resolves.toEqual([
       {
         path: "A.md",
         mtime: 2,
-        size: 10,
+        size: 19,
         contentHash: snapshot.notesByPath["A.md"]!.contentHash
       }
     ]);
@@ -75,9 +77,11 @@ describe("PersistentVaultseerStore", () => {
     await expect(reloaded.getHealth()).resolves.toMatchObject({
       status: "empty",
       statusMessage: null,
-      noteCount: 0
+      noteCount: 0,
+      chunkCount: 0
     });
     await expect(reloaded.getNoteRecords()).resolves.toEqual([]);
+    await expect(reloaded.getChunkRecords()).resolves.toEqual([]);
   });
 
   it("fails closed when persisted schema version is unsupported", async () => {

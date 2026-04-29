@@ -91,12 +91,13 @@ export interface VaultseerStorageBackend {
 
 export interface VaultseerStore {
   beginIndexing(startedAt: string): Promise<IndexHealth>;
-  replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string): Promise<IndexHealth>;
+  replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string, chunks?: ChunkRecord[]): Promise<IndexHealth>;
   markStale(reason: string): Promise<IndexHealth>;
   markDegraded(reason: string): Promise<IndexHealth>;
   markError(message: string): Promise<IndexHealth>;
   getHealth(): Promise<IndexHealth>;
   getNoteRecords(): Promise<NoteRecord[]>;
+  getChunkRecords(): Promise<ChunkRecord[]>;
   getFileVersions(): Promise<FileVersionRecord[]>;
   clear(): Promise<IndexHealth>;
 }

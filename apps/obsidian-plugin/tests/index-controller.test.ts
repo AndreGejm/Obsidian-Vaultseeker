@@ -7,16 +7,26 @@ const inputs: NoteRecordInput[] = [
   {
     path: "A.md",
     basename: "A",
-    content: "Alpha",
-    stat: { ctime: 1, mtime: 2, size: 10 },
-    metadata: { frontmatter: { tags: ["alpha"] }, tags: ["#alpha"], links: [], headings: [] }
+    content: "# Alpha\n\nAlpha",
+    stat: { ctime: 1, mtime: 2, size: 14 },
+    metadata: {
+      frontmatter: { tags: ["alpha"] },
+      tags: ["#alpha"],
+      links: [],
+      headings: [{ level: 1, heading: "Alpha", position: { line: 0, column: 1 } }]
+    }
   },
   {
     path: "Archive/B.md",
     basename: "B",
-    content: "Beta",
-    stat: { ctime: 3, mtime: 4, size: 20 },
-    metadata: { frontmatter: { tags: ["beta"] }, tags: ["#beta"], links: [], headings: [] }
+    content: "# Beta\n\nBeta",
+    stat: { ctime: 3, mtime: 4, size: 12 },
+    metadata: {
+      frontmatter: { tags: ["beta"] },
+      tags: ["#beta"],
+      links: [],
+      headings: [{ level: 1, heading: "Beta", position: { line: 0, column: 1 } }]
+    }
   }
 ];
 
@@ -33,7 +43,9 @@ describe("index-controller", () => {
 
     expect(health.status).toBe("ready");
     expect(health.noteCount).toBe(1);
+    expect(health.chunkCount).toBe(1);
     await expect(store.getNoteRecords()).resolves.toMatchObject([{ path: "A.md" }]);
+    await expect(store.getChunkRecords()).resolves.toMatchObject([{ notePath: "A.md", text: "Alpha" }]);
   });
 
   it("clears the read-only index through the provided store", async () => {
@@ -93,8 +105,8 @@ describe("index-controller", () => {
         readNoteInputs: async () => [
           {
             ...inputs[0]!,
-            content: "Alpha changed",
-            stat: { ctime: 1, mtime: 6, size: 15 }
+            content: "# Alpha\n\nAlpha changed",
+            stat: { ctime: 1, mtime: 6, size: 22 }
           },
           {
             path: "C.md",

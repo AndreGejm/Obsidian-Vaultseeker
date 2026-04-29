@@ -1,5 +1,12 @@
 import type { NoteRecord, VaultSnapshot } from "../types";
-import { INDEX_SCHEMA_VERSION, type FileVersionRecord, type IndexHealth, type IndexStatus, type StoredVaultIndex } from "./types";
+import {
+  INDEX_SCHEMA_VERSION,
+  type ChunkRecord,
+  type FileVersionRecord,
+  type IndexHealth,
+  type IndexStatus,
+  type StoredVaultIndex
+} from "./types";
 
 export function createEmptyStoredVaultIndex(): StoredVaultIndex {
   return {
@@ -25,14 +32,19 @@ export function createEmptyStoredVaultIndex(): StoredVaultIndex {
   };
 }
 
-export function createReadyStoredVaultIndex(snapshot: VaultSnapshot, indexedAt: string): StoredVaultIndex {
+export function createReadyStoredVaultIndex(
+  snapshot: VaultSnapshot,
+  indexedAt: string,
+  chunkRecords: ChunkRecord[] = []
+): StoredVaultIndex {
   const notes = cloneStoredValue(snapshot.notes);
+  const chunks = cloneStoredValue(chunkRecords);
 
   return {
     schemaVersion: INDEX_SCHEMA_VERSION,
     notes,
     fileVersions: createFileVersions(notes),
-    chunks: [],
+    chunks,
     lexicalIndex: [],
     vectors: [],
     suggestions: [],
@@ -43,7 +55,7 @@ export function createReadyStoredVaultIndex(snapshot: VaultSnapshot, indexedAt: 
       statusMessage: null,
       lastIndexedAt: indexedAt,
       noteCount: notes.length,
-      chunkCount: 0,
+      chunkCount: chunks.length,
       vectorCount: 0,
       suggestionCount: 0,
       warnings: []
