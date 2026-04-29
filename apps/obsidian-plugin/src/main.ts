@@ -1,9 +1,10 @@
 import { Notice, Plugin } from "obsidian";
 import { PersistentVaultseerStore, type IndexHealth, type VaultseerStore } from "@vaultseer/core";
-import { clearReadOnlyIndex, rebuildReadOnlyIndex } from "./index-controller";
+import { checkReadOnlyIndexStaleness, clearReadOnlyIndex, rebuildReadOnlyIndex } from "./index-controller";
 import { readVaultNoteInputs, type VaultReaderApp } from "./obsidian-adapter";
 import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from "./settings";
 import { VaultseerPluginDataStore } from "./plugin-data-store";
+import { formatIndexHealthNotice } from "./health-message";
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
@@ -33,6 +34,14 @@ export default class VaultseerPlugin extends Plugin {
         await this.clearIndex();
       }
     });
+
+    this.addCommand({
+      id: "show-index-health",
+      name: "Check read-only vault index health",
+      callback: async () => {
+        await this.showIndexHealth();
+      }
+    });
   }
 
   async saveSettings(): Promise<void> {
@@ -52,6 +61,15 @@ export default class VaultseerPlugin extends Plugin {
   async clearIndex(): Promise<void> {
     this.health = await clearReadOnlyIndex(this.store);
     new Notice("Vaultseer index cleared.");
+  }
+
+  async showIndexHealth(): Promise<void> {
+    this.health = await checkReadOnlyIndexStaleness({
+      readNoteInputs: () => readVaultNoteInputs(this.app as unknown as VaultReaderApp),
+      store: this.store,
+      excludedFolders: this.settings.excludedFolders
+    });
+    new Notice(formatIndexHealthNotice(this.health));
   }
 
   getHealth(): IndexHealth | null {

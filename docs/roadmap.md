@@ -34,7 +34,7 @@ Implementation steps:
 - add explicit index states: empty, indexing, ready, stale, degraded, error (**implemented for the store contract**)
 - detect file changes and mark affected index data stale (**implemented for file-version comparison and controller stale checks**)
 - add clear-index and rebuild-index recovery paths
-- expose index health in the plugin
+- expose index health in the plugin (**implemented as a command/notice surface**)
 - expand fixture vaults to cover realistic personal notes
 - document what is indexed and what is ignored
 

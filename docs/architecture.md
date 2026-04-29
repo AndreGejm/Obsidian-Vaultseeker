@@ -57,6 +57,14 @@ The data store also accepts the original root-level settings shape as a legacy i
 
 `rebuildReadOnlyIndex` and `clearReadOnlyIndex` return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
+The plugin currently exposes three operator commands:
+
+- `Vaultseer: Rebuild read-only vault index`
+- `Vaultseer: Clear read-only vault index`
+- `Vaultseer: Check read-only vault index health`
+
+The health command checks file-version staleness before showing a status notice, so the operator can see whether the current mirror is empty, ready, stale, degraded, or failed.
+
 The index health state model is explicit. Current statuses are:
 
 - `empty`: no useful mirror exists.
