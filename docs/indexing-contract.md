@@ -206,6 +206,18 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Results are grouped by source workspace and include matched source chunk evidence with cosine similarity scores.
 - Source semantic ranking has no Obsidian UI surface yet and does not write source results into notes.
 
+## Phase 4.5 Source Embedding Queue Planning Guarantees
+
+- `planSourceEmbeddingQueue` is read-only and plans jobs only from caller-provided source records, source chunks, vector records, and model metadata.
+- Source queue planning uses the same provider/model/dimension namespace as note chunk queue planning.
+- Source jobs use `targetKind: "source"` with `sourceId` and `sourcePath`; they do not use `notePath`.
+- Existing vectors for the requested namespace, dimensions, and current source chunk hash are counted as reusable.
+- Existing vectors for the requested namespace and dimensions with an old source chunk hash are counted as stale and queued for refresh.
+- Existing vectors from other model namespaces are not treated as replacements.
+- Failed source workspaces and orphan source chunks are skipped.
+- `maxJobs` limits how much source work is planned at once while reporting how many source chunks were skipped by that limit.
+- Source queue planning does not call an embedding provider, persist jobs through a plugin command, run a worker, or write Obsidian notes.
+
 ## Not Yet Guaranteed
 
 - Automatic persisted embedding queue execution.
@@ -216,7 +228,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - MarkItDown broad file extraction.
 - Built-in text/code source extraction.
 - Source search UI.
-- Source semantic embedding queue/worker integration.
+- Source semantic embedding worker/provider integration.
 - Source preview UI.
 - Staged attachment persistence outside the stored metadata shape.
 - Source-to-note proposal creation.

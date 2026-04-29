@@ -1,4 +1,5 @@
 import type { ChunkRecord, EmbeddingJobRecord, EmbeddingJobStatus, VectorRecord } from "../storage/types";
+import type { SourceChunkRecord, SourceRecord } from "../source/types";
 
 export type EmbeddingModelProfile = {
   providerId: string;
@@ -18,6 +19,15 @@ export type EmbeddingQueuePlan = {
 
 export type PlanEmbeddingQueueInput = {
   chunks: ChunkRecord[];
+  vectors: VectorRecord[];
+  modelProfile: EmbeddingModelProfile;
+  createdAt: string;
+  maxJobs?: number;
+};
+
+export type PlanSourceEmbeddingQueueInput = {
+  sources: SourceRecord[];
+  sourceChunks: SourceChunkRecord[];
   vectors: VectorRecord[];
   modelProfile: EmbeddingModelProfile;
   createdAt: string;
@@ -84,6 +94,77 @@ export function createEmbeddingJobId(modelNamespace: string, chunkId: string, co
 }
 
 export function planEmbeddingQueue(input: PlanEmbeddingQueueInput): EmbeddingQueuePlan {
+  return planCandidateEmbeddingQueue({
+    candidates: input.chunks.map((chunk) => ({
+      id: chunk.id,
+      contentHash: chunk.normalizedTextHash,
+      createJob: (modelNamespace) => ({
+        id: createEmbeddingJobId(modelNamespace, chunk.id, chunk.normalizedTextHash),
+        chunkId: chunk.id,
+        notePath: chunk.notePath,
+        modelNamespace,
+        contentHash: chunk.normalizedTextHash,
+        status: "queued",
+        attemptCount: 0,
+        createdAt: input.createdAt,
+        updatedAt: input.createdAt,
+        lastError: null,
+        nextAttemptAt: null
+      })
+    })),
+    vectors: input.vectors,
+    modelProfile: input.modelProfile,
+    maxJobs: input.maxJobs
+  });
+}
+
+export function planSourceEmbeddingQueue(input: PlanSourceEmbeddingQueueInput): EmbeddingQueuePlan {
+  const extractedSourceIds = new Set(
+    input.sources.filter((source) => source.status === "extracted").map((source) => source.id)
+  );
+
+  return planCandidateEmbeddingQueue({
+    candidates: input.sourceChunks
+      .filter((chunk) => extractedSourceIds.has(chunk.sourceId))
+      .map((chunk) => ({
+        id: chunk.id,
+        contentHash: chunk.normalizedTextHash,
+        createJob: (modelNamespace) => ({
+          id: createEmbeddingJobId(modelNamespace, chunk.id, chunk.normalizedTextHash),
+          targetKind: "source" as const,
+          chunkId: chunk.id,
+          sourceId: chunk.sourceId,
+          sourcePath: chunk.sourcePath,
+          modelNamespace,
+          contentHash: chunk.normalizedTextHash,
+          status: "queued",
+          attemptCount: 0,
+          createdAt: input.createdAt,
+          updatedAt: input.createdAt,
+          lastError: null,
+          nextAttemptAt: null
+        })
+      })),
+    vectors: input.vectors,
+    modelProfile: input.modelProfile,
+    maxJobs: input.maxJobs
+  });
+}
+
+type EmbeddingQueueCandidate = {
+  id: string;
+  contentHash: string;
+  createJob: (modelNamespace: string) => EmbeddingJobRecord;
+};
+
+type PlanCandidateEmbeddingQueueInput = {
+  candidates: EmbeddingQueueCandidate[];
+  vectors: VectorRecord[];
+  modelProfile: EmbeddingModelProfile;
+  maxJobs: number | undefined;
+};
+
+function planCandidateEmbeddingQueue(input: PlanCandidateEmbeddingQueueInput): EmbeddingQueuePlan {
   const modelNamespace = buildVectorNamespace(input.modelProfile);
   const maxJobs = input.maxJobs ?? Number.POSITIVE_INFINITY;
   const vectorsByChunkId = groupVectorsByChunkId(input.vectors);
@@ -92,12 +173,12 @@ export function planEmbeddingQueue(input: PlanEmbeddingQueueInput): EmbeddingQue
   let staleVectorCount = 0;
   let skippedByLimitCount = 0;
 
-  for (const chunk of input.chunks) {
-    const chunkVectors = vectorsByChunkId.get(chunk.id) ?? [];
+  for (const candidate of input.candidates) {
+    const chunkVectors = vectorsByChunkId.get(candidate.id) ?? [];
     const namespaceVectors = chunkVectors.filter(
       (vector) => vector.model === modelNamespace && vector.dimensions === input.modelProfile.dimensions
     );
-    const reusableVector = namespaceVectors.find((vector) => vector.contentHash === chunk.normalizedTextHash);
+    const reusableVector = namespaceVectors.find((vector) => vector.contentHash === candidate.contentHash);
 
     if (reusableVector) {
       reusableVectorCount += 1;
@@ -113,19 +194,7 @@ export function planEmbeddingQueue(input: PlanEmbeddingQueueInput): EmbeddingQue
       continue;
     }
 
-    jobs.push({
-      id: createEmbeddingJobId(modelNamespace, chunk.id, chunk.normalizedTextHash),
-      chunkId: chunk.id,
-      notePath: chunk.notePath,
-      modelNamespace,
-      contentHash: chunk.normalizedTextHash,
-      status: "queued",
-      attemptCount: 0,
-      createdAt: input.createdAt,
-      updatedAt: input.createdAt,
-      lastError: null,
-      nextAttemptAt: null
-    });
+    jobs.push(candidate.createJob(modelNamespace));
   }
 
   return {

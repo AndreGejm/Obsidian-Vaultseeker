@@ -18,6 +18,7 @@ export {
   createEmbeddingJobId,
   failEmbeddingJob,
   planEmbeddingQueue,
+  planSourceEmbeddingQueue,
   recoverRunningEmbeddingJobs
 } from "./semantic/embedding-queue";
 export { runEmbeddingWorkerBatch } from "./semantic/embedding-worker";
@@ -40,6 +41,8 @@ export type {
   IndexHealth,
   IndexStatus,
   LexicalIndexRecord,
+  NoteEmbeddingJobRecord,
+  SourceEmbeddingJobRecord,
   StoredVaultIndex,
   SuggestionEvidence,
   SuggestionRecord,
@@ -78,6 +81,7 @@ export type {
   CancelEmbeddingJobsInput,
   FailEmbeddingJobInput,
   PlanEmbeddingQueueInput,
+  PlanSourceEmbeddingQueueInput,
   RecoverRunningEmbeddingJobsInput
 } from "./semantic/embedding-queue";
 export type {

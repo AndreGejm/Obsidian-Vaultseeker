@@ -53,10 +53,9 @@ export type VectorRecord = {
 
 export type EmbeddingJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
-export type EmbeddingJobRecord = {
+export type EmbeddingJobBase = {
   id: string;
   chunkId: string;
-  notePath: string;
   modelNamespace: string;
   contentHash: string;
   status: EmbeddingJobStatus;
@@ -66,6 +65,19 @@ export type EmbeddingJobRecord = {
   lastError: string | null;
   nextAttemptAt: string | null;
 };
+
+export type NoteEmbeddingJobRecord = EmbeddingJobBase & {
+  targetKind?: "note";
+  notePath: string;
+};
+
+export type SourceEmbeddingJobRecord = EmbeddingJobBase & {
+  targetKind: "source";
+  sourceId: string;
+  sourcePath: string;
+};
+
+export type EmbeddingJobRecord = NoteEmbeddingJobRecord | SourceEmbeddingJobRecord;
 
 export type SuggestionRecord = {
   id: string;

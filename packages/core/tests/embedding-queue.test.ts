@@ -7,9 +7,12 @@ import {
   createEmbeddingJobId,
   failEmbeddingJob,
   planEmbeddingQueue,
+  planSourceEmbeddingQueue,
   recoverRunningEmbeddingJobs,
   type ChunkRecord,
   type EmbeddingJobRecord,
+  type SourceChunkRecord,
+  type SourceRecord,
   type VectorRecord
 } from "../src";
 
@@ -52,6 +55,43 @@ function job(overrides: Partial<EmbeddingJobRecord>): EmbeddingJobRecord {
     updatedAt: createdAt,
     lastError: null,
     nextAttemptAt: null,
+    ...overrides
+  };
+}
+
+function source(overrides: Partial<SourceRecord>): SourceRecord {
+  return {
+    id: "source:paper",
+    status: "extracted",
+    sourcePath: "Sources/Papers/paper.pdf",
+    filename: "paper.pdf",
+    extension: ".pdf",
+    sizeBytes: 100,
+    contentHash: "source-hash",
+    importedAt: createdAt,
+    extractor: {
+      id: "marker",
+      name: "Marker",
+      version: "1.0.0"
+    },
+    extractionOptions: {},
+    extractedMarkdown: "# Paper\n\nBody.",
+    diagnostics: [],
+    attachments: [],
+    ...overrides
+  };
+}
+
+function sourceChunk(overrides: Partial<SourceChunkRecord>): SourceChunkRecord {
+  return {
+    id: "source-chunk:a",
+    sourceId: "source:paper",
+    sourcePath: "Sources/Papers/paper.pdf",
+    sectionPath: ["Paper"],
+    normalizedTextHash: "hash-a",
+    ordinal: 0,
+    text: "Extracted source text.",
+    provenance: { kind: "unknown" },
     ...overrides
   };
 }
@@ -123,11 +163,132 @@ describe("embedding queue planning", () => {
     ]);
   });
 
+  it("queues only source chunks missing a matching vector without treating them as note jobs", () => {
+    const sources = [
+      source({ id: "source:timer", sourcePath: "Sources/Datasheets/timer.pdf", status: "extracted" }),
+      source({ id: "source:paper", sourcePath: "Sources/Papers/memory-retrieval.pdf", status: "extracted" }),
+      source({ id: "source:failed", sourcePath: "Sources/Failed/broken.pdf", status: "failed" })
+    ];
+    const sourceChunks = [
+      sourceChunk({
+        id: "source-chunk:timer-a",
+        sourceId: "source:timer",
+        sourcePath: "Sources/Datasheets/timer.pdf",
+        normalizedTextHash: "hash-a"
+      }),
+      sourceChunk({
+        id: "source-chunk:paper-b",
+        sourceId: "source:paper",
+        sourcePath: "Sources/Papers/memory-retrieval.pdf",
+        normalizedTextHash: "hash-b"
+      }),
+      sourceChunk({
+        id: "source-chunk:paper-c",
+        sourceId: "source:paper",
+        sourcePath: "Sources/Papers/memory-retrieval.pdf",
+        normalizedTextHash: "hash-c"
+      }),
+      sourceChunk({
+        id: "source-chunk:failed",
+        sourceId: "source:failed",
+        sourcePath: "Sources/Failed/broken.pdf",
+        normalizedTextHash: "hash-failed"
+      }),
+      sourceChunk({
+        id: "source-chunk:orphan",
+        sourceId: "source:missing",
+        sourcePath: "Sources/Missing.pdf",
+        normalizedTextHash: "hash-orphan"
+      })
+    ];
+    const modelProfile = { providerId: "ollama", modelId: "nomic-embed-text", dimensions: 768 };
+    const namespace = buildVectorNamespace(modelProfile);
+
+    const plan = planSourceEmbeddingQueue({
+      sources,
+      sourceChunks,
+      vectors: [
+        vector({ chunkId: "source-chunk:timer-a", model: namespace, dimensions: 768, contentHash: "hash-a" }),
+        vector({ chunkId: "source-chunk:paper-b", model: namespace, dimensions: 768, contentHash: "old-hash" }),
+        vector({ chunkId: "source-chunk:paper-c", model: "ollama/other-model:768", dimensions: 768, contentHash: "hash-c" })
+      ],
+      modelProfile,
+      createdAt
+    });
+
+    expect(plan).toMatchObject({
+      modelNamespace: namespace,
+      reusableVectorCount: 1,
+      staleVectorCount: 1,
+      skippedByLimitCount: 0
+    });
+    expect(plan.jobs).toEqual([
+      {
+        id: createEmbeddingJobId(namespace, "source-chunk:paper-b", "hash-b"),
+        targetKind: "source",
+        chunkId: "source-chunk:paper-b",
+        sourceId: "source:paper",
+        sourcePath: "Sources/Papers/memory-retrieval.pdf",
+        modelNamespace: namespace,
+        contentHash: "hash-b",
+        status: "queued",
+        attemptCount: 0,
+        createdAt,
+        updatedAt: createdAt,
+        lastError: null,
+        nextAttemptAt: null
+      },
+      {
+        id: createEmbeddingJobId(namespace, "source-chunk:paper-c", "hash-c"),
+        targetKind: "source",
+        chunkId: "source-chunk:paper-c",
+        sourceId: "source:paper",
+        sourcePath: "Sources/Papers/memory-retrieval.pdf",
+        modelNamespace: namespace,
+        contentHash: "hash-c",
+        status: "queued",
+        attemptCount: 0,
+        createdAt,
+        updatedAt: createdAt,
+        lastError: null,
+        nextAttemptAt: null
+      }
+    ]);
+    expect(plan.jobs.some((plannedJob) => "notePath" in plannedJob)).toBe(false);
+  });
+
   it("limits queued jobs without hiding how much work remains", () => {
     const plan = planEmbeddingQueue({
       chunks: [
         chunk({ id: "chunk-a", normalizedTextHash: "hash-a" }),
         chunk({ id: "chunk-b", normalizedTextHash: "hash-b" })
+      ],
+      vectors: [],
+      modelProfile: { providerId: "ollama", modelId: "nomic-embed-text", dimensions: 768 },
+      createdAt,
+      maxJobs: 1
+    });
+
+    expect(plan.jobs).toHaveLength(1);
+    expect(plan.skippedByLimitCount).toBe(1);
+  });
+
+  it("limits queued source jobs without hiding how much source work remains", () => {
+    const plan = planSourceEmbeddingQueue({
+      sources: [source({ id: "source:paper", sourcePath: "Sources/Papers/memory-retrieval.pdf" })],
+      sourceChunks: [
+        sourceChunk({
+          id: "source-chunk:a",
+          sourceId: "source:paper",
+          sourcePath: "Sources/Papers/memory-retrieval.pdf",
+          normalizedTextHash: "hash-a"
+        }),
+        sourceChunk({
+          id: "source-chunk:b",
+          sourceId: "source:paper",
+          sourcePath: "Sources/Papers/memory-retrieval.pdf",
+          normalizedTextHash: "hash-b"
+        })
       ],
       vectors: [],
       modelProfile: { providerId: "ollama", modelId: "nomic-embed-text", dimensions: 768 },
