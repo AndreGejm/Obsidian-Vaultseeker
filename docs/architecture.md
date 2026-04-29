@@ -70,6 +70,7 @@ The plugin currently exposes five operator commands:
 - `Vaultseer: Check read-only vault index health`
 - `Vaultseer: Search read-only vault index`
 - `Vaultseer: Open read-only workbench`
+- `Vaultseer: Plan semantic indexing queue`
 
 The health command checks file-version staleness before showing a status notice, so the operator can see whether the current mirror is empty, ready, stale, degraded, or failed.
 
@@ -191,5 +192,7 @@ The core store now persists vector records and embedding job records alongside t
 The queue module also owns pure job transitions: claim due queued jobs, complete a running job, cancel jobs, and record retryable or terminal failures with `nextAttemptAt` backoff. These helpers make the later background worker deterministic and testable before it exists.
 
 `runEmbeddingWorkerBatch` is the first explicit worker controller. It claims due queued jobs, sends chunk text to an injected `EmbeddingProviderPort`, validates vector count and dimensions, writes vector records, and updates job state. Tests use a fake provider so this remains provider-independent core behavior.
+
+`Vaultseer: Plan semantic indexing queue` is the first plugin-facing semantic command. It is disabled by default through settings, and when enabled it only plans queued jobs from stored chunks and vectors. It does not call an embedding provider.
 
 Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no Ollama adapter, no background scheduler, no cancellation UI, and no semantic search result blending yet.

@@ -119,6 +119,7 @@ Next implementation steps:
 - add an Obsidian setting for semantic indexing mode without enabling it by default (**implemented with disabled-by-default endpoint, provider id, model id, dimensions, and batch size settings**)
 - add an Ollama-compatible provider adapter behind the `EmbeddingProviderPort`
 - add an explicit command to run one semantic batch manually before adding background scheduling
+- plugin command `Vaultseer: Plan semantic indexing queue` now plans jobs without provider calls when semantic indexing is enabled
 
 Exit gate:
 

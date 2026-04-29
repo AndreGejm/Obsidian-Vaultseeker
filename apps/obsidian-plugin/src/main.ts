@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from ".
 import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
+import { planSemanticIndexQueue } from "./semantic-index-controller";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 
 export default class VaultseerPlugin extends Plugin {
@@ -80,6 +81,14 @@ export default class VaultseerPlugin extends Plugin {
         await this.openWorkbench();
       }
     });
+
+    this.addCommand({
+      id: "plan-semantic-index",
+      name: "Plan semantic indexing queue",
+      callback: async () => {
+        await this.planSemanticIndex();
+      }
+    });
   }
 
   async saveSettings(): Promise<void> {
@@ -133,6 +142,28 @@ export default class VaultseerPlugin extends Plugin {
     if (!leaf) {
       new Notice("Vaultseer could not open the workbench.");
     }
+  }
+
+  async planSemanticIndex(): Promise<void> {
+    if (!this.settings.semanticIndexingEnabled) {
+      new Notice("Vaultseer semantic indexing is disabled in settings.");
+      return;
+    }
+
+    const summary = await planSemanticIndexQueue({
+      store: this.store,
+      modelProfile: {
+        providerId: this.settings.embeddingProviderId,
+        modelId: this.settings.embeddingModelId,
+        dimensions: this.settings.embeddingDimensions
+      },
+      now: new Date().toISOString(),
+      maxJobs: this.settings.embeddingBatchSize
+    });
+    new Notice(
+      `Vaultseer planned ${summary.queuedJobCount} semantic job${summary.queuedJobCount === 1 ? "" : "s"}.`
+    );
+    await this.refreshWorkbenchViews();
   }
 
   private async refreshWorkbenchViews(): Promise<void> {
