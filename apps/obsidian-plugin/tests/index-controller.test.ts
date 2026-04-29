@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryVaultseerStore } from "@vaultseer/core";
-import { clearReadOnlyIndex, rebuildReadOnlyIndex } from "../src/index-controller";
+import { checkReadOnlyIndexStaleness, clearReadOnlyIndex, rebuildReadOnlyIndex } from "../src/index-controller";
 import type { NoteRecordInput } from "@vaultseer/core";
 
 const inputs: NoteRecordInput[] = [
@@ -76,6 +76,44 @@ describe("index-controller", () => {
       statusMessage: "Rebuild failed: metadata cache unavailable",
       noteCount: 1
     });
+    await expect(store.getNoteRecords()).resolves.toMatchObject([{ path: "A.md" }]);
+  });
+
+  it("marks the mirror stale when current file versions differ from the stored index", async () => {
+    const store = new InMemoryVaultseerStore();
+    await rebuildReadOnlyIndex({
+      readNoteInputs: async () => inputs,
+      store,
+      excludedFolders: ["Archive"],
+      now: () => "2026-04-29T20:00:00.000Z"
+    });
+
+    await expect(
+      checkReadOnlyIndexStaleness({
+        readNoteInputs: async () => [
+          {
+            ...inputs[0]!,
+            content: "Alpha changed",
+            stat: { ctime: 1, mtime: 6, size: 15 }
+          },
+          {
+            path: "C.md",
+            basename: "C",
+            content: "Gamma",
+            stat: { ctime: 7, mtime: 8, size: 30 },
+            metadata: { frontmatter: { tags: ["gamma"] }, tags: ["#gamma"], links: [], headings: [] }
+          },
+          inputs[1]!
+        ],
+        store,
+        excludedFolders: ["Archive"]
+      })
+    ).resolves.toMatchObject({
+      status: "stale",
+      statusMessage: "Vault changed since last index: 1 added, 1 modified.",
+      noteCount: 1
+    });
+
     await expect(store.getNoteRecords()).resolves.toMatchObject([{ path: "A.md" }]);
   });
 });
