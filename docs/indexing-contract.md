@@ -184,6 +184,16 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Unchanged extracted blocks keep stable source chunk IDs when nearby blocks are inserted.
 - Duplicate blocks under the same source and section path receive different IDs through a collision ordinal.
 
+## Phase 4.5 Source Lexical Search Guarantees
+
+- Source lexical search is read-only and operates only on caller-provided source records, source chunks, and source lexical index records.
+- Source lexical index records are separate from vault note lexical index records.
+- Source search results are grouped by `sourceId` and expose `sourcePath`, `filename`, matched terms, matched fields, and matched source chunks.
+- Source fields currently include filename, section, and body text.
+- Source search uses the same query and text tokenization as vault-note lexical search, including case-insensitive and diacritic-insensitive matching.
+- Source search requires every query term to be present in a returned source result.
+- Source search has no Obsidian UI surface yet and does not write source results into notes.
+
 ## Not Yet Guaranteed
 
 - Automatic persisted embedding queue execution.
@@ -193,7 +203,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Marker PDF extraction.
 - MarkItDown broad file extraction.
 - Built-in text/code source extraction.
-- Source lexical search.
+- Source search UI.
 - Source semantic indexing.
 - Source preview UI.
 - Staged attachment persistence outside the stored metadata shape.

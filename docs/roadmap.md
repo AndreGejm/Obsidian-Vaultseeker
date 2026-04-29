@@ -136,7 +136,7 @@ Exit gate:
 
 ## Phase 4.5: High-Fidelity Source Intake
 
-Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, and deterministic extracted-Markdown source chunking are implemented. No extractor adapter, source preview UI, source search, attachment staging, or source-to-note proposal path exists yet.
+Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, and pure source lexical search are implemented. No extractor adapter, source preview UI, source search UI, attachment staging, or source-to-note proposal path exists yet.
 
 Goal: turn external source files into searchable, reviewable source workspaces before any Obsidian note is written.
 
@@ -157,7 +157,7 @@ Implementation steps:
 - store extracted images and attachments in a staging area before any vault write
 - preserve source provenance at page, section, image, table, and line level when the extractor provides it (**implemented in the source record/chunk shapes; extractor support remains future work**)
 - chunk extracted source content using the same stable chunking principles as vault notes, but keep source chunk IDs in a separate namespace (**implemented for extracted Markdown using source-owned headings, shared block splitting, shared text hashing, and `source-chunk:` IDs**)
-- support lexical search over extracted sources without embeddings
+- support lexical search over extracted sources without embeddings (**implemented in core for filenames, source section paths, and extracted chunk text; UI integration remains future work**)
 - support semantic indexing of extracted source chunks when semantic search is enabled
 - expose a source preview panel with extracted text, images, tables, diagnostics, and searchable chunks
 - let AI propose note title, summary, headings, tags, aliases, links, and related notes from the extracted source
