@@ -80,7 +80,7 @@ Exit gate:
 
 ## Phase 3: Read-Only Workbench Panel
 
-Status: in progress. A docked read-only workbench exists for the active note; rebuild/clear buttons inside the panel are not implemented yet.
+Status: implemented for the read-only v1. A docked workbench exists for the active note and includes mirror rebuild/clear controls.
 
 Goal: make the plugin useful without allowing writes.
 
@@ -90,7 +90,7 @@ Implementation steps:
 - show outgoing links, backlinks, unresolved links, and weak relationship warnings (**implemented**)
 - show related notes from lexical search and relationship graph data (**implemented**)
 - show index health and last rebuild time (**implemented as health summary; last rebuild detail remains available through health command**)
-- provide buttons for rebuild and clear index
+- provide buttons for rebuild and clear index (**implemented as mirror-only controls**)
 
 Exit gate:
 

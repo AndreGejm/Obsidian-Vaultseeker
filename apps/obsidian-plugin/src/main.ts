@@ -29,6 +29,14 @@ export default class VaultseerPlugin extends Plugin {
           () => this.app.workspace.getActiveFile()?.path ?? null,
           async (path) => {
             await this.app.workspace.openLinkText(path, "", false);
+          },
+          {
+            "rebuild-index": async () => {
+              await this.rebuildIndex();
+            },
+            "clear-index": async () => {
+              await this.clearIndex();
+            }
           }
         )
     );

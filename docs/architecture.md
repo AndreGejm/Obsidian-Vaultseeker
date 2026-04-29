@@ -174,4 +174,6 @@ For the active note, the view shows:
 
 The view refreshes when Obsidian opens another file and after Vaultseer rebuilds or clears the index. It opens notes through Obsidian when the operator clicks a related note or link. It does not mutate notes.
 
+The workbench toolbar exposes `Rebuild index` and `Clear index`. These actions operate only on Vaultseer's disposable mirror through the same plugin methods as the command palette commands. They do not edit Markdown notes, frontmatter, tags, links, aliases, or vault files.
+
 Current limitation: the workbench is still a read-only mirror inspector. It does not yet show guarded actions, suggestion decisions, semantic results, or gardener queues.

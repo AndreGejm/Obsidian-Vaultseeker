@@ -1,6 +1,12 @@
 import { ItemView, Notice, type App, type WorkspaceLeaf } from "obsidian";
 import type { ChunkRecord, IndexHealth, LexicalIndexRecord, NoteRecord, VaultseerStore } from "@vaultseer/core";
-import { buildWorkbenchState, type WorkbenchRelatedNote, type WorkbenchState } from "./workbench-state";
+import {
+  buildWorkbenchState,
+  type WorkbenchControl,
+  type WorkbenchControlId,
+  type WorkbenchRelatedNote,
+  type WorkbenchState
+} from "./workbench-state";
 
 export const VAULTSEER_WORKBENCH_VIEW_TYPE = "vaultseer-workbench";
 
@@ -11,12 +17,15 @@ type WorkbenchMirrorData = {
   lexicalIndex: LexicalIndexRecord[];
 };
 
+export type WorkbenchControlHandlers = Record<WorkbenchControlId, () => Promise<void>>;
+
 export class VaultseerWorkbenchView extends ItemView {
   constructor(
     leaf: WorkspaceLeaf,
     private readonly store: VaultseerStore,
     private readonly getActivePath: () => string | null,
-    private readonly openNote: (path: string) => Promise<void>
+    private readonly openNote: (path: string) => Promise<void>,
+    private readonly controlHandlers: WorkbenchControlHandlers
   ) {
     super(leaf);
   }
@@ -78,6 +87,7 @@ export class VaultseerWorkbenchView extends ItemView {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl("h2", { text: "Vaultseer" });
+    this.renderControls(contentEl, state.controls);
     contentEl.createEl("p", { text: state.message });
     contentEl.createEl("p", { text: state.healthSummary, cls: "vaultseer-workbench-health" });
 
@@ -89,6 +99,31 @@ export class VaultseerWorkbenchView extends ItemView {
     this.renderLinks(contentEl, "Backlinks", state.backlinks.map((path) => ({ path, text: path })));
     this.renderTextList(contentEl, "Unresolved", state.unresolvedLinks.map((link) => link.raw));
     this.renderRelatedNotes(contentEl, state.relatedNotes);
+  }
+
+  private renderControls(containerEl: HTMLElement, controls: WorkbenchControl[]): void {
+    const toolbar = containerEl.createDiv({ cls: "vaultseer-workbench-controls" });
+
+    for (const control of controls) {
+      const button = toolbar.createEl("button", {
+        text: control.label,
+        title: control.disabledReason ?? control.description
+      });
+      button.disabled = control.disabled;
+      button.addEventListener("click", async () => {
+        await this.runControl(control);
+      });
+    }
+  }
+
+  private async runControl(control: WorkbenchControl): Promise<void> {
+    if (control.disabled) return;
+
+    try {
+      await this.controlHandlers[control.id]();
+    } catch (error) {
+      new Notice(`Vaultseer ${control.label.toLowerCase()} failed: ${getErrorMessage(error)}`);
+    }
   }
 
   private renderCurrentNote(containerEl: HTMLElement, state: Extract<WorkbenchState, { status: "ready" }>): void {

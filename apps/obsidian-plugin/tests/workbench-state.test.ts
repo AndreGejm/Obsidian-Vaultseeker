@@ -199,4 +199,45 @@ describe("buildWorkbenchState", () => {
       warnings: expect.arrayContaining(["This note has no resolved outgoing links or backlinks in the indexed mirror."])
     });
   });
+
+  it("describes safe mirror controls for the workbench toolbar", () => {
+    expect(
+      buildWorkbenchState({
+        activePath: "Projects/Vaultseer Platform.md",
+        health: health({ status: "empty", noteCount: 0, chunkCount: 0 }),
+        notes: [],
+        chunks: [],
+        lexicalIndex: []
+      }).controls
+    ).toEqual([
+      expect.objectContaining({ id: "rebuild-index", label: "Rebuild index", disabled: false }),
+      expect.objectContaining({
+        id: "clear-index",
+        label: "Clear index",
+        disabled: true,
+        disabledReason: "The mirror is already empty."
+      })
+    ]);
+
+    expect(
+      buildWorkbenchState({
+        activePath: "Projects/Vaultseer Platform.md",
+        health: health({ status: "indexing" }),
+        notes: snapshot.notes,
+        chunks,
+        lexicalIndex
+      }).controls
+    ).toEqual([
+      expect.objectContaining({
+        id: "rebuild-index",
+        disabled: true,
+        disabledReason: "Indexing is already running."
+      }),
+      expect.objectContaining({
+        id: "clear-index",
+        disabled: true,
+        disabledReason: "Indexing is already running."
+      })
+    ]);
+  });
 });

@@ -24,11 +24,22 @@ export type WorkbenchRelatedNote = {
   reason: string;
 };
 
+export type WorkbenchControlId = "rebuild-index" | "clear-index";
+
+export type WorkbenchControl = {
+  id: WorkbenchControlId;
+  label: string;
+  description: string;
+  disabled: boolean;
+  disabledReason: string | null;
+};
+
 export type WorkbenchState =
   | {
       status: "blocked";
       message: string;
       healthSummary: string;
+      controls: WorkbenchControl[];
       currentNote: null;
       outgoingLinks: [];
       unresolvedLinks: [];
@@ -40,6 +51,7 @@ export type WorkbenchState =
       status: "ready";
       message: string;
       healthSummary: string;
+      controls: WorkbenchControl[];
       currentNote: WorkbenchNoteSummary | null;
       outgoingLinks: ResolvedLink[];
       unresolvedLinks: LinkInput[];
@@ -66,6 +78,7 @@ type RelatedAccumulator = {
 
 export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchState {
   const healthSummary = formatHealthSummary(input.health);
+  const controls = buildWorkbenchControls(input.health);
   const blockedMessage = getBlockedMessage(input.health);
 
   if (blockedMessage) {
@@ -73,6 +86,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       status: "blocked",
       message: blockedMessage,
       healthSummary,
+      controls,
       currentNote: null,
       outgoingLinks: [],
       unresolvedLinks: [],
@@ -87,6 +101,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       status: "ready",
       message: "Open a Markdown note to inspect it in Vaultseer.",
       healthSummary,
+      controls,
       currentNote: null,
       outgoingLinks: [],
       unresolvedLinks: [],
@@ -104,6 +119,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       status: "ready",
       message: "Active note is not in the indexed mirror. Rebuild the Vaultseer index to inspect it.",
       healthSummary,
+      controls,
       currentNote: null,
       outgoingLinks: [],
       unresolvedLinks: [],
@@ -122,6 +138,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
     status: "ready",
     message: getReadyMessage(input.health),
     healthSummary,
+    controls,
     currentNote: {
       path: currentNote.path,
       title: currentNote.title,
@@ -145,6 +162,31 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       ...relationshipWarnings(currentNote.path, unresolvedLinks, graph.weaklyConnectedNotePaths)
     ]
   };
+}
+
+export function buildWorkbenchControls(health: IndexHealth): WorkbenchControl[] {
+  const isIndexing = health.status === "indexing";
+
+  return [
+    {
+      id: "rebuild-index",
+      label: "Rebuild index",
+      description: "Refresh Vaultseer's disposable mirror from the current Obsidian vault.",
+      disabled: isIndexing,
+      disabledReason: isIndexing ? "Indexing is already running." : null
+    },
+    {
+      id: "clear-index",
+      label: "Clear index",
+      description: "Discard Vaultseer's disposable mirror without changing Markdown notes.",
+      disabled: isIndexing || health.status === "empty",
+      disabledReason: isIndexing
+        ? "Indexing is already running."
+        : health.status === "empty"
+          ? "The mirror is already empty."
+          : null
+    }
+  ];
 }
 
 function getBlockedMessage(health: IndexHealth): string | null {
