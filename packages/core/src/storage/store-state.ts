@@ -5,6 +5,7 @@ import {
   type FileVersionRecord,
   type IndexHealth,
   type IndexStatus,
+  type LexicalIndexRecord,
   type StoredVaultIndex
 } from "./types";
 
@@ -35,17 +36,19 @@ export function createEmptyStoredVaultIndex(): StoredVaultIndex {
 export function createReadyStoredVaultIndex(
   snapshot: VaultSnapshot,
   indexedAt: string,
-  chunkRecords: ChunkRecord[] = []
+  chunkRecords: ChunkRecord[] = [],
+  lexicalIndexRecords: LexicalIndexRecord[] = []
 ): StoredVaultIndex {
   const notes = cloneStoredValue(snapshot.notes);
   const chunks = cloneStoredValue(chunkRecords);
+  const lexicalIndex = cloneStoredValue(lexicalIndexRecords);
 
   return {
     schemaVersion: INDEX_SCHEMA_VERSION,
     notes,
     fileVersions: createFileVersions(notes),
     chunks,
-    lexicalIndex: [],
+    lexicalIndex,
     vectors: [],
     suggestions: [],
     decisions: [],

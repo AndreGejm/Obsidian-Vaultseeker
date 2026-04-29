@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildVaultSnapshot, chunkVaultInputs, InMemoryVaultseerStore } from "../src/index";
+import { buildLexicalIndex, buildVaultSnapshot, chunkVaultInputs, InMemoryVaultseerStore } from "../src/index";
 import type { NoteRecordInput } from "../src/index";
 
 const noteInputs: NoteRecordInput[] = [
@@ -52,8 +52,9 @@ describe("InMemoryVaultseerStore", () => {
     const store = new InMemoryVaultseerStore();
     const snapshot = buildVaultSnapshot(noteInputs);
     const chunks = chunkVaultInputs(noteInputs);
+    const lexicalIndex = buildLexicalIndex(snapshot, chunks);
 
-    const health = await store.replaceNoteIndex(snapshot, "2026-04-29T19:00:00.000Z", chunks);
+    const health = await store.replaceNoteIndex(snapshot, "2026-04-29T19:00:00.000Z", chunks, lexicalIndex);
 
     expect(health).toEqual({
       schemaVersion: 1,
@@ -68,6 +69,7 @@ describe("InMemoryVaultseerStore", () => {
     });
     await expect(store.getNoteRecords()).resolves.toEqual(snapshot.notes);
     await expect(store.getChunkRecords()).resolves.toEqual(chunks);
+    await expect(store.getLexicalIndexRecords()).resolves.toEqual(lexicalIndex);
     await expect(store.getFileVersions()).resolves.toEqual([
       {
         path: "A.md",
@@ -96,6 +98,7 @@ describe("InMemoryVaultseerStore", () => {
     expect(health.chunkCount).toBe(0);
     await expect(store.getNoteRecords()).resolves.toEqual([]);
     await expect(store.getChunkRecords()).resolves.toEqual([]);
+    await expect(store.getLexicalIndexRecords()).resolves.toEqual([]);
     await expect(store.getFileVersions()).resolves.toEqual([]);
   });
 

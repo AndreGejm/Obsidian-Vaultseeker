@@ -2,6 +2,7 @@ import type {
   ChunkRecord,
   FileVersionRecord,
   IndexHealth,
+  LexicalIndexRecord,
   StoredVaultIndex,
   VaultseerStore,
   VaultseerStorageBackend
@@ -35,8 +36,13 @@ export class PersistentVaultseerStore implements VaultseerStore {
     return cloneHealth(this.state);
   }
 
-  async replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string, chunks: ChunkRecord[] = []): Promise<IndexHealth> {
-    this.state = createReadyStoredVaultIndex(snapshot, indexedAt, chunks);
+  async replaceNoteIndex(
+    snapshot: VaultSnapshot,
+    indexedAt: string,
+    chunks: ChunkRecord[] = [],
+    lexicalIndex: LexicalIndexRecord[] = []
+  ): Promise<IndexHealth> {
+    this.state = createReadyStoredVaultIndex(snapshot, indexedAt, chunks, lexicalIndex);
     await this.persist();
     return cloneHealth(this.state);
   }
@@ -69,6 +75,10 @@ export class PersistentVaultseerStore implements VaultseerStore {
 
   async getChunkRecords(): Promise<ChunkRecord[]> {
     return cloneStoredValue(this.state.chunks);
+  }
+
+  async getLexicalIndexRecords(): Promise<LexicalIndexRecord[]> {
+    return cloneStoredValue(this.state.lexicalIndex);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {

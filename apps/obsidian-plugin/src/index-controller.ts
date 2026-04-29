@@ -1,5 +1,6 @@
 import {
   buildVaultSnapshot,
+  buildLexicalIndex,
   chunkVaultInputs,
   compareFileVersions,
   type IndexHealth,
@@ -24,7 +25,8 @@ export async function rebuildReadOnlyIndex(options: RebuildReadOnlyIndexOptions)
     const includedInputs = inputs.filter((input) => !isExcluded(input.path, options.excludedFolders));
     const snapshot = buildVaultSnapshot(includedInputs);
     const chunks = chunkVaultInputs(includedInputs);
-    return options.store.replaceNoteIndex(snapshot, options.now(), chunks);
+    const lexicalIndex = buildLexicalIndex(snapshot, chunks);
+    return options.store.replaceNoteIndex(snapshot, options.now(), chunks, lexicalIndex);
   } catch (error) {
     await options.store.markError(`Rebuild failed: ${getErrorMessage(error)}`);
     throw error;

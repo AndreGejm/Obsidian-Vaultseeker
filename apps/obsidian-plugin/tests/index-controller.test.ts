@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InMemoryVaultseerStore } from "@vaultseer/core";
+import { searchLexicalIndex, InMemoryVaultseerStore } from "@vaultseer/core";
 import { checkReadOnlyIndexStaleness, clearReadOnlyIndex, rebuildReadOnlyIndex } from "../src/index-controller";
 import type { NoteRecordInput } from "@vaultseer/core";
 
@@ -46,6 +46,13 @@ describe("index-controller", () => {
     expect(health.chunkCount).toBe(1);
     await expect(store.getNoteRecords()).resolves.toMatchObject([{ path: "A.md" }]);
     await expect(store.getChunkRecords()).resolves.toMatchObject([{ notePath: "A.md", text: "Alpha" }]);
+
+    const notes = await store.getNoteRecords();
+    const chunks = await store.getChunkRecords();
+    const lexicalIndex = await store.getLexicalIndexRecords();
+    expect(searchLexicalIndex({ query: "alpha", index: lexicalIndex, notes, chunks })).toMatchObject([
+      { notePath: "A.md" }
+    ]);
   });
 
   it("clears the read-only index through the provided store", async () => {

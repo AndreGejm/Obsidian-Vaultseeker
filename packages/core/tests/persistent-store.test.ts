@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildVaultSnapshot, chunkVaultInputs, PersistentVaultseerStore } from "../src/index";
+import { buildLexicalIndex, buildVaultSnapshot, chunkVaultInputs, PersistentVaultseerStore } from "../src/index";
 import type { NoteRecordInput, StoredVaultIndex, VaultseerStorageBackend } from "../src/index";
 
 const noteInputs: NoteRecordInput[] = [
@@ -38,9 +38,10 @@ describe("PersistentVaultseerStore", () => {
     const backend = new MemoryBackend();
     const snapshot = buildVaultSnapshot(noteInputs);
     const chunks = chunkVaultInputs(noteInputs);
+    const lexicalIndex = buildLexicalIndex(snapshot, chunks);
     const store = await PersistentVaultseerStore.create(backend);
 
-    await store.replaceNoteIndex(snapshot, "2026-04-29T21:00:00.000Z", chunks);
+    await store.replaceNoteIndex(snapshot, "2026-04-29T21:00:00.000Z", chunks, lexicalIndex);
     const reloaded = await PersistentVaultseerStore.create(backend);
 
     await expect(reloaded.getHealth()).resolves.toEqual({
@@ -56,6 +57,7 @@ describe("PersistentVaultseerStore", () => {
     });
     await expect(reloaded.getNoteRecords()).resolves.toEqual(snapshot.notes);
     await expect(reloaded.getChunkRecords()).resolves.toEqual(chunks);
+    await expect(reloaded.getLexicalIndexRecords()).resolves.toEqual(lexicalIndex);
     await expect(reloaded.getFileVersions()).resolves.toEqual([
       {
         path: "A.md",
@@ -82,6 +84,7 @@ describe("PersistentVaultseerStore", () => {
     });
     await expect(reloaded.getNoteRecords()).resolves.toEqual([]);
     await expect(reloaded.getChunkRecords()).resolves.toEqual([]);
+    await expect(reloaded.getLexicalIndexRecords()).resolves.toEqual([]);
   });
 
   it("fails closed when persisted schema version is unsupported", async () => {

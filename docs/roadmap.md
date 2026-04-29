@@ -52,7 +52,7 @@ Exit gate:
 
 ## Phase 2: Chunking And Lexical Search
 
-Status: in progress. Core chunk derivation and persisted chunk storage are implemented; lexical search is not implemented yet.
+Status: in progress. Core chunk derivation, persisted chunk storage, and core lexical search are implemented; the Obsidian UI search surface is not implemented yet.
 
 Goal: search useful pieces of notes without relying on embeddings.
 
@@ -67,8 +67,8 @@ Implementation steps:
 - define stable chunk boundaries around headings and blocks (**implemented in core**)
 - create chunk IDs from note path, heading path, normalized block text hash, and collision ordinal only when needed (**implemented in core**)
 - store chunk records in the index store (**implemented for read-only rebuilds**)
-- build a lexical search index over titles, aliases, headings, tags, and chunk text
-- return explainable search results with matched fields
+- build a lexical search index over titles, aliases, headings, tags, and chunk text (**implemented in core and persisted by rebuilds**)
+- return explainable search results with matched fields (**implemented in core**)
 - keep search read-only
 
 Exit gate:

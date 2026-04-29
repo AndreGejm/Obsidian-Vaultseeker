@@ -1,4 +1,4 @@
-import type { ChunkRecord, FileVersionRecord, IndexHealth, StoredVaultIndex, VaultseerStore } from "./types";
+import type { ChunkRecord, FileVersionRecord, IndexHealth, LexicalIndexRecord, StoredVaultIndex, VaultseerStore } from "./types";
 import type { NoteRecord, VaultSnapshot } from "../types";
 import {
   cloneHealth,
@@ -16,8 +16,13 @@ export class InMemoryVaultseerStore implements VaultseerStore {
     return cloneHealth(this.state);
   }
 
-  async replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string, chunks: ChunkRecord[] = []): Promise<IndexHealth> {
-    this.state = createReadyStoredVaultIndex(snapshot, indexedAt, chunks);
+  async replaceNoteIndex(
+    snapshot: VaultSnapshot,
+    indexedAt: string,
+    chunks: ChunkRecord[] = [],
+    lexicalIndex: LexicalIndexRecord[] = []
+  ): Promise<IndexHealth> {
+    this.state = createReadyStoredVaultIndex(snapshot, indexedAt, chunks, lexicalIndex);
     return cloneHealth(this.state);
   }
 
@@ -46,6 +51,10 @@ export class InMemoryVaultseerStore implements VaultseerStore {
 
   async getChunkRecords(): Promise<ChunkRecord[]> {
     return cloneStoredValue(this.state.chunks);
+  }
+
+  async getLexicalIndexRecords(): Promise<LexicalIndexRecord[]> {
+    return cloneStoredValue(this.state.lexicalIndex);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {

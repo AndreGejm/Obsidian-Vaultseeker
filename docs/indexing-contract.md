@@ -29,7 +29,7 @@ Vaultseer currently indexes these fields from normalized adapter records:
 
 ## Chunked In Phase 2 Core
 
-`packages/core` can derive deterministic chunk records from normalized note input, and the read-only index rebuild now stores those chunk records. This is still not a search feature until the lexical index is implemented.
+`packages/core` can derive deterministic chunk records from normalized note input, and the read-only index rebuild now stores those chunk records. The rebuild path also stores a lexical index derived from note titles, aliases, headings, tags, and chunk text.
 
 | Data | Source | Current use |
 |---|---|---|
@@ -92,9 +92,19 @@ Tests pair these Markdown files with normalized adapter records. This is intenti
 
 These guarantees apply to `chunkNoteInput`, `chunkVaultInputs`, and the read-only rebuild path that stores chunk records through `VaultseerStore`. They do not yet mean chunks are searchable in the UI.
 
+## Phase 2 Lexical Search Guarantees
+
+- Lexical indexing is read-only and rebuildable from note records plus chunk records.
+- Search terms are case-insensitive and diacritic-insensitive.
+- Nested tags are searchable by full tag, such as `workflow/reading`, and by their component terms.
+- Results include matched terms, matched fields, and matched chunks so callers can explain why a note appeared.
+- Current scoring is deterministic field weighting: title, alias, tag, heading, then body.
+
+These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plugin rebuild path persists lexical records, but the Obsidian control surface does not yet expose a search field.
+
 ## Not Yet Guaranteed
 
-- Chunk-level search.
+- Obsidian UI search field.
 - Semantic search.
 - Dataview-compatible querying.
 - Metadata Menu schema validation.

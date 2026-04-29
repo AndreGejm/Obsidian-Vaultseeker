@@ -123,4 +123,23 @@ The chunker is adapted from the local Mimir/Mimisbrunnr chunking idea, but scope
 
 This keeps unchanged chunks stable when nearby prose is inserted or removed. It also keeps the feature read-only: chunk records are derived analysis data, not note mutations.
 
-The read-only rebuild path now stores chunk records through `VaultseerStore`, and index health reports `chunkCount`. The next Phase 2 slice should build an explainable lexical index over note titles, aliases, headings, tags, and chunk text.
+The read-only rebuild path now stores chunk records through `VaultseerStore`, and index health reports `chunkCount`.
+
+## Lexical Search
+
+The second Phase 2 slice adds deterministic lexical indexing in `packages/core/src/search/lexical-search.ts`.
+
+The design borrows two ideas without importing the full machinery:
+
+- Mimir keeps lexical retrieval behind an explicit index/search boundary.
+- Omnisearch treats tokenization, field weighting, cache recovery, and match explanation as first-class search behavior.
+
+Vaultseer keeps the smaller personal-vault version:
+
+- `buildLexicalIndex` creates rebuildable term records from note titles, aliases, headings, tags, and chunk text.
+- `searchLexicalIndex` searches stored term records against stored notes and chunks.
+- results include `matchedTerms`, `matchedFields`, and `matchedChunks`.
+- matching is case-insensitive and diacritic-insensitive.
+- nested tags are searchable by full tag path and component terms.
+
+The plugin rebuild path persists lexical records through `VaultseerStore`. Current limitation: there is no Obsidian search UI yet. The next Phase 2/3 slice should expose read-only search from the persisted mirror before adding semantic search.
