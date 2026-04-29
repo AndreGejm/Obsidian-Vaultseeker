@@ -6,10 +6,11 @@ import {
   InMemoryVaultseerStore,
   planEmbeddingQueue,
   type EmbeddingProviderPort,
+  type EmbeddingJobRecord,
   type NoteRecordInput,
   type VectorRecord
 } from "@vaultseer/core";
-import { planSemanticIndexQueue, runSemanticIndexBatch } from "../src/semantic-index-controller";
+import { cancelSemanticIndexQueue, planSemanticIndexQueue, runSemanticIndexBatch } from "../src/semantic-index-controller";
 
 const now = "2026-04-29T23:30:00.000Z";
 const modelProfile = {
@@ -176,5 +177,55 @@ describe("runSemanticIndexBatch", () => {
         contentHash: chunks[0]!.normalizedTextHash
       })
     ]);
+  });
+});
+
+describe("cancelSemanticIndexQueue", () => {
+  it("cancels queued and running semantic jobs while preserving completed jobs", async () => {
+    const store = await createStore();
+    const chunks = await store.getChunkRecords();
+    const plan = planEmbeddingQueue({
+      chunks,
+      vectors: [],
+      modelProfile,
+      createdAt: now
+    });
+    const jobs: EmbeddingJobRecord[] = [
+      { ...plan.jobs[0]!, status: "running", updatedAt: "2026-04-29T23:36:00.000Z" },
+      { ...plan.jobs[1]!, status: "completed", updatedAt: "2026-04-29T23:37:00.000Z" }
+    ];
+    await store.replaceEmbeddingQueue(jobs);
+
+    const summary = await cancelSemanticIndexQueue({
+      store,
+      now: "2026-04-29T23:40:00.000Z"
+    });
+
+    expect(summary).toEqual({
+      cancelledJobCount: 1,
+      totalJobCount: 2,
+      remainingQueuedJobCount: 0,
+      remainingRunningJobCount: 0
+    });
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ id: jobs[0]!.id, status: "cancelled", updatedAt: "2026-04-29T23:40:00.000Z" }),
+      expect.objectContaining({ id: jobs[1]!.id, status: "completed", updatedAt: "2026-04-29T23:37:00.000Z" })
+    ]);
+  });
+
+  it("returns a zero summary when there are no active semantic jobs", async () => {
+    const store = await createStore();
+
+    await expect(
+      cancelSemanticIndexQueue({
+        store,
+        now: "2026-04-29T23:40:00.000Z"
+      })
+    ).resolves.toEqual({
+      cancelledJobCount: 0,
+      totalJobCount: 0,
+      remainingQueuedJobCount: 0,
+      remainingRunningJobCount: 0
+    });
   });
 });

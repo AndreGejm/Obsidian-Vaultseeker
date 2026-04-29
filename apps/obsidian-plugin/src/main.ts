@@ -7,7 +7,11 @@ import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
 import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
-import { planSemanticIndexQueue, runSemanticIndexBatch } from "./semantic-index-controller";
+import {
+  cancelSemanticIndexQueue,
+  planSemanticIndexQueue,
+  runSemanticIndexBatch
+} from "./semantic-index-controller";
 import { searchSemanticIndex } from "./semantic-search-controller";
 import type { SearchModalSemanticSearch } from "./search-modal-query";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
@@ -101,6 +105,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Run one semantic indexing batch",
       callback: async () => {
         await this.runSemanticIndexBatch();
+      }
+    });
+
+    this.addCommand({
+      id: "cancel-semantic-index-queue",
+      name: "Cancel active semantic indexing jobs",
+      callback: async () => {
+        await this.cancelSemanticIndexQueue();
       }
     });
   }
@@ -218,6 +230,22 @@ export default class VaultseerPlugin extends Plugin {
     } else {
       new Notice(
         `Vaultseer semantic batch completed ${summary.completed}/${summary.claimed} job${summary.claimed === 1 ? "" : "s"}; ${summary.failed} failed.`
+      );
+    }
+    await this.refreshWorkbenchViews();
+  }
+
+  async cancelSemanticIndexQueue(): Promise<void> {
+    const summary = await cancelSemanticIndexQueue({
+      store: this.store,
+      now: new Date().toISOString()
+    });
+
+    if (summary.cancelledJobCount === 0) {
+      new Notice("Vaultseer found no active semantic indexing jobs to cancel.");
+    } else {
+      new Notice(
+        `Vaultseer cancelled ${summary.cancelledJobCount} semantic job${summary.cancelledJobCount === 1 ? "" : "s"}.`
       );
     }
     await this.refreshWorkbenchViews();

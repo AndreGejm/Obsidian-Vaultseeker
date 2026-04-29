@@ -201,4 +201,6 @@ The search modal now uses `buildSearchModalQueryState` to merge semantic evidenc
 
 `Vaultseer: Plan semantic indexing queue` is the first plugin-facing semantic command. It is disabled by default through settings, and when enabled it only plans queued jobs from stored chunks and vectors. It does not call an embedding provider.
 
-Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler, no cancellation UI, and no automatic worker resume yet.
+`Vaultseer: Cancel active semantic indexing jobs` is an operator-facing cancellation command. It cancels only queued/running semantic jobs in the persisted queue and preserves completed jobs for diagnostics.
+
+Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler and no automatic worker resume yet.

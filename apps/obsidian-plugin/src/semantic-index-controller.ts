@@ -1,7 +1,9 @@
 import {
+  cancelEmbeddingJobs,
   planEmbeddingQueue,
   runEmbeddingWorkerBatch,
   type EmbeddingProviderPort,
+  type EmbeddingJobRecord,
   type EmbeddingModelProfile,
   type EmbeddingWorkerBatchSummary,
   type VaultseerStore
@@ -30,6 +32,18 @@ export type RunSemanticIndexBatchOptions = {
   batchSize: number;
   retryDelayMs: number;
   maxAttempts: number;
+};
+
+export type CancelSemanticIndexQueueOptions = {
+  store: VaultseerStore;
+  now: string;
+};
+
+export type CancelSemanticIndexQueueSummary = {
+  cancelledJobCount: number;
+  totalJobCount: number;
+  remainingQueuedJobCount: number;
+  remainingRunningJobCount: number;
 };
 
 export async function planSemanticIndexQueue(options: PlanSemanticIndexQueueOptions): Promise<SemanticIndexQueueSummary> {
@@ -66,4 +80,28 @@ export async function runSemanticIndexBatch(options: RunSemanticIndexBatchOption
     retryDelayMs: options.retryDelayMs,
     maxAttempts: options.maxAttempts
   });
+}
+
+export async function cancelSemanticIndexQueue(
+  options: CancelSemanticIndexQueueOptions
+): Promise<CancelSemanticIndexQueueSummary> {
+  const jobs = await options.store.getEmbeddingJobRecords();
+  const activeJobIds = jobs.filter(isActiveJob).map((job) => job.id);
+  const result = cancelEmbeddingJobs({
+    jobs,
+    jobIds: activeJobIds,
+    now: options.now
+  });
+  const persistedJobs = await options.store.replaceEmbeddingQueue(result.jobs);
+
+  return {
+    cancelledJobCount: result.changedJobIds.length,
+    totalJobCount: persistedJobs.length,
+    remainingQueuedJobCount: persistedJobs.filter((job) => job.status === "queued").length,
+    remainingRunningJobCount: persistedJobs.filter((job) => job.status === "running").length
+  };
+}
+
+function isActiveJob(job: EmbeddingJobRecord): boolean {
+  return job.status === "queued" || job.status === "running";
 }

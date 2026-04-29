@@ -100,13 +100,13 @@ Exit gate:
 
 ## Phase 4: Semantic Search Queue
 
-Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, explicit worker batch controller, core semantic vector ranking, Ollama-compatible provider adapter, provider-backed query search controller, semantic search modal integration, and manual batch command are implemented; cancellation UI, background scheduling, and worker resume behavior are not implemented yet.
+Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, explicit worker batch controller, core semantic vector ranking, Ollama-compatible provider adapter, provider-backed query search controller, semantic search modal integration, manual batch command, and active-job cancellation command are implemented; background scheduling and worker resume behavior are not implemented yet.
 
 Goal: add embeddings without making them a platform dependency.
 
 Implementation steps:
 
-- add cancellable embedding jobs (**core cancellation transition is implemented; cancellation UI is not implemented yet**)
+- add cancellable embedding jobs (**implemented through core cancellation transition and command-palette cancellation for active queued/running jobs**)
 - add resumable queue state (**stored embedding jobs are persisted and reloadable; worker resume is not implemented yet**)
 - store model metadata and vector dimensions (**implemented for planning profile and vector namespace**)
 - namespace vectors by provider and model (**implemented as provider/model:dimensions namespace**)
@@ -124,6 +124,7 @@ Next implementation steps:
 - merge semantic evidence into the read-only search modal without hiding lexical results (**implemented**)
 - plugin command `Vaultseer: Plan semantic indexing queue` now plans jobs without provider calls when semantic indexing is enabled
 - plugin command `Vaultseer: Run one semantic indexing batch` processes one queued batch through the configured local Ollama-compatible endpoint when semantic indexing is enabled
+- plugin command `Vaultseer: Cancel active semantic indexing jobs` now cancels queued/running jobs without touching completed jobs
 
 Exit gate:
 

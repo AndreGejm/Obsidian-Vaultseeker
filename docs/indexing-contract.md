@@ -110,7 +110,7 @@ These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plug
 - Existing vectors for the same namespace with an old content hash are counted as stale and queued for refresh.
 - `maxJobs` limits how much work is planned at once while reporting how many chunks were skipped by that limit.
 
-These guarantees apply only to queue planning. Core also exposes pure queue transitions and an injected-provider worker batch controller. The Obsidian plugin can run one explicit persisted batch through an Ollama-compatible provider, but it does not yet expose cancellation controls or schedule background jobs.
+These guarantees apply only to queue planning. Core also exposes pure queue transitions and an injected-provider worker batch controller. The Obsidian plugin can run one explicit persisted batch through an Ollama-compatible provider and can cancel active queued/running jobs through a command-palette command, but it does not yet schedule background jobs.
 
 ## Phase 4 Semantic Storage Guarantees
 
@@ -126,6 +126,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Claimed jobs move to `running` without calling an embedding provider.
 - Completed jobs move to `completed` and clear retry metadata.
 - Cancelled jobs move to `cancelled` and clear retry scheduling.
+- The plugin cancellation controller cancels queued/running jobs and preserves completed jobs.
 - Failed jobs increment `attemptCount`; retryable failures return to `queued` with a future `nextAttemptAt`, and terminal failures move to `failed`.
 
 ## Phase 4 Worker Batch Guarantees
