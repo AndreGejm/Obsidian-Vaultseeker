@@ -28,6 +28,8 @@ Exit gate:
 
 ## Phase 1: Trusted Vault Mirror
 
+Status: implemented.
+
 Goal: make Vaultseer a reliable read-only mirror of the vault.
 
 Implementation steps:
@@ -35,10 +37,10 @@ Implementation steps:
 - add persistent local index storage with schema versioning (**implemented with Obsidian plugin data backend**)
 - add explicit index states: empty, indexing, ready, stale, degraded, error (**implemented for the store contract**)
 - detect file changes and mark affected index data stale (**implemented for file-version comparison and controller stale checks**)
-- add clear-index and rebuild-index recovery paths
+- add clear-index and rebuild-index recovery paths (**implemented as plugin commands and controller tests**)
 - expose index health in the plugin (**implemented as a command/notice surface**)
-- expand fixture vaults to cover realistic personal notes
-- document what is indexed and what is ignored
+- expand fixture vaults to cover realistic personal notes (**implemented with `vault-personal-knowledge`**)
+- document what is indexed and what is ignored (**implemented in `docs/indexing-contract.md`**)
 
 Exit gate:
 

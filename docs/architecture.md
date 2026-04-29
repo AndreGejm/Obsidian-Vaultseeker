@@ -16,6 +16,8 @@ The near-term architecture target is a trustworthy read-only mirror of the vault
 
 See [platform principles](platform-principles.md) for the platform invariants and [roadmap](roadmap.md) for the gated implementation sequence.
 
+See [indexing contract](indexing-contract.md) for the exact Phase 1 indexed and ignored fields.
+
 ## Metadata Contract
 
 The core package consumes `NoteRecordInput`. In production, the Obsidian adapter fills this from `app.metadataCache` and `app.vault.cachedRead`. In tests, fixture adapters may parse raw Markdown, but core itself does not treat raw Markdown parsing as the authority for Obsidian metadata.

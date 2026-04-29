@@ -20,5 +20,6 @@ Markdown notes remain the source of truth. Generated indexes are disposable and 
 ## Design Documents
 
 - [Architecture](docs/architecture.md)
+- [Indexing contract](docs/indexing-contract.md)
 - [Platform principles](docs/platform-principles.md)
 - [Roadmap](docs/roadmap.md)
