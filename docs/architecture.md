@@ -184,4 +184,6 @@ The first Phase 4 foundation is core-only and does not call an embedding provide
 
 This borrows Mimir's separation between embedding provider and vector index, while keeping Vaultseer smaller: lexical search remains the primary usable search path, and semantic work starts as queued chunk work rather than synchronous UI work.
 
-Current limitation: the queue planner is not yet persisted or executed. There is no Ollama adapter, no background worker, no cancellation UI, and no semantic search result blending yet.
+The core store now persists vector records and embedding job records alongside the mirror. This makes planned semantic work reloadable across plugin restarts. Rebuilding or clearing the read-only mirror discards semantic records so stale vectors and jobs cannot silently survive a changed mirror.
+
+Current limitation: the queue is persisted but not executed. There is no Ollama adapter, no background worker, no cancellation UI, and no semantic search result blending yet.

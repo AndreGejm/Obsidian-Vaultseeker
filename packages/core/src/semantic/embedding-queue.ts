@@ -1,4 +1,4 @@
-import type { ChunkRecord, VectorRecord } from "../storage/types";
+import type { ChunkRecord, EmbeddingJobRecord, EmbeddingJobStatus, VectorRecord } from "../storage/types";
 
 export type EmbeddingModelProfile = {
   providerId: string;
@@ -6,20 +6,7 @@ export type EmbeddingModelProfile = {
   dimensions: number;
 };
 
-export type EmbeddingJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
-
-export type EmbeddingJobRecord = {
-  id: string;
-  chunkId: string;
-  notePath: string;
-  modelNamespace: string;
-  contentHash: string;
-  status: EmbeddingJobStatus;
-  attemptCount: number;
-  createdAt: string;
-  updatedAt: string;
-  lastError: string | null;
-};
+export type { EmbeddingJobRecord, EmbeddingJobStatus };
 
 export type EmbeddingQueuePlan = {
   modelNamespace: string;

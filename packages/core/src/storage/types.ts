@@ -50,6 +50,21 @@ export type VectorRecord = {
   embeddedAt: string;
 };
 
+export type EmbeddingJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export type EmbeddingJobRecord = {
+  id: string;
+  chunkId: string;
+  notePath: string;
+  modelNamespace: string;
+  contentHash: string;
+  status: EmbeddingJobStatus;
+  attemptCount: number;
+  createdAt: string;
+  updatedAt: string;
+  lastError: string | null;
+};
+
 export type SuggestionRecord = {
   id: string;
   type: string;
@@ -78,6 +93,7 @@ export type StoredVaultIndex = {
   chunks: ChunkRecord[];
   lexicalIndex: LexicalIndexRecord[];
   vectors: VectorRecord[];
+  embeddingJobs: EmbeddingJobRecord[];
   suggestions: SuggestionRecord[];
   decisions: DecisionRecord[];
   health: IndexHealth;
@@ -104,6 +120,10 @@ export interface VaultseerStore {
   getNoteRecords(): Promise<NoteRecord[]>;
   getChunkRecords(): Promise<ChunkRecord[]>;
   getLexicalIndexRecords(): Promise<LexicalIndexRecord[]>;
+  replaceVectorRecords(vectors: VectorRecord[]): Promise<IndexHealth>;
+  getVectorRecords(): Promise<VectorRecord[]>;
+  replaceEmbeddingQueue(jobs: EmbeddingJobRecord[]): Promise<EmbeddingJobRecord[]>;
+  getEmbeddingJobRecords(): Promise<EmbeddingJobRecord[]>;
   getFileVersions(): Promise<FileVersionRecord[]>;
   clear(): Promise<IndexHealth>;
 }

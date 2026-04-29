@@ -1,11 +1,13 @@
 import type {
   ChunkRecord,
+  EmbeddingJobRecord,
   FileVersionRecord,
   IndexHealth,
   LexicalIndexRecord,
   StoredVaultIndex,
   VaultseerStore,
-  VaultseerStorageBackend
+  VaultseerStorageBackend,
+  VectorRecord
 } from "./types";
 import { INDEX_SCHEMA_VERSION } from "./types";
 import type { NoteRecord, VaultSnapshot } from "../types";
@@ -15,7 +17,9 @@ import {
   createEmptyStoredVaultIndex,
   createErrorStoredVaultIndex,
   createReadyStoredVaultIndex,
-  updateStoredVaultIndexHealth
+  updateStoredVaultIndexEmbeddingJobs,
+  updateStoredVaultIndexHealth,
+  updateStoredVaultIndexVectors
 } from "./store-state";
 
 export class PersistentVaultseerStore implements VaultseerStore {
@@ -81,6 +85,26 @@ export class PersistentVaultseerStore implements VaultseerStore {
     return cloneStoredValue(this.state.lexicalIndex);
   }
 
+  async replaceVectorRecords(vectors: VectorRecord[]): Promise<IndexHealth> {
+    this.state = updateStoredVaultIndexVectors(this.state, vectors);
+    await this.persist();
+    return cloneHealth(this.state);
+  }
+
+  async getVectorRecords(): Promise<VectorRecord[]> {
+    return cloneStoredValue(this.state.vectors);
+  }
+
+  async replaceEmbeddingQueue(jobs: EmbeddingJobRecord[]): Promise<EmbeddingJobRecord[]> {
+    this.state = updateStoredVaultIndexEmbeddingJobs(this.state, jobs);
+    await this.persist();
+    return cloneStoredValue(this.state.embeddingJobs);
+  }
+
+  async getEmbeddingJobRecords(): Promise<EmbeddingJobRecord[]> {
+    return cloneStoredValue(this.state.embeddingJobs);
+  }
+
   async getFileVersions(): Promise<FileVersionRecord[]> {
     return cloneStoredValue(this.state.fileVersions);
   }
@@ -101,5 +125,11 @@ function hydrateStoredVaultIndex(value: StoredVaultIndex | null): StoredVaultInd
   if (value.schemaVersion !== INDEX_SCHEMA_VERSION) {
     return createErrorStoredVaultIndex(`Unsupported index schema version: ${value.schemaVersion}.`);
   }
-  return cloneStoredValue(value);
+  return {
+    ...cloneStoredValue(value),
+    vectors: cloneStoredValue(value.vectors ?? []),
+    embeddingJobs: cloneStoredValue(value.embeddingJobs ?? []),
+    suggestions: cloneStoredValue(value.suggestions ?? []),
+    decisions: cloneStoredValue(value.decisions ?? [])
+  };
 }

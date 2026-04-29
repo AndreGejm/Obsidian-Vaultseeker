@@ -2,11 +2,13 @@ import type { NoteRecord, VaultSnapshot } from "../types";
 import {
   INDEX_SCHEMA_VERSION,
   type ChunkRecord,
+  type EmbeddingJobRecord,
   type FileVersionRecord,
   type IndexHealth,
   type IndexStatus,
   type LexicalIndexRecord,
-  type StoredVaultIndex
+  type StoredVaultIndex,
+  type VectorRecord
 } from "./types";
 
 export function createEmptyStoredVaultIndex(): StoredVaultIndex {
@@ -17,6 +19,7 @@ export function createEmptyStoredVaultIndex(): StoredVaultIndex {
     chunks: [],
     lexicalIndex: [],
     vectors: [],
+    embeddingJobs: [],
     suggestions: [],
     decisions: [],
     health: {
@@ -37,11 +40,14 @@ export function createReadyStoredVaultIndex(
   snapshot: VaultSnapshot,
   indexedAt: string,
   chunkRecords: ChunkRecord[] = [],
-  lexicalIndexRecords: LexicalIndexRecord[] = []
+  lexicalIndexRecords: LexicalIndexRecord[] = [],
+  vectorRecords: VectorRecord[] = [],
+  embeddingJobRecords: EmbeddingJobRecord[] = []
 ): StoredVaultIndex {
   const notes = cloneStoredValue(snapshot.notes);
   const chunks = cloneStoredValue(chunkRecords);
   const lexicalIndex = cloneStoredValue(lexicalIndexRecords);
+  const vectors = cloneStoredValue(vectorRecords);
 
   return {
     schemaVersion: INDEX_SCHEMA_VERSION,
@@ -49,7 +55,8 @@ export function createReadyStoredVaultIndex(
     fileVersions: createFileVersions(notes),
     chunks,
     lexicalIndex,
-    vectors: [],
+    vectors,
+    embeddingJobs: cloneStoredValue(embeddingJobRecords),
     suggestions: [],
     decisions: [],
     health: {
@@ -59,7 +66,7 @@ export function createReadyStoredVaultIndex(
       lastIndexedAt: indexedAt,
       noteCount: notes.length,
       chunkCount: chunks.length,
-      vectorCount: 0,
+      vectorCount: vectors.length,
       suggestionCount: 0,
       warnings: []
     }
@@ -68,6 +75,29 @@ export function createReadyStoredVaultIndex(
 
 export function createErrorStoredVaultIndex(message: string): StoredVaultIndex {
   return updateStoredVaultIndexHealth(createEmptyStoredVaultIndex(), "error", message, { appendWarning: true });
+}
+
+export function updateStoredVaultIndexVectors(state: StoredVaultIndex, vectors: VectorRecord[]): StoredVaultIndex {
+  const storedVectors = cloneStoredValue(vectors);
+
+  return {
+    ...state,
+    vectors: storedVectors,
+    health: {
+      ...state.health,
+      vectorCount: storedVectors.length
+    }
+  };
+}
+
+export function updateStoredVaultIndexEmbeddingJobs(
+  state: StoredVaultIndex,
+  embeddingJobs: EmbeddingJobRecord[]
+): StoredVaultIndex {
+  return {
+    ...state,
+    embeddingJobs: cloneStoredValue(embeddingJobs)
+  };
 }
 
 export function updateStoredVaultIndexHealth(

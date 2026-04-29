@@ -110,12 +110,21 @@ These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plug
 - Existing vectors for the same namespace with an old content hash are counted as stale and queued for refresh.
 - `maxJobs` limits how much work is planned at once while reporting how many chunks were skipped by that limit.
 
-These guarantees apply only to planning. Vaultseer does not yet call an embedding model, persist queue state, cancel jobs, or merge semantic results into search.
+These guarantees apply only to planning. Vaultseer does not yet call an embedding model, run queued jobs, cancel jobs, or merge semantic results into search.
+
+## Phase 4 Semantic Storage Guarantees
+
+- `VaultseerStore` can persist vector records separately from embedding job records.
+- `vectorCount` reports stored vector records, not queued jobs.
+- Clearing the mirror clears notes, chunks, lexical records, vectors, embedding jobs, suggestions, and decisions.
+- Rebuilding the mirror resets vector records and embedding jobs so semantic state is replanned from the current chunk set.
+- Persistent store hydration tolerates older schema-version-compatible records that do not yet contain semantic arrays.
 
 ## Not Yet Guaranteed
 
 - Semantic search.
 - Persisted embedding queue execution.
+- Vector preservation across mirror rebuilds.
 - Dataview-compatible querying.
 - Metadata Menu schema validation.
 - Task indexing.

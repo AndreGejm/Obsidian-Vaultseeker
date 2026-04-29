@@ -1,11 +1,22 @@
-import type { ChunkRecord, FileVersionRecord, IndexHealth, LexicalIndexRecord, StoredVaultIndex, VaultseerStore } from "./types";
+import type {
+  ChunkRecord,
+  EmbeddingJobRecord,
+  FileVersionRecord,
+  IndexHealth,
+  LexicalIndexRecord,
+  StoredVaultIndex,
+  VaultseerStore,
+  VectorRecord
+} from "./types";
 import type { NoteRecord, VaultSnapshot } from "../types";
 import {
   cloneHealth,
   cloneStoredValue,
   createEmptyStoredVaultIndex,
   createReadyStoredVaultIndex,
-  updateStoredVaultIndexHealth
+  updateStoredVaultIndexEmbeddingJobs,
+  updateStoredVaultIndexHealth,
+  updateStoredVaultIndexVectors
 } from "./store-state";
 
 export class InMemoryVaultseerStore implements VaultseerStore {
@@ -55,6 +66,24 @@ export class InMemoryVaultseerStore implements VaultseerStore {
 
   async getLexicalIndexRecords(): Promise<LexicalIndexRecord[]> {
     return cloneStoredValue(this.state.lexicalIndex);
+  }
+
+  async replaceVectorRecords(vectors: VectorRecord[]): Promise<IndexHealth> {
+    this.state = updateStoredVaultIndexVectors(this.state, vectors);
+    return cloneHealth(this.state);
+  }
+
+  async getVectorRecords(): Promise<VectorRecord[]> {
+    return cloneStoredValue(this.state.vectors);
+  }
+
+  async replaceEmbeddingQueue(jobs: EmbeddingJobRecord[]): Promise<EmbeddingJobRecord[]> {
+    this.state = updateStoredVaultIndexEmbeddingJobs(this.state, jobs);
+    return cloneStoredValue(this.state.embeddingJobs);
+  }
+
+  async getEmbeddingJobRecords(): Promise<EmbeddingJobRecord[]> {
+    return cloneStoredValue(this.state.embeddingJobs);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {
