@@ -22,6 +22,8 @@ See [indexing contract](indexing-contract.md) for the exact Phase 1 indexed and 
 
 The core package consumes `NoteRecordInput`. In production, the Obsidian adapter fills this from `app.metadataCache` and `app.vault.cachedRead`. In tests, fixture adapters may parse raw Markdown, but core itself does not treat raw Markdown parsing as the authority for Obsidian metadata.
 
+Chunking follows the same contract. `packages/core` receives note content and normalized heading metadata, then derives read-only `ChunkRecord` values from section and block boundaries. Obsidian heading positions remain the production authority for section starts; core does not try to rediscover heading structure with a competing parser.
+
 ## Current Slice
 
 The initial implementation includes:
@@ -106,3 +108,19 @@ Internal link resolution is deterministic and intentionally conservative:
 - note basename
 
 If multiple notes share the same basename, the first normalized note path wins. A later sprint can add ambiguity reporting before exposing automatic link suggestions.
+
+## Chunking
+
+The first Phase 2 slice adds deterministic chunk derivation in `packages/core/src/chunking/chunk-note.ts`.
+
+The chunker is adapted from the local Mimir/Mimisbrunnr chunking idea, but scoped for an Obsidian personal vault:
+
+- sections come from Obsidian metadata cache heading positions;
+- blocks are split by blank lines;
+- fenced code blocks stay intact;
+- chunk identity is based on note path, heading path, and normalized block text hash;
+- an ordinal is used only when duplicate blocks under the same note and heading path would otherwise collide.
+
+This keeps unchanged chunks stable when nearby prose is inserted or removed. It also keeps the feature read-only: chunk records are derived analysis data, not note mutations.
+
+Current limitation: chunks are not yet written into the persistent plugin index and there is no lexical search API. The next Phase 2 slice should connect chunk records to the store before building search over them.

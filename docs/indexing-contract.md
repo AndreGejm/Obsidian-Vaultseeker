@@ -9,7 +9,7 @@ This contract borrows concepts from local references instead of inventing everyt
 - **Obsidian Tags Overview:** use Obsidian metadata cache tags, expand nested tags such as `source/literature` into `source` and `source/literature`, and deduplicate tags before analysis.
 - **Dataview fixtures:** expect personal notes to contain frontmatter fields, inline fields such as `Author::`, and Dataview code blocks. Vaultseer preserves the note content but does not interpret Dataview queries in Phase 1.
 - **Metadata Menu fixtures:** expect typed frontmatter such as `fileClass`, numeric fields, and blank property values. Vaultseer keeps frontmatter as raw metadata but only normalizes the fields it owns today.
-- **Mimir/Mimisbrunnr chunking:** future chunking should respect headings, block boundaries, and code fences. Phase 1 only stores note and file-version records.
+- **Mimir/Mimisbrunnr chunking:** chunking borrows the Mimir pattern of heading-aware, block-oriented note slices while adapting the identity rule for personal-vault stability. Vaultseer uses Obsidian-provided heading positions as the heading authority, keeps fenced code blocks together, and avoids using block index in the chunk ID unless duplicate text under the same heading needs a collision ordinal.
 
 ## Indexed In Phase 1
 
@@ -26,6 +26,27 @@ Vaultseer currently indexes these fields from normalized adapter records:
 | Aliases | Frontmatter `aliases`/`alias` plus adapter aliases | Search/display preparation |
 | Internal links | Obsidian metadata cache links | Relationship graph and backlinks |
 | Headings | Obsidian metadata cache headings | Heading paths and future chunking |
+
+## Chunked In Phase 2 Core
+
+`packages/core` can now derive deterministic chunk records from normalized note input. This is still a core capability, not yet a persisted search feature.
+
+| Data | Source | Current use |
+|---|---|---|
+| Chunk text | Markdown content supplied by the adapter | Future lexical and semantic search |
+| Chunk note path | Normalized note path | Stable note ownership |
+| Chunk heading path | Obsidian metadata cache heading hierarchy plus note title context | Explaining where a chunk came from |
+| Normalized text hash | Trimmed chunk text with stable line endings | Stable identity across nearby edits |
+| Collision ordinal | Duplicate chunk text under the same note and heading path | Disambiguating duplicate blocks only |
+
+Chunk boundaries are intentionally simple:
+
+- headings create section boundaries when Obsidian metadata includes heading positions;
+- blank lines split normal prose blocks;
+- fenced code blocks stay together as one chunk;
+- notes without positioned headings are chunked under the note title.
+
+Chunk IDs are created from note path, heading path, normalized block text hash, and collision ordinal only when needed. This means inserting a nearby paragraph should not change the IDs of unchanged chunks.
 
 ## Ignored Or Preserved But Not Interpreted
 
@@ -61,12 +82,22 @@ Tests pair these Markdown files with normalized adapter records. This is intenti
 - Unsupported persistent index schemas fail closed with `error` health.
 - Clear index plus rebuild index is the recovery path.
 
+## Phase 2 Chunking Guarantees
+
+- Chunking is read-only.
+- Chunking depends on normalized adapter input and Obsidian heading positions, not a second metadata parser in core.
+- Fenced code blocks are preserved as one chunk.
+- Unchanged prose blocks keep stable chunk IDs when nearby blocks are inserted.
+- Duplicate blocks under the same note and heading path receive different IDs through a collision ordinal.
+
+These guarantees apply to `chunkNoteInput` and `chunkVaultInputs`. They do not yet mean chunks are persisted by the plugin or searchable in the UI.
+
 ## Not Yet Guaranteed
 
+- Persisted chunk records in the plugin index.
 - Chunk-level search.
 - Semantic search.
 - Dataview-compatible querying.
 - Metadata Menu schema validation.
 - Task indexing.
 - Write previews or guarded note mutations.
-
