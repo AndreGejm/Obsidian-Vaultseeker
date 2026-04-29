@@ -100,7 +100,7 @@ Exit gate:
 
 ## Phase 4: Semantic Search Queue
 
-Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, and pure job transitions are implemented; provider calls, cancellation UI, and semantic search UI are not implemented yet.
+Status: in progress. The core model namespace, deterministic queue planner, persisted semantic records, pure job transitions, and explicit worker batch controller are implemented; provider adapters, cancellation UI, and semantic search UI are not implemented yet.
 
 Goal: add embeddings without making them a platform dependency.
 
@@ -113,6 +113,12 @@ Implementation steps:
 - enforce max batch size and backoff (**planner limit and retry `nextAttemptAt` are implemented; worker backoff loop is not implemented yet**)
 - keep lexical search as fallback
 - mark semantic search degraded when provider calls fail
+
+Next implementation steps:
+
+- add an Obsidian setting for semantic indexing mode without enabling it by default
+- add an Ollama-compatible provider adapter behind the `EmbeddingProviderPort`
+- add an explicit command to run one semantic batch manually before adding background scheduling
 
 Exit gate:
 

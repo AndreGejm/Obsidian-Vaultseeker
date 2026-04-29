@@ -16,6 +16,7 @@ export {
   failEmbeddingJob,
   planEmbeddingQueue
 } from "./semantic/embedding-queue";
+export { runEmbeddingWorkerBatch } from "./semantic/embedding-worker";
 export type {
   AdapterMetadata,
   HeadingInput,
@@ -58,3 +59,8 @@ export type {
   FailEmbeddingJobInput,
   PlanEmbeddingQueueInput
 } from "./semantic/embedding-queue";
+export type {
+  EmbeddingProviderPort,
+  EmbeddingWorkerBatchSummary,
+  RunEmbeddingWorkerBatchInput
+} from "./semantic/embedding-worker";

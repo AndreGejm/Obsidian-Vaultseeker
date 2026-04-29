@@ -128,10 +128,21 @@ These guarantees apply only to planning. Vaultseer does not yet call an embeddin
 - Cancelled jobs move to `cancelled` and clear retry scheduling.
 - Failed jobs increment `attemptCount`; retryable failures return to `queued` with a future `nextAttemptAt`, and terminal failures move to `failed`.
 
+## Phase 4 Worker Batch Guarantees
+
+- `runEmbeddingWorkerBatch` processes only jobs claimed from the persisted embedding queue.
+- The worker receives an injected `EmbeddingProviderPort`; core does not know about Ollama or any HTTP endpoint.
+- The provider receives chunk text from stored chunk records.
+- Returned vectors must match the claimed job count and configured dimensions.
+- Successful jobs store vector records and move to `completed`.
+- Provider or vector-shape failures leave existing vectors intact and move affected jobs through the retry/failure transition rules.
+
 ## Not Yet Guaranteed
 
 - Semantic search.
 - Persisted embedding queue execution.
+- Automatic background scheduling.
+- Ollama or other embedding-provider adapters.
 - Vector preservation across mirror rebuilds.
 - Dataview-compatible querying.
 - Metadata Menu schema validation.

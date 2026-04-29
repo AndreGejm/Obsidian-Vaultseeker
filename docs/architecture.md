@@ -188,4 +188,6 @@ The core store now persists vector records and embedding job records alongside t
 
 The queue module also owns pure job transitions: claim due queued jobs, complete a running job, cancel jobs, and record retryable or terminal failures with `nextAttemptAt` backoff. These helpers make the later background worker deterministic and testable before it exists.
 
-Current limitation: the queue is persisted but not executed. There is no Ollama adapter, no background worker, no cancellation UI, and no semantic search result blending yet.
+`runEmbeddingWorkerBatch` is the first explicit worker controller. It claims due queued jobs, sends chunk text to an injected `EmbeddingProviderPort`, validates vector count and dimensions, writes vector records, and updates job state. Tests use a fake provider so this remains provider-independent core behavior.
+
+Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no Ollama adapter, no background scheduler, no cancellation UI, and no semantic search result blending yet.
