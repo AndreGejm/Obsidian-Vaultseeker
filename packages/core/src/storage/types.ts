@@ -83,6 +83,12 @@ export type StoredVaultIndex = {
   health: IndexHealth;
 };
 
+export interface VaultseerStorageBackend {
+  load(): Promise<StoredVaultIndex | null>;
+  save(value: StoredVaultIndex): Promise<void>;
+  clear(): Promise<void>;
+}
+
 export interface VaultseerStore {
   beginIndexing(startedAt: string): Promise<IndexHealth>;
   replaceNoteIndex(snapshot: VaultSnapshot, indexedAt: string): Promise<IndexHealth>;

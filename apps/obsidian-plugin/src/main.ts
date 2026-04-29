@@ -1,19 +1,20 @@
 import { Notice, Plugin } from "obsidian";
-import { InMemoryVaultseerStore, type IndexHealth, type VaultseerStore } from "@vaultseer/core";
+import { PersistentVaultseerStore, type IndexHealth, type VaultseerStore } from "@vaultseer/core";
 import { clearReadOnlyIndex, rebuildReadOnlyIndex } from "./index-controller";
 import { readVaultNoteInputs, type VaultReaderApp } from "./obsidian-adapter";
 import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from "./settings";
+import { VaultseerPluginDataStore } from "./plugin-data-store";
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
-  private readonly store: VaultseerStore = new InMemoryVaultseerStore();
+  private readonly dataStore = new VaultseerPluginDataStore(this);
+  private store!: VaultseerStore;
   private health: IndexHealth | null = null;
 
   async onload(): Promise<void> {
-    this.settings = {
-      ...DEFAULT_SETTINGS,
-      ...(await this.loadData())
-    };
+    this.settings = await this.dataStore.loadSettings();
+    this.store = await PersistentVaultseerStore.create(this.dataStore.createIndexBackend());
+    this.health = await this.store.getHealth();
 
     this.addSettingTab(new VaultseerSettingTab(this.app, this));
 
@@ -35,7 +36,7 @@ export default class VaultseerPlugin extends Plugin {
   }
 
   async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+    await this.dataStore.saveSettings(this.settings);
   }
 
   async rebuildIndex(): Promise<void> {

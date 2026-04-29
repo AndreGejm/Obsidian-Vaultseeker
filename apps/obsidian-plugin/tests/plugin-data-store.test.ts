@@ -1,0 +1,141 @@
+import { describe, expect, it } from "vitest";
+import { VaultseerPluginDataStore } from "../src/plugin-data-store";
+import { buildVaultSnapshot, PersistentVaultseerStore } from "@vaultseer/core";
+import type { NoteRecordInput, StoredVaultIndex } from "@vaultseer/core";
+
+const defaultSettings = {
+  excludedFolders: [".obsidian", "research"],
+  semanticSearchEnabled: false,
+  embeddingEndpoint: "http://localhost:11434"
+};
+
+const storedIndex: StoredVaultIndex = {
+  schemaVersion: 1,
+  notes: [],
+  fileVersions: [],
+  chunks: [],
+  lexicalIndex: [],
+  vectors: [],
+  suggestions: [],
+  decisions: [],
+  health: {
+    schemaVersion: 1,
+    status: "ready",
+    statusMessage: null,
+    lastIndexedAt: "2026-04-29T21:30:00.000Z",
+    noteCount: 0,
+    chunkCount: 0,
+    vectorCount: 0,
+    suggestionCount: 0,
+    warnings: []
+  }
+};
+
+const noteInputs: NoteRecordInput[] = [
+  {
+    path: "A.md",
+    basename: "A",
+    content: "Alpha",
+    stat: { ctime: 1, mtime: 2, size: 10 },
+    metadata: { frontmatter: { tags: ["alpha"] }, tags: ["#alpha"], links: [], headings: [] }
+  }
+];
+
+function createHarness(initialData: unknown = null): {
+  store: VaultseerPluginDataStore;
+  saved: () => unknown;
+} {
+  let data = initialData;
+  return {
+    store: new VaultseerPluginDataStore({
+      loadData: async () => data,
+      saveData: async (next) => {
+        data = structuredClone(next);
+      }
+    }),
+    saved: () => data
+  };
+}
+
+describe("VaultseerPluginDataStore", () => {
+  it("loads legacy root settings without requiring an index wrapper", async () => {
+    const legacySettings = {
+      excludedFolders: ["Archive"],
+      semanticSearchEnabled: true,
+      embeddingEndpoint: "http://localhost:11435"
+    };
+    const { store } = createHarness(legacySettings);
+
+    await expect(store.loadSettings()).resolves.toEqual(legacySettings);
+  });
+
+  it("saves settings without dropping the persisted index", async () => {
+    const { store, saved } = createHarness({
+      settings: defaultSettings,
+      index: storedIndex
+    });
+
+    await store.saveSettings({
+      ...defaultSettings,
+      excludedFolders: ["Archive", "Inbox"]
+    });
+
+    expect(saved()).toEqual({
+      settings: {
+        ...defaultSettings,
+        excludedFolders: ["Archive", "Inbox"]
+      },
+      index: storedIndex
+    });
+  });
+
+  it("provides an index backend that saves and clears index data without dropping settings", async () => {
+    const { store, saved } = createHarness({
+      settings: defaultSettings,
+      index: null
+    });
+    const backend = store.createIndexBackend();
+
+    await backend.save(storedIndex);
+    await expect(backend.load()).resolves.toEqual(storedIndex);
+    expect(saved()).toEqual({
+      settings: defaultSettings,
+      index: storedIndex
+    });
+
+    await backend.clear();
+    await expect(backend.load()).resolves.toBeNull();
+    expect(saved()).toEqual({
+      settings: defaultSettings,
+      index: null
+    });
+  });
+
+  it("supports the core persistent store without overwriting settings", async () => {
+    const { store, saved } = createHarness({
+      settings: {
+        ...defaultSettings,
+        excludedFolders: ["Archive"]
+      },
+      index: null
+    });
+    const persistentStore = await PersistentVaultseerStore.create(store.createIndexBackend());
+
+    await persistentStore.replaceNoteIndex(buildVaultSnapshot(noteInputs), "2026-04-29T21:45:00.000Z");
+
+    expect(saved()).toMatchObject({
+      settings: {
+        ...defaultSettings,
+        excludedFolders: ["Archive"]
+      },
+      index: {
+        schemaVersion: 1,
+        health: {
+          status: "ready",
+          lastIndexedAt: "2026-04-29T21:45:00.000Z",
+          noteCount: 1
+        }
+      }
+    });
+  });
+});

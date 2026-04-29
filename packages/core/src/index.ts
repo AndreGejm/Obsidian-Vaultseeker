@@ -1,6 +1,7 @@
 export { normalizeNoteRecord } from "./vault/normalize";
 export { buildVaultSnapshot } from "./vault/snapshot";
 export { InMemoryVaultseerStore } from "./storage/in-memory-store";
+export { PersistentVaultseerStore } from "./storage/persistent-store";
 export { INDEX_SCHEMA_VERSION } from "./storage/types";
 export { compareFileVersions } from "./storage/file-version-diff";
 export { buildRelationshipGraph } from "./relationships/graph";
@@ -26,6 +27,7 @@ export type {
   SuggestionEvidence,
   SuggestionRecord,
   VaultseerStore,
+  VaultseerStorageBackend,
   VectorRecord
 } from "./storage/types";
 export type { FileVersionDiff } from "./storage/file-version-diff";

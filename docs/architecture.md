@@ -35,7 +35,7 @@ No note write operations exist yet.
 
 ## Storage And Index Health
 
-The core package defines the storage contract before semantic search or suggestion writes exist. The first implementation is `InMemoryVaultseerStore`; it is deliberately replaceable by a later persistent backend.
+The core package defines the storage contract before semantic search or suggestion writes exist. The first implementations are `InMemoryVaultseerStore` for tests and transient runs, and `PersistentVaultseerStore` for plugin-backed persistence.
 
 Stored entity shapes are defined for:
 
@@ -48,7 +48,14 @@ Stored entity shapes are defined for:
 - suggestion decision records
 - index health metadata
 
-The plugin currently uses the in-memory store through `rebuildReadOnlyIndex` and `clearReadOnlyIndex`. Both commands return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
+The plugin uses `PersistentVaultseerStore` through an Obsidian data backend. Plugin settings and the stored index share the same Obsidian plugin data file through a wrapper shape:
+
+- `settings`: user-facing plugin settings.
+- `index`: the latest rebuildable Vaultseer index, or `null`.
+
+The data store also accepts the original root-level settings shape as a legacy input so early local installs can load settings without requiring manual cleanup.
+
+`rebuildReadOnlyIndex` and `clearReadOnlyIndex` return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
 The index health state model is explicit. Current statuses are:
 
@@ -63,7 +70,9 @@ The in-memory store preserves the last successful mirror when later indexing ent
 
 File-version staleness detection compares stored file versions with the current vault snapshot. Added, deleted, or content-changed files mark the mirror as `stale`; mtime-only changes do not. This keeps the mirror focused on note content changes rather than filesystem noise.
 
-Persistent IndexedDB or Obsidian-data storage should implement the same `VaultseerStore` contract rather than changing plugin command behavior.
+Persistent storage fails closed on unsupported schema versions. If a stored index has a schema version that does not match the current `INDEX_SCHEMA_VERSION`, Vaultseer opens with `error` health and an empty mirror instead of trusting incompatible data. The operator recovery path is clear index, then rebuild index.
+
+Future IndexedDB storage should implement the same `VaultseerStorageBackend` contract rather than changing plugin command behavior.
 
 ## Relationship Graph
 

@@ -1,17 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type VaultseerPlugin from "./main";
-
-export type VaultseerSettings = {
-  excludedFolders: string[];
-  semanticSearchEnabled: boolean;
-  embeddingEndpoint: string;
-};
-
-export const DEFAULT_SETTINGS: VaultseerSettings = {
-  excludedFolders: [".obsidian", "research"],
-  semanticSearchEnabled: false,
-  embeddingEndpoint: "http://localhost:11434"
-};
+export { DEFAULT_SETTINGS, type VaultseerSettings } from "./settings-model";
 
 export class VaultseerSettingTab extends PluginSettingTab {
   constructor(app: App, private readonly plugin: VaultseerPlugin) {
@@ -61,4 +50,3 @@ export class VaultseerSettingTab extends PluginSettingTab {
       );
   }
 }
-

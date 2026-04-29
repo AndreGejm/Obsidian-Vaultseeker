@@ -30,7 +30,7 @@ Goal: make Vaultseer a reliable read-only mirror of the vault.
 
 Implementation steps:
 
-- add persistent local index storage with schema versioning
+- add persistent local index storage with schema versioning (**implemented with Obsidian plugin data backend**)
 - add explicit index states: empty, indexing, ready, stale, degraded, error (**implemented for the store contract**)
 - detect file changes and mark affected index data stale (**implemented for file-version comparison and controller stale checks**)
 - add clear-index and rebuild-index recovery paths
