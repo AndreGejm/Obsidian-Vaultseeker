@@ -63,6 +63,7 @@ export type EmbeddingJobRecord = {
   createdAt: string;
   updatedAt: string;
   lastError: string | null;
+  nextAttemptAt: string | null;
 };
 
 export type SuggestionRecord = {

@@ -120,6 +120,14 @@ These guarantees apply only to planning. Vaultseer does not yet call an embeddin
 - Rebuilding the mirror resets vector records and embedding jobs so semantic state is replanned from the current chunk set.
 - Persistent store hydration tolerates older schema-version-compatible records that do not yet contain semantic arrays.
 
+## Phase 4 Queue Transition Guarantees
+
+- `claimEmbeddingJobs` only claims queued jobs whose `nextAttemptAt` is empty or due.
+- Claimed jobs move to `running` without calling an embedding provider.
+- Completed jobs move to `completed` and clear retry metadata.
+- Cancelled jobs move to `cancelled` and clear retry scheduling.
+- Failed jobs increment `attemptCount`; retryable failures return to `queued` with a future `nextAttemptAt`, and terminal failures move to `failed`.
+
 ## Not Yet Guaranteed
 
 - Semantic search.

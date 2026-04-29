@@ -186,4 +186,6 @@ This borrows Mimir's separation between embedding provider and vector index, whi
 
 The core store now persists vector records and embedding job records alongside the mirror. This makes planned semantic work reloadable across plugin restarts. Rebuilding or clearing the read-only mirror discards semantic records so stale vectors and jobs cannot silently survive a changed mirror.
 
+The queue module also owns pure job transitions: claim due queued jobs, complete a running job, cancel jobs, and record retryable or terminal failures with `nextAttemptAt` backoff. These helpers make the later background worker deterministic and testable before it exists.
+
 Current limitation: the queue is persisted but not executed. There is no Ollama adapter, no background worker, no cancellation UI, and no semantic search result blending yet.

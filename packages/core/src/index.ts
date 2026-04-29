@@ -7,7 +7,15 @@ export { compareFileVersions } from "./storage/file-version-diff";
 export { buildRelationshipGraph } from "./relationships/graph";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
 export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
-export { buildVectorNamespace, createEmbeddingJobId, planEmbeddingQueue } from "./semantic/embedding-queue";
+export {
+  buildVectorNamespace,
+  cancelEmbeddingJobs,
+  claimEmbeddingJobs,
+  completeEmbeddingJob,
+  createEmbeddingJobId,
+  failEmbeddingJob,
+  planEmbeddingQueue
+} from "./semantic/embedding-queue";
 export type {
   AdapterMetadata,
   HeadingInput,
@@ -42,5 +50,11 @@ export type {
   EmbeddingJobStatus,
   EmbeddingModelProfile,
   EmbeddingQueuePlan,
+  EmbeddingQueueTransitionResult,
+  ClaimEmbeddingJobsInput,
+  ClaimEmbeddingJobsResult,
+  CompleteEmbeddingJobInput,
+  CancelEmbeddingJobsInput,
+  FailEmbeddingJobInput,
   PlanEmbeddingQueueInput
 } from "./semantic/embedding-queue";

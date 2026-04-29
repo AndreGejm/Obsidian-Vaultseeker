@@ -159,7 +159,8 @@ describe("PersistentVaultseerStore", () => {
       attemptCount: 0,
       createdAt: "2026-04-29T21:06:00.000Z",
       updatedAt: "2026-04-29T21:06:00.000Z",
-      lastError: null
+      lastError: null,
+      nextAttemptAt: null
     };
 
     await store.replaceVectorRecords([vector]);

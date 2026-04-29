@@ -177,7 +177,8 @@ describe("InMemoryVaultseerStore", () => {
       attemptCount: 0,
       createdAt: "2026-04-29T19:06:00.000Z",
       updatedAt: "2026-04-29T19:06:00.000Z",
-      lastError: null
+      lastError: null,
+      nextAttemptAt: null
     };
 
     await expect(store.replaceVectorRecords([vector])).resolves.toMatchObject({ vectorCount: 1 });

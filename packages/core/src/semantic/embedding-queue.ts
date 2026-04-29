@@ -24,6 +24,42 @@ export type PlanEmbeddingQueueInput = {
   maxJobs?: number;
 };
 
+export type EmbeddingQueueTransitionResult = {
+  jobs: EmbeddingJobRecord[];
+  changedJobIds: string[];
+};
+
+export type ClaimEmbeddingJobsInput = {
+  jobs: EmbeddingJobRecord[];
+  now: string;
+  limit: number;
+};
+
+export type ClaimEmbeddingJobsResult = EmbeddingQueueTransitionResult & {
+  claimedJobIds: string[];
+};
+
+export type CompleteEmbeddingJobInput = {
+  jobs: EmbeddingJobRecord[];
+  jobId: string;
+  now: string;
+};
+
+export type CancelEmbeddingJobsInput = {
+  jobs: EmbeddingJobRecord[];
+  jobIds: string[];
+  now: string;
+};
+
+export type FailEmbeddingJobInput = {
+  jobs: EmbeddingJobRecord[];
+  jobId: string;
+  error: string;
+  now: string;
+  retryDelayMs: number;
+  maxAttempts: number;
+};
+
 export function buildVectorNamespace(profile: EmbeddingModelProfile): string {
   const providerId = profile.providerId.trim();
   const modelId = profile.modelId.trim();
@@ -81,7 +117,8 @@ export function planEmbeddingQueue(input: PlanEmbeddingQueueInput): EmbeddingQue
       attemptCount: 0,
       createdAt: input.createdAt,
       updatedAt: input.createdAt,
-      lastError: null
+      lastError: null,
+      nextAttemptAt: null
     });
   }
 
@@ -92,6 +129,69 @@ export function planEmbeddingQueue(input: PlanEmbeddingQueueInput): EmbeddingQue
     staleVectorCount,
     skippedByLimitCount
   };
+}
+
+export function claimEmbeddingJobs(input: ClaimEmbeddingJobsInput): ClaimEmbeddingJobsResult {
+  if (!Number.isInteger(input.limit) || input.limit < 1) {
+    return { jobs: cloneJobs(input.jobs), changedJobIds: [], claimedJobIds: [] };
+  }
+
+  const claimedJobIds: string[] = [];
+  const jobs = input.jobs.map((job) => {
+    if (claimedJobIds.length >= input.limit || !isClaimable(job, input.now)) return cloneJob(job);
+
+    claimedJobIds.push(job.id);
+    return {
+      ...cloneJob(job),
+      status: "running" as const,
+      updatedAt: input.now
+    };
+  });
+
+  return { jobs, changedJobIds: claimedJobIds, claimedJobIds };
+}
+
+export function completeEmbeddingJob(input: CompleteEmbeddingJobInput): EmbeddingQueueTransitionResult {
+  return updateOneJob(input.jobs, input.jobId, (job) => ({
+    ...job,
+    status: "completed",
+    updatedAt: input.now,
+    lastError: null,
+    nextAttemptAt: null
+  }));
+}
+
+export function cancelEmbeddingJobs(input: CancelEmbeddingJobsInput): EmbeddingQueueTransitionResult {
+  const idsToCancel = new Set(input.jobIds);
+  const changedJobIds: string[] = [];
+  const jobs = input.jobs.map((job) => {
+    if (!idsToCancel.has(job.id) || job.status === "completed" || job.status === "cancelled") return cloneJob(job);
+    changedJobIds.push(job.id);
+    return {
+      ...cloneJob(job),
+      status: "cancelled" as const,
+      updatedAt: input.now,
+      nextAttemptAt: null
+    };
+  });
+
+  return { jobs, changedJobIds };
+}
+
+export function failEmbeddingJob(input: FailEmbeddingJobInput): EmbeddingQueueTransitionResult {
+  return updateOneJob(input.jobs, input.jobId, (job) => {
+    const attemptCount = job.attemptCount + 1;
+    const retryable = attemptCount < input.maxAttempts;
+
+    return {
+      ...job,
+      status: retryable ? "queued" : "failed",
+      attemptCount,
+      updatedAt: input.now,
+      lastError: input.error,
+      nextAttemptAt: retryable ? addMilliseconds(input.now, input.retryDelayMs) : null
+    };
+  });
 }
 
 function groupVectorsByChunkId(vectors: VectorRecord[]): Map<string, VectorRecord[]> {
@@ -106,4 +206,35 @@ function groupVectorsByChunkId(vectors: VectorRecord[]): Map<string, VectorRecor
 
 function encodeJobIdSegment(value: string): string {
   return encodeURIComponent(value);
+}
+
+function updateOneJob(
+  jobs: EmbeddingJobRecord[],
+  jobId: string,
+  update: (job: EmbeddingJobRecord) => EmbeddingJobRecord
+): EmbeddingQueueTransitionResult {
+  let changed = false;
+  const nextJobs = jobs.map((job) => {
+    if (job.id !== jobId) return cloneJob(job);
+    changed = true;
+    return update(cloneJob(job));
+  });
+
+  return { jobs: nextJobs, changedJobIds: changed ? [jobId] : [] };
+}
+
+function isClaimable(job: EmbeddingJobRecord, now: string): boolean {
+  return job.status === "queued" && (!job.nextAttemptAt || Date.parse(job.nextAttemptAt) <= Date.parse(now));
+}
+
+function addMilliseconds(isoTimestamp: string, milliseconds: number): string {
+  return new Date(Date.parse(isoTimestamp) + Math.max(0, milliseconds)).toISOString();
+}
+
+function cloneJobs(jobs: EmbeddingJobRecord[]): EmbeddingJobRecord[] {
+  return jobs.map(cloneJob);
+}
+
+function cloneJob(job: EmbeddingJobRecord): EmbeddingJobRecord {
+  return { ...job };
 }
