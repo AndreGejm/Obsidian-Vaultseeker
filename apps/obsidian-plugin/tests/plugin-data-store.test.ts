@@ -6,7 +6,12 @@ import type { NoteRecordInput, StoredVaultIndex } from "@vaultseer/core";
 const defaultSettings = {
   excludedFolders: [".obsidian", "research"],
   semanticSearchEnabled: false,
-  embeddingEndpoint: "http://localhost:11434"
+  semanticIndexingEnabled: false,
+  embeddingEndpoint: "http://localhost:11434",
+  embeddingProviderId: "ollama",
+  embeddingModelId: "nomic-embed-text",
+  embeddingDimensions: 768,
+  embeddingBatchSize: 8
 };
 
 const storedIndex: StoredVaultIndex = {
@@ -16,6 +21,7 @@ const storedIndex: StoredVaultIndex = {
   chunks: [],
   lexicalIndex: [],
   vectors: [],
+  embeddingJobs: [],
   suggestions: [],
   decisions: [],
   health: {
@@ -66,7 +72,40 @@ describe("VaultseerPluginDataStore", () => {
     };
     const { store } = createHarness(legacySettings);
 
-    await expect(store.loadSettings()).resolves.toEqual(legacySettings);
+    await expect(store.loadSettings()).resolves.toEqual({
+      ...defaultSettings,
+      excludedFolders: ["Archive"],
+      semanticSearchEnabled: true,
+      embeddingEndpoint: "http://localhost:11435"
+    });
+  });
+
+  it("loads semantic indexing settings with safe defaults and numeric bounds", async () => {
+    const { store } = createHarness({
+      settings: {
+        excludedFolders: ["Archive"],
+        semanticSearchEnabled: true,
+        semanticIndexingEnabled: true,
+        embeddingEndpoint: "  http://localhost:11435  ",
+        embeddingProviderId: "  ollama  ",
+        embeddingModelId: "  custom-embed  ",
+        embeddingDimensions: 0,
+        embeddingBatchSize: 99
+      },
+      index: null
+    });
+
+    await expect(store.loadSettings()).resolves.toEqual({
+      ...defaultSettings,
+      excludedFolders: ["Archive"],
+      semanticSearchEnabled: true,
+      semanticIndexingEnabled: true,
+      embeddingEndpoint: "http://localhost:11435",
+      embeddingProviderId: "ollama",
+      embeddingModelId: "custom-embed",
+      embeddingDimensions: 768,
+      embeddingBatchSize: 32
+    });
   });
 
   it("saves settings without dropping the persisted index", async () => {

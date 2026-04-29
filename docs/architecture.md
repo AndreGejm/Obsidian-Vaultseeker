@@ -59,6 +59,8 @@ The plugin uses `PersistentVaultseerStore` through an Obsidian data backend. Plu
 
 The data store also accepts the original root-level settings shape as a legacy input so early local installs can load settings without requiring manual cleanup.
 
+Semantic indexing settings are explicit but disabled by default. The plugin stores `semanticIndexingEnabled`, embedding endpoint, provider id, model id, expected dimensions, and batch size. These settings do not call a provider by themselves; they only prepare the operator-controlled surface for a later adapter.
+
 `rebuildReadOnlyIndex` and `clearReadOnlyIndex` return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
 The plugin currently exposes five operator commands:
