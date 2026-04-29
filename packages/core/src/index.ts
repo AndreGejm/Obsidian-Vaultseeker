@@ -2,6 +2,7 @@ export { normalizeNoteRecord } from "./vault/normalize";
 export { buildVaultSnapshot } from "./vault/snapshot";
 export { InMemoryVaultseerStore } from "./storage/in-memory-store";
 export { INDEX_SCHEMA_VERSION } from "./storage/types";
+export { buildRelationshipGraph } from "./relationships/graph";
 export type {
   AdapterMetadata,
   HeadingInput,
@@ -26,3 +27,4 @@ export type {
   VaultseerStore,
   VectorRecord
 } from "./storage/types";
+export type { RelationshipGraph, ResolvedLink, TagCoOccurrence, TagStat } from "./relationships/types";

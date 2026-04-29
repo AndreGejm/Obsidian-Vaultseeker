@@ -45,3 +45,26 @@ Stored entity shapes are defined for:
 The plugin currently uses the in-memory store through `rebuildReadOnlyIndex` and `clearReadOnlyIndex`. Both commands return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
 Persistent IndexedDB or Obsidian-data storage should implement the same `VaultseerStore` contract rather than changing plugin command behavior.
+
+## Relationship Graph
+
+The relationship graph is a read-only model built from a `VaultSnapshot`. It does not parse files and it does not mutate notes.
+
+The graph currently contains:
+
+- resolved internal links by source note path
+- unresolved internal links by source note path
+- backlinks by target note path
+- tag statistics, including co-occurring tags
+- orphan notes with no resolved outgoing links and no backlinks
+- weakly connected notes with no resolved outgoing links and no backlinks
+
+Tags are descriptive metadata, not proof that a note is connected to the vault's note network. A note with tags but no incoming or outgoing note links is still treated as weakly connected.
+
+Internal link resolution is deterministic and intentionally conservative:
+
+- exact note path
+- note path without `.md`
+- note basename
+
+If multiple notes share the same basename, the first normalized note path wins. A later sprint can add ambiguity reporting before exposing automatic link suggestions.
