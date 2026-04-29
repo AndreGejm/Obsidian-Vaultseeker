@@ -1,0 +1,11 @@
+{
+  "id": "vaultseer",
+  "name": "Vaultseer",
+  "version": "0.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Reading, search, and vault gardening workbench for Obsidian.",
+  "author": "Vaultseer",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}
+

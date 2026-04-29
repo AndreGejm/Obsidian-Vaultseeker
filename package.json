@@ -1,0 +1,21 @@
+{
+  "name": "obsidian-vaultseer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Obsidian-native reading, search, and vault gardening workbench.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "packageManager": "pnpm@10.7.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "pnpm typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.0"
+  }
+}
+
