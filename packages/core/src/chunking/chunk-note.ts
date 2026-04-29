@@ -1,6 +1,7 @@
 import type { ChunkRecord } from "../storage/types";
 import type { NoteRecordInput, NormalizedHeading } from "../types";
 import { normalizeNoteRecord } from "../vault/normalize";
+import { createStableChunkId, hashString, normalizeTextForHash, partitionIntoBlocks } from "./text-chunking";
 
 export type ChunkingOptions = {
   includeEmptySections?: boolean;
@@ -87,58 +88,6 @@ function clampLine(line: number, lineCount: number): number {
   return Math.max(0, Math.min(line, lineCount));
 }
 
-function partitionIntoBlocks(lines: string[]): string[] {
-  const blocks: string[] = [];
-  let currentLines: string[] = [];
-  let inCodeFence = false;
-
-  const flush = (): void => {
-    const value = currentLines.join("\n").trim();
-    if (value) {
-      blocks.push(value);
-    }
-    currentLines = [];
-  };
-
-  for (const line of lines) {
-    if (/^\s*```/.test(line)) {
-      inCodeFence = !inCodeFence;
-      currentLines.push(line);
-      continue;
-    }
-
-    if (!inCodeFence && line.trim() === "") {
-      flush();
-      continue;
-    }
-
-    currentLines.push(line);
-  }
-
-  flush();
-  return blocks;
-}
-
 function createChunkId(ordinalKey: string, ordinal: number): string {
-  return `chunk:${hashString(ordinal === 0 ? ordinalKey : `${ordinalKey}\n${ordinal}`)}`;
-}
-
-function normalizeTextForHash(text: string): string {
-  return text
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .map((line) => line.trimEnd())
-    .join("\n")
-    .trim();
-}
-
-function hashString(value: string): string {
-  let hash = 0x811c9dc5;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-
-  return (hash >>> 0).toString(16).padStart(8, "0");
+  return createStableChunkId("chunk", ordinalKey, ordinal);
 }

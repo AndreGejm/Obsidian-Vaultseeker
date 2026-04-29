@@ -7,6 +7,7 @@ export { compareFileVersions } from "./storage/file-version-diff";
 export { buildRelationshipGraph } from "./relationships/graph";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
 export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
+export { chunkSourceRecord, chunkSourceRecords } from "./source/chunk-source";
 export {
   buildVectorNamespace,
   cancelEmbeddingJobs,
@@ -47,6 +48,7 @@ export type {
 export type { FileVersionDiff } from "./storage/file-version-diff";
 export type { RelationshipGraph, ResolvedLink, TagCoOccurrence, TagStat } from "./relationships/types";
 export type { ChunkingOptions } from "./chunking/chunk-note";
+export type { SourceChunkingOptions } from "./source/chunk-source";
 export type { LexicalMatchedChunk, LexicalMatchedField, LexicalSearchInput, LexicalSearchResult } from "./search/lexical-search";
 export type {
   EmbeddingJobRecord,

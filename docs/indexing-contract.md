@@ -172,6 +172,18 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Clearing Vaultseer's full local state clears source workspaces together with notes, chunks, vectors, jobs, suggestions, and decisions.
 - No source workspace API writes a final Obsidian note.
 
+## Phase 4.5 Source Chunking Guarantees
+
+- Source chunking is read-only and operates only on stored `SourceRecord` values.
+- Failed source workspaces are not chunked.
+- Source chunks use the `source-chunk:` ID namespace, not the vault note `chunk:` namespace.
+- Source sections come from headings in extracted Markdown because external source files do not have Obsidian metadata cache heading records.
+- Notes and sources use the same shared block splitting, text normalization, and hash helpers.
+- Blank lines split normal prose blocks.
+- Fenced code blocks are preserved as one source chunk.
+- Unchanged extracted blocks keep stable source chunk IDs when nearby blocks are inserted.
+- Duplicate blocks under the same source and section path receive different IDs through a collision ordinal.
+
 ## Not Yet Guaranteed
 
 - Automatic persisted embedding queue execution.

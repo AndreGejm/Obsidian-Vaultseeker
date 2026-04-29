@@ -224,6 +224,8 @@ This borrows Mimir's import boundary: external source material is evidence, not 
 - `SourceRecord`: normalized extracted source metadata and extracted Markdown.
 - `SourceChunkRecord`: source-owned chunks with source provenance, separate from vault `ChunkRecord` values.
 
+`packages/core/src/source/chunk-source.ts` derives `SourceChunkRecord` values from extracted Markdown. It uses the same shared block splitting, text normalization, and stable hash helpers as vault note chunking, but keeps source chunks in the `source-chunk:` ID namespace. Source headings come from extracted Markdown because external sources do not have Obsidian metadata cache entries. Fenced code blocks stay intact, unchanged source blocks keep stable IDs across nearby edits, and duplicate blocks in the same source section use an ordinal only as a collision breaker.
+
 `VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
 
 Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source lexical search, attachment staging directory, cancellation controller, or source-to-note proposal path exists yet.
