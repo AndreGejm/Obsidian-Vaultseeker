@@ -61,11 +61,12 @@ The data store also accepts the original root-level settings shape as a legacy i
 
 `rebuildReadOnlyIndex` and `clearReadOnlyIndex` return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
-The plugin currently exposes three operator commands:
+The plugin currently exposes four operator commands:
 
 - `Vaultseer: Rebuild read-only vault index`
 - `Vaultseer: Clear read-only vault index`
 - `Vaultseer: Check read-only vault index health`
+- `Vaultseer: Search read-only vault index`
 
 The health command checks file-version staleness before showing a status notice, so the operator can see whether the current mirror is empty, ready, stale, degraded, or failed.
 
@@ -142,4 +143,16 @@ Vaultseer keeps the smaller personal-vault version:
 - matching is case-insensitive and diacritic-insensitive.
 - nested tags are searchable by full tag path and component terms.
 
-The plugin rebuild path persists lexical records through `VaultseerStore`. Current limitation: there is no Obsidian search UI yet. The next Phase 2/3 slice should expose read-only search from the persisted mirror before adding semantic search.
+The plugin rebuild path persists lexical records through `VaultseerStore`.
+
+The Obsidian command `Vaultseer: Search read-only vault index` opens a modal backed by the persisted mirror. The modal:
+
+- checks index freshness before opening when possible;
+- blocks search when the mirror is empty, indexing, or failed;
+- keeps stale and degraded mirrors searchable with an operator-facing warning;
+- renders title, path, match reason, and a short excerpt;
+- opens selected notes through Obsidian without mutating files.
+
+The modal is intentionally thin. `search-modal-state.ts` owns the presentable state and messages, while `search-modal.ts` only renders it. This keeps search behavior testable outside Obsidian UI runtime.
+
+Current limitation: there is no docked workbench panel yet. The next Phase 3 slice should expose current-note relationships and search results in a persistent read-only view before adding semantic search or gardening suggestions.

@@ -52,7 +52,7 @@ Exit gate:
 
 ## Phase 2: Chunking And Lexical Search
 
-Status: in progress. Core chunk derivation, persisted chunk storage, and core lexical search are implemented; the Obsidian UI search surface is not implemented yet.
+Status: implemented for the first read-only search surface. Core chunk derivation, persisted chunk storage, core lexical search, and the Obsidian search command are implemented.
 
 Goal: search useful pieces of notes without relying on embeddings.
 
@@ -69,7 +69,7 @@ Implementation steps:
 - store chunk records in the index store (**implemented for read-only rebuilds**)
 - build a lexical search index over titles, aliases, headings, tags, and chunk text (**implemented in core and persisted by rebuilds**)
 - return explainable search results with matched fields (**implemented in core**)
-- keep search read-only
+- keep search read-only (**implemented by the modal search command**)
 
 Exit gate:
 
@@ -79,6 +79,8 @@ Exit gate:
 - chunk index can be rebuilt from notes
 
 ## Phase 3: Read-Only Workbench Panel
+
+Status: not started. A modal search command exists, but the docked workbench panel does not.
 
 Goal: make the plugin useful without allowing writes.
 

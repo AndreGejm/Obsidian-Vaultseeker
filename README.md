@@ -16,6 +16,7 @@ Markdown notes remain the source of truth. Generated indexes are disposable and 
 - `Vaultseer: Rebuild read-only vault index`
 - `Vaultseer: Clear read-only vault index`
 - `Vaultseer: Check read-only vault index health`
+- `Vaultseer: Search read-only vault index`
 
 ## Design Documents
 

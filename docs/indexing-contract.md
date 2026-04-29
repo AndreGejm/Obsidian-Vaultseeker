@@ -100,11 +100,11 @@ These guarantees apply to `chunkNoteInput`, `chunkVaultInputs`, and the read-onl
 - Results include matched terms, matched fields, and matched chunks so callers can explain why a note appeared.
 - Current scoring is deterministic field weighting: title, alias, tag, heading, then body.
 
-These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plugin rebuild path persists lexical records, but the Obsidian control surface does not yet expose a search field.
+These guarantees apply to `buildLexicalIndex` and `searchLexicalIndex`. The plugin rebuild path persists lexical records, and `Vaultseer: Search read-only vault index` exposes a modal search field over the persisted mirror.
 
 ## Not Yet Guaranteed
 
-- Obsidian UI search field.
+- Docked Obsidian workbench panel.
 - Semantic search.
 - Dataview-compatible querying.
 - Metadata Menu schema validation.

@@ -5,6 +5,7 @@ import { readVaultNoteInputs, type VaultReaderApp } from "./obsidian-adapter";
 import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from "./settings";
 import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
+import { VaultseerSearchModal } from "./search-modal";
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
@@ -42,6 +43,14 @@ export default class VaultseerPlugin extends Plugin {
         await this.showIndexHealth();
       }
     });
+
+    this.addCommand({
+      id: "search-index",
+      name: "Search read-only vault index",
+      callback: async () => {
+        await this.showSearch();
+      }
+    });
   }
 
   async saveSettings(): Promise<void> {
@@ -70,6 +79,22 @@ export default class VaultseerPlugin extends Plugin {
       excludedFolders: this.settings.excludedFolders
     });
     new Notice(formatIndexHealthNotice(this.health));
+  }
+
+  async showSearch(): Promise<void> {
+    try {
+      this.health = await checkReadOnlyIndexStaleness({
+        readNoteInputs: () => readVaultNoteInputs(this.app as unknown as VaultReaderApp),
+        store: this.store,
+        excludedFolders: this.settings.excludedFolders
+      });
+    } catch {
+      new Notice("Vaultseer could not check index freshness before search.");
+    }
+
+    new VaultseerSearchModal(this.app, this.store, async (path) => {
+      await this.app.workspace.openLinkText(path, "", false);
+    }).open();
   }
 
   getHealth(): IndexHealth | null {
