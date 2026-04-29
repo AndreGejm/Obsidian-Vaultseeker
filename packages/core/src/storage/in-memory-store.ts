@@ -16,8 +16,10 @@ import {
   createReadyStoredVaultIndex,
   updateStoredVaultIndexEmbeddingJobs,
   updateStoredVaultIndexHealth,
+  updateStoredVaultIndexSourceWorkspace,
   updateStoredVaultIndexVectors
 } from "./store-state";
+import type { SourceChunkRecord, SourceRecord } from "../source/types";
 
 export class InMemoryVaultseerStore implements VaultseerStore {
   private state: StoredVaultIndex = createEmptyStoredVaultIndex();
@@ -33,7 +35,16 @@ export class InMemoryVaultseerStore implements VaultseerStore {
     chunks: ChunkRecord[] = [],
     lexicalIndex: LexicalIndexRecord[] = []
   ): Promise<IndexHealth> {
-    this.state = createReadyStoredVaultIndex(snapshot, indexedAt, chunks, lexicalIndex);
+    this.state = createReadyStoredVaultIndex(
+      snapshot,
+      indexedAt,
+      chunks,
+      lexicalIndex,
+      [],
+      [],
+      this.state.sourceRecords,
+      this.state.sourceChunks
+    );
     return cloneHealth(this.state);
   }
 
@@ -84,6 +95,19 @@ export class InMemoryVaultseerStore implements VaultseerStore {
 
   async getEmbeddingJobRecords(): Promise<EmbeddingJobRecord[]> {
     return cloneStoredValue(this.state.embeddingJobs);
+  }
+
+  async replaceSourceWorkspace(sources: SourceRecord[], chunks: SourceChunkRecord[]): Promise<SourceRecord[]> {
+    this.state = updateStoredVaultIndexSourceWorkspace(this.state, sources, chunks);
+    return cloneStoredValue(this.state.sourceRecords);
+  }
+
+  async getSourceRecords(): Promise<SourceRecord[]> {
+    return cloneStoredValue(this.state.sourceRecords);
+  }
+
+  async getSourceChunkRecords(): Promise<SourceChunkRecord[]> {
+    return cloneStoredValue(this.state.sourceChunks);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {

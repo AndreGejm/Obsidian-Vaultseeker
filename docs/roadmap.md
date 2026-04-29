@@ -111,8 +111,8 @@ Implementation steps:
 - store model metadata and vector dimensions (**implemented for planning profile and vector namespace**)
 - namespace vectors by provider and model (**implemented as provider/model:dimensions namespace**)
 - enforce max batch size and backoff (**planner limit and retry `nextAttemptAt` are implemented; worker backoff loop is not implemented yet**)
-- keep lexical search as fallback
-- mark semantic search degraded when provider calls fail
+- keep lexical search as fallback (**implemented in the search modal merge path**)
+- mark semantic search degraded when provider calls fail (**implemented in the semantic query controller and modal state**)
 
 Next implementation steps:
 
@@ -136,6 +136,8 @@ Exit gate:
 
 ## Phase 4.5: High-Fidelity Source Intake
 
+Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, and source preservation across vault mirror rebuilds are implemented. No extractor adapter, source preview UI, source search, attachment staging, or source-to-note proposal path exists yet.
+
 Goal: turn external source files into searchable, reviewable source workspaces before any Obsidian note is written.
 
 This phase is intentionally separate from guarded writes. Imported sources are evidence, not notes. Vaultseer should extract, preserve provenance, chunk, search, and preview source material first. A reviewed source can later become a proposed Obsidian note through the guarded write path.
@@ -148,13 +150,13 @@ Extractor order:
 
 Implementation steps:
 
-- define a `SourceExtractorPort` with explicit supported file types, dependencies, and failure modes
-- define normalized source records separate from Obsidian note records
-- store original source metadata: path, filename, extension, size, content hash, import time, extractor name, extractor version, and extraction options
-- store extracted Markdown separately from the final Obsidian note proposal
+- define a `SourceExtractorPort` with explicit supported file types, dependencies, and failure modes (**implemented as a core contract only**)
+- define normalized source records separate from Obsidian note records (**implemented in core storage types**)
+- store original source metadata: path, filename, extension, size, content hash, import time, extractor name, extractor version, and extraction options (**implemented in `SourceRecord`**)
+- store extracted Markdown separately from the final Obsidian note proposal (**implemented as source workspace data, not as a vault note**)
 - store extracted images and attachments in a staging area before any vault write
-- preserve source provenance at page, section, image, table, and line level when the extractor provides it
-- chunk extracted source content using the same stable chunking principles as vault notes, but keep source chunk IDs in a separate namespace
+- preserve source provenance at page, section, image, table, and line level when the extractor provides it (**implemented in the source record/chunk shapes; extractor support remains future work**)
+- chunk extracted source content using the same stable chunking principles as vault notes, but keep source chunk IDs in a separate namespace (**storage shape implemented; chunking algorithm remains future work**)
 - support lexical search over extracted sources without embeddings
 - support semantic indexing of extracted source chunks when semantic search is enabled
 - expose a source preview panel with extracted text, images, tables, diagnostics, and searchable chunks

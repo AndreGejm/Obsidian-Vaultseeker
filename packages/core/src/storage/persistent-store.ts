@@ -19,8 +19,10 @@ import {
   createReadyStoredVaultIndex,
   updateStoredVaultIndexEmbeddingJobs,
   updateStoredVaultIndexHealth,
+  updateStoredVaultIndexSourceWorkspace,
   updateStoredVaultIndexVectors
 } from "./store-state";
+import type { SourceChunkRecord, SourceRecord } from "../source/types";
 
 export class PersistentVaultseerStore implements VaultseerStore {
   private constructor(
@@ -46,7 +48,16 @@ export class PersistentVaultseerStore implements VaultseerStore {
     chunks: ChunkRecord[] = [],
     lexicalIndex: LexicalIndexRecord[] = []
   ): Promise<IndexHealth> {
-    this.state = createReadyStoredVaultIndex(snapshot, indexedAt, chunks, lexicalIndex);
+    this.state = createReadyStoredVaultIndex(
+      snapshot,
+      indexedAt,
+      chunks,
+      lexicalIndex,
+      [],
+      [],
+      this.state.sourceRecords,
+      this.state.sourceChunks
+    );
     await this.persist();
     return cloneHealth(this.state);
   }
@@ -105,6 +116,20 @@ export class PersistentVaultseerStore implements VaultseerStore {
     return cloneStoredValue(this.state.embeddingJobs);
   }
 
+  async replaceSourceWorkspace(sources: SourceRecord[], chunks: SourceChunkRecord[]): Promise<SourceRecord[]> {
+    this.state = updateStoredVaultIndexSourceWorkspace(this.state, sources, chunks);
+    await this.persist();
+    return cloneStoredValue(this.state.sourceRecords);
+  }
+
+  async getSourceRecords(): Promise<SourceRecord[]> {
+    return cloneStoredValue(this.state.sourceRecords);
+  }
+
+  async getSourceChunkRecords(): Promise<SourceChunkRecord[]> {
+    return cloneStoredValue(this.state.sourceChunks);
+  }
+
   async getFileVersions(): Promise<FileVersionRecord[]> {
     return cloneStoredValue(this.state.fileVersions);
   }
@@ -129,6 +154,8 @@ function hydrateStoredVaultIndex(value: StoredVaultIndex | null): StoredVaultInd
     ...cloneStoredValue(value),
     vectors: cloneStoredValue(value.vectors ?? []),
     embeddingJobs: cloneStoredValue(value.embeddingJobs ?? []),
+    sourceRecords: cloneStoredValue(value.sourceRecords ?? []),
+    sourceChunks: cloneStoredValue(value.sourceChunks ?? []),
     suggestions: cloneStoredValue(value.suggestions ?? []),
     decisions: cloneStoredValue(value.decisions ?? [])
   };

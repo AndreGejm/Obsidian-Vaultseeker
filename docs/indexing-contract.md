@@ -57,7 +57,7 @@ Chunk IDs are created from note path, heading path, normalized block text hash, 
 | Dataview inline fields | Preserved only as content/frontmatter if provided by adapter | Query semantics belong to Dataview |
 | Metadata Menu field schemas | Preserved as frontmatter values | Field schema enforcement is a later suggestion feature |
 | Task state | Preserved as content only | Task indexing is not part of Phase 1 |
-| Embedded files/PDFs/images | Not indexed | Markdown notes are the current boundary |
+| Embedded files/PDFs/images inside notes | Not indexed as vault note content | Markdown notes are the current mirror boundary |
 | `.obsidian` folder | Excluded by default settings | Plugin config is not personal note content |
 | `research` folder | Excluded by default settings | Local cloned references should not become personal notes |
 | Operator-configured excluded folders | Skipped by plugin controller | Supports archives and private scratch spaces |
@@ -160,12 +160,32 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - If semantic search degrades, lexical search results remain visible and the degraded message is shown.
 - Duplicate lexical and semantic hits for the same note become one hybrid row with combined evidence.
 
+## Phase 4.5 Source Workspace Storage Guarantees
+
+- Source workspaces are not Obsidian notes.
+- Source records are stored separately from note records.
+- Source chunks are stored separately from vault note chunks.
+- `SourceExtractorPort` describes extractor capabilities, dependency checks, and explicit failure modes before any Marker or MarkItDown adapter exists.
+- Source records preserve original source metadata: path, filename, extension, size, content hash, import time, extractor identity, extractor version, extraction options, diagnostics, extracted Markdown, and staged attachment metadata.
+- Source chunks preserve source provenance such as page, section, line range, or unknown provenance.
+- Rebuilding the vault note mirror preserves source records and source chunks.
+- Clearing Vaultseer's full local state clears source workspaces together with notes, chunks, vectors, jobs, suggestions, and decisions.
+- No source workspace API writes a final Obsidian note.
+
 ## Not Yet Guaranteed
 
 - Automatic persisted embedding queue execution.
 - Automatic background scheduling.
 - Embedding providers other than the first Ollama-compatible adapter.
 - Vector preservation across mirror rebuilds.
+- Marker PDF extraction.
+- MarkItDown broad file extraction.
+- Built-in text/code source extraction.
+- Source lexical search.
+- Source semantic indexing.
+- Source preview UI.
+- Staged attachment persistence outside the stored metadata shape.
+- Source-to-note proposal creation.
 - Dataview-compatible querying.
 - Metadata Menu schema validation.
 - Task indexing.

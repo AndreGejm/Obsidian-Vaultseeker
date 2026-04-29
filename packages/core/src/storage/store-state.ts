@@ -10,6 +10,7 @@ import {
   type StoredVaultIndex,
   type VectorRecord
 } from "./types";
+import type { SourceChunkRecord, SourceRecord } from "../source/types";
 
 export function createEmptyStoredVaultIndex(): StoredVaultIndex {
   return {
@@ -20,6 +21,8 @@ export function createEmptyStoredVaultIndex(): StoredVaultIndex {
     lexicalIndex: [],
     vectors: [],
     embeddingJobs: [],
+    sourceRecords: [],
+    sourceChunks: [],
     suggestions: [],
     decisions: [],
     health: {
@@ -42,7 +45,9 @@ export function createReadyStoredVaultIndex(
   chunkRecords: ChunkRecord[] = [],
   lexicalIndexRecords: LexicalIndexRecord[] = [],
   vectorRecords: VectorRecord[] = [],
-  embeddingJobRecords: EmbeddingJobRecord[] = []
+  embeddingJobRecords: EmbeddingJobRecord[] = [],
+  sourceRecords: SourceRecord[] = [],
+  sourceChunkRecords: SourceChunkRecord[] = []
 ): StoredVaultIndex {
   const notes = cloneStoredValue(snapshot.notes);
   const chunks = cloneStoredValue(chunkRecords);
@@ -57,6 +62,8 @@ export function createReadyStoredVaultIndex(
     lexicalIndex,
     vectors,
     embeddingJobs: cloneStoredValue(embeddingJobRecords),
+    sourceRecords: cloneStoredValue(sourceRecords),
+    sourceChunks: cloneStoredValue(sourceChunkRecords),
     suggestions: [],
     decisions: [],
     health: {
@@ -97,6 +104,18 @@ export function updateStoredVaultIndexEmbeddingJobs(
   return {
     ...state,
     embeddingJobs: cloneStoredValue(embeddingJobs)
+  };
+}
+
+export function updateStoredVaultIndexSourceWorkspace(
+  state: StoredVaultIndex,
+  sourceRecords: SourceRecord[],
+  sourceChunkRecords: SourceChunkRecord[]
+): StoredVaultIndex {
+  return {
+    ...state,
+    sourceRecords: cloneStoredValue(sourceRecords),
+    sourceChunks: cloneStoredValue(sourceChunkRecords)
   };
 }
 

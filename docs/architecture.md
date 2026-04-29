@@ -48,6 +48,8 @@ Stored entity shapes are defined for:
 - chunk records
 - lexical index records
 - vector records
+- source records
+- source chunk records
 - suggestion records
 - suggestion decision records
 - index health metadata
@@ -206,3 +208,22 @@ The search modal now uses `buildSearchModalQueryState` to merge semantic evidenc
 On plugin startup, Vaultseer recovers semantic jobs left in `running` state by a previous interrupted session. Those jobs are requeued with a recovery diagnostic so the next explicit batch can retry them.
 
 Current limitation: the queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler yet.
+
+## Source Intake Foundation
+
+The first Phase 4.5 slice adds core contracts for source workspaces without adding any extractor process, UI, or note writes.
+
+This borrows Mimir's import boundary: external source material is evidence, not canonical memory and not an Obsidian note. Vaultseer applies the same idea to personal vault work. A source workspace can hold extracted Markdown, diagnostics, attachments, and chunk provenance before any guarded write proposal exists.
+
+`packages/core/src/source/types.ts` defines:
+
+- `SourceExtractorPort`: the future adapter boundary for Marker, MarkItDown, and built-in text/code extractors.
+- `SourceExtractorCapability`: supported file extensions, MIME types, external-process requirements, and whether the extractor preserves images or tables.
+- `SourceExtractorDependency`: dependency checks such as external commands, services, Python packages, or libraries.
+- `SourceExtractorFailureMode`: explicit failure categories for missing dependencies, unsupported files, read failures, extraction failures, and cancellation.
+- `SourceRecord`: normalized extracted source metadata and extracted Markdown.
+- `SourceChunkRecord`: source-owned chunks with source provenance, separate from vault `ChunkRecord` values.
+
+`VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
+
+Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source lexical search, attachment staging directory, cancellation controller, or source-to-note proposal path exists yet.

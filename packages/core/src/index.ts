@@ -72,3 +72,18 @@ export type {
   SemanticSearchInput,
   SemanticSearchResult
 } from "./semantic/semantic-search";
+export type {
+  SourceAttachmentRecord,
+  SourceChunkRecord,
+  SourceExtractionDiagnostic,
+  SourceExtractionInput,
+  SourceExtractionResult,
+  SourceExtractorCapability,
+  SourceExtractorDependency,
+  SourceExtractorFailureMode,
+  SourceExtractorIdentity,
+  SourceExtractorPort,
+  SourceProvenance,
+  SourceRecord,
+  SourceWorkspaceStatus
+} from "./source/types";
