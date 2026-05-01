@@ -179,7 +179,7 @@ Exit gate:
 
 ## Phase 5: Read-Only Suggestions
 
-Status: started. Read-only tag suggestions, broken-link target suggestions, narrow note sanity checks, semantic related notes, deterministic source-to-note seed proposals, persisted suggestion records, and separate current decision records are implemented in core. Source proposal suggestions are persisted from the source preview. Suggestions and diagnostics are evidence-bearing and cannot mutate notes.
+Status: started. Read-only tag suggestions, broken-link target suggestions, narrow note sanity checks, semantic related notes, deterministic source-to-note seed proposals, persisted suggestion records, and separate current decision records are implemented in core. Source proposal suggestions are persisted from the source preview. Suggestion records and suggestion decisions survive read-only mirror rebuilds. Suggestions and diagnostics are evidence-bearing and cannot mutate notes.
 
 Goal: produce explainable gardening suggestions without applying them.
 
@@ -200,7 +200,7 @@ Exit gate:
 
 ## Phase 6: Guarded Write Actions
 
-Status: started. Core now has the first guarded-write contract for source-to-note creation: a source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. The plugin source preview also exposes a dry-run review modal for that proposed operation. No Obsidian write adapter, apply command, or note mutation exists yet.
+Status: started. Core now has the first guarded-write contract for source-to-note creation: a source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. Proposed write operations and write decisions are persisted separately from suggestions and survive read-only mirror rebuilds. The plugin source preview stores the generated source-note operation and exposes a dry-run review modal for that proposed operation. No Obsidian write adapter, apply command, write result store, or note mutation exists yet.
 
 Goal: allow explicit, safe changes after preview.
 
@@ -211,7 +211,7 @@ Implementation steps:
 - create proposed operations for source-to-note creation after source intake review (**implemented in core as `planSourceNoteCreationOperation`**)
 - generate preview diffs (**implemented for source note creation as an added-file diff**)
 - verify current file hash before apply (**implemented as `evaluateVaultWritePrecondition`; plugin apply wiring remains future work**)
-- record decisions and write results (**approval/defer/reject decision record shape is implemented; persistence and apply-result storage remain future work**)
+- record decisions and write results (**approval/defer/reject decision records are implemented and persisted; apply-result storage remains future work**)
 - expose a dry-run review surface before any apply path (**implemented from the source preview as a read-only operation/diff/safety modal**)
 - reject stale operations when the file changed since analysis
 

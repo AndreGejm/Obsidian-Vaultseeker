@@ -16,6 +16,8 @@ export {
 export {
   createVaultWriteDecisionRecord,
   evaluateVaultWritePrecondition,
+  mergeVaultWriteOperations,
+  upsertVaultWriteDecisionRecord,
   planSourceNoteCreationOperation
 } from "./writes/guarded-write";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";

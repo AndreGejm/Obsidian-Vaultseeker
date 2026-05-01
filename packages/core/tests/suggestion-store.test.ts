@@ -76,6 +76,31 @@ describe("suggestion storage", () => {
     await expect(reloaded.getSuggestionRecords()).resolves.toEqual(suggestions);
     await expect(reloaded.getDecisionRecords()).resolves.toEqual([decision]);
   });
+
+  it("preserves suggestions and decisions across note mirror rebuilds", async () => {
+    const store = new InMemoryVaultseerStore();
+    const suggestion = suggestionRecord({ id: "suggestion:survives-rebuild" });
+    const decision: DecisionRecord = {
+      suggestionId: suggestion.id,
+      decision: "deferred",
+      decidedAt: "2026-05-01T14:00:00.000Z"
+    };
+
+    await store.replaceSuggestionRecords([suggestion]);
+    await store.recordSuggestionDecision(decision);
+    await store.replaceNoteIndex(
+      {
+        notes: [],
+        notesByPath: {},
+        notePathsByTag: {},
+        outgoingLinksByPath: {}
+      },
+      "2026-05-01T14:30:00.000Z"
+    );
+
+    await expect(store.getSuggestionRecords()).resolves.toEqual([suggestion]);
+    await expect(store.getDecisionRecords()).resolves.toEqual([decision]);
+  });
 });
 
 function suggestionRecord(overrides: Partial<SuggestionRecord>): SuggestionRecord {

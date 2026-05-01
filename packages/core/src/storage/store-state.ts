@@ -14,6 +14,7 @@ import {
 } from "./types";
 import type { SourceChunkRecord, SourceRecord } from "../source/types";
 import type { SourceExtractionJobRecord } from "../source/types";
+import type { GuardedVaultWriteOperation, VaultWriteDecisionRecord } from "../writes/guarded-write";
 
 export function createEmptyStoredVaultIndex(): StoredVaultIndex {
   return {
@@ -29,6 +30,8 @@ export function createEmptyStoredVaultIndex(): StoredVaultIndex {
     sourceExtractionJobs: [],
     suggestions: [],
     decisions: [],
+    writeOperations: [],
+    writeDecisions: [],
     health: {
       schemaVersion: INDEX_SCHEMA_VERSION,
       status: "empty",
@@ -52,12 +55,17 @@ export function createReadyStoredVaultIndex(
   embeddingJobRecords: EmbeddingJobRecord[] = [],
   sourceRecords: SourceRecord[] = [],
   sourceChunkRecords: SourceChunkRecord[] = [],
-  sourceExtractionJobRecords: SourceExtractionJobRecord[] = []
+  sourceExtractionJobRecords: SourceExtractionJobRecord[] = [],
+  suggestionRecords: SuggestionRecord[] = [],
+  decisionRecords: DecisionRecord[] = [],
+  writeOperationRecords: GuardedVaultWriteOperation[] = [],
+  writeDecisionRecords: VaultWriteDecisionRecord[] = []
 ): StoredVaultIndex {
   const notes = cloneStoredValue(snapshot.notes);
   const chunks = cloneStoredValue(chunkRecords);
   const lexicalIndex = cloneStoredValue(lexicalIndexRecords);
   const vectors = cloneStoredValue(vectorRecords);
+  const suggestions = cloneStoredValue(suggestionRecords);
 
   return {
     schemaVersion: INDEX_SCHEMA_VERSION,
@@ -70,8 +78,10 @@ export function createReadyStoredVaultIndex(
     sourceRecords: cloneStoredValue(sourceRecords),
     sourceChunks: cloneStoredValue(sourceChunkRecords),
     sourceExtractionJobs: cloneStoredValue(sourceExtractionJobRecords),
-    suggestions: [],
-    decisions: [],
+    suggestions,
+    decisions: cloneStoredValue(decisionRecords),
+    writeOperations: cloneStoredValue(writeOperationRecords),
+    writeDecisions: cloneStoredValue(writeDecisionRecords),
     health: {
       schemaVersion: INDEX_SCHEMA_VERSION,
       status: "ready",
@@ -80,7 +90,7 @@ export function createReadyStoredVaultIndex(
       noteCount: notes.length,
       chunkCount: chunks.length,
       vectorCount: vectors.length,
-      suggestionCount: 0,
+      suggestionCount: suggestions.length,
       warnings: []
     }
   };
@@ -158,6 +168,26 @@ export function updateStoredVaultIndexDecisions(
   return {
     ...state,
     decisions: cloneStoredValue(decisions)
+  };
+}
+
+export function updateStoredVaultIndexWriteOperations(
+  state: StoredVaultIndex,
+  writeOperations: GuardedVaultWriteOperation[]
+): StoredVaultIndex {
+  return {
+    ...state,
+    writeOperations: cloneStoredValue(writeOperations)
+  };
+}
+
+export function updateStoredVaultIndexWriteDecisions(
+  state: StoredVaultIndex,
+  writeDecisions: VaultWriteDecisionRecord[]
+): StoredVaultIndex {
+  return {
+    ...state,
+    writeDecisions: cloneStoredValue(writeDecisions)
   };
 }
 

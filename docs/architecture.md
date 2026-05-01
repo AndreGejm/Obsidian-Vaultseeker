@@ -53,6 +53,8 @@ Stored entity shapes are defined for:
 - source chunk records
 - suggestion records
 - suggestion decision records
+- guarded write operation records
+- guarded write decision records
 - index health metadata
 
 The plugin uses `PersistentVaultseerStore` through an Obsidian data backend. Plugin settings and the stored index share the same Obsidian plugin data file through a wrapper shape:
@@ -222,6 +224,8 @@ This is not a write operation. The source preview modal displays the proposal, b
 
 Source proposal suggestions now have a persistence boundary. `packages/core/src/suggestions/suggestion-records.ts` converts source-note proposals into stable `SuggestionRecord` values and stores the latest `DecisionRecord` for each suggestion separately. The plugin persists generated source proposal suggestions when the source preview opens. This makes suggestions reviewable later without granting them write authority; accepting, rejecting, or deferring a suggestion is still metadata about the suggestion, not a vault mutation.
 
+Suggestion records and suggestion decisions are preserved across read-only mirror rebuilds. A rebuild may replace note, chunk, lexical, vector, and job data, but it does not erase the user's review trail for already generated suggestions.
+
 ## Guarded Write Foundation
 
 The first Phase 6 slice is core-only. `packages/core/src/writes/guarded-write.ts` defines the write boundary before any Obsidian write adapter exists.
@@ -233,9 +237,13 @@ The current implemented operation is `create_note_from_source`:
 - validation: `evaluateVaultWritePrecondition` checks the current target file hash before any future apply call can proceed;
 - decision metadata: `createVaultWriteDecisionRecord` records approval, rejection, or deferral separately from the proposed operation.
 
+Guarded write operations now have a persistence boundary. `VaultseerStore` stores proposed `GuardedVaultWriteOperation` records separately from `VaultWriteDecisionRecord` records. `mergeVaultWriteOperations` upserts proposed operations by operation id, and `upsertVaultWriteDecisionRecord` stores the latest decision for each operation id. These records are preserved across read-only mirror rebuilds, so rebuilding the search/index mirror does not erase pending write reviews.
+
 The plugin exposes this through a dry-run review surface, not through an apply surface. `apps/obsidian-plugin/src/source-note-write-review-state.ts` builds the review state from a source proposal, stored note records, persisted suggestion records, and the core guarded-write functions. `apps/obsidian-plugin/src/source-note-write-review-modal.ts` renders the proposed operation, target path, source provenance, precondition status, linked suggestion IDs, and preview diff.
 
-This is still not a write feature. No command calls `app.vault.create`, `app.vault.modify`, `processFrontMatter`, or adapter write methods. The next safe step is persisted operation/decision review, followed later by a `VaultWritePort` adapter that rechecks the file hash immediately before applying an approved operation.
+The source preview persists the generated source-note operation when it persists source proposal suggestions. This makes the dry-run review recoverable later, but it still does not authorize a note write.
+
+This is still not a write feature. No command calls `app.vault.create`, `app.vault.modify`, `processFrontMatter`, or adapter write methods. The next safe step is a review queue for persisted operations and decisions, followed later by a `VaultWritePort` adapter that rechecks the file hash immediately before applying an approved operation.
 
 ## Semantic Queue Foundation
 

@@ -173,6 +173,26 @@ export function createVaultWriteDecisionRecord(input: CreateVaultWriteDecisionRe
   };
 }
 
+export function mergeVaultWriteOperations(
+  existing: GuardedVaultWriteOperation[],
+  incoming: GuardedVaultWriteOperation[]
+): GuardedVaultWriteOperation[] {
+  const operationsById = new Map<string, GuardedVaultWriteOperation>();
+  for (const operation of existing) operationsById.set(operation.id, clone(operation));
+  for (const operation of incoming) operationsById.set(operation.id, clone(operation));
+  return [...operationsById.values()].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+export function upsertVaultWriteDecisionRecord(
+  existing: VaultWriteDecisionRecord[],
+  incoming: VaultWriteDecisionRecord
+): VaultWriteDecisionRecord[] {
+  const decisionsByOperationId = new Map<string, VaultWriteDecisionRecord>();
+  for (const decision of existing) decisionsByOperationId.set(decision.operationId, clone(decision));
+  decisionsByOperationId.set(incoming.operationId, clone(incoming));
+  return [...decisionsByOperationId.values()].sort((left, right) => left.operationId.localeCompare(right.operationId));
+}
+
 function createFilePreview(targetPath: string, content: string): VaultWritePreview {
   const lines = content.split("\n");
   if (lines[lines.length - 1] === "") lines.pop();
@@ -191,4 +211,8 @@ function createFilePreview(targetPath: string, content: string): VaultWritePrevi
 function normalizeWriteContent(content: string): string {
   const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   return normalized.endsWith("\n") ? normalized : `${normalized}\n`;
+}
+
+function clone<T>(value: T): T {
+  return structuredClone(value);
 }

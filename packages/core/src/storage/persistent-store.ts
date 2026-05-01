@@ -12,6 +12,7 @@ import type {
   VectorRecord
 } from "./types";
 import { INDEX_SCHEMA_VERSION } from "./types";
+import type { GuardedVaultWriteOperation, VaultWriteDecisionRecord } from "../writes/guarded-write";
 import type { NoteRecord, VaultSnapshot } from "../types";
 import {
   cloneHealth,
@@ -25,10 +26,13 @@ import {
   updateStoredVaultIndexSourceExtractionJobs,
   updateStoredVaultIndexSourceWorkspace,
   updateStoredVaultIndexSuggestions,
-  updateStoredVaultIndexVectors
+  updateStoredVaultIndexVectors,
+  updateStoredVaultIndexWriteDecisions,
+  updateStoredVaultIndexWriteOperations
 } from "./store-state";
 import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
 import { upsertDecisionRecord } from "../suggestions/suggestion-records";
+import { upsertVaultWriteDecisionRecord } from "../writes/guarded-write";
 
 export class PersistentVaultseerStore implements VaultseerStore {
   private constructor(
@@ -63,7 +67,11 @@ export class PersistentVaultseerStore implements VaultseerStore {
       [],
       this.state.sourceRecords,
       this.state.sourceChunks,
-      this.state.sourceExtractionJobs
+      this.state.sourceExtractionJobs,
+      this.state.suggestions,
+      this.state.decisions,
+      this.state.writeOperations,
+      this.state.writeDecisions
     );
     await this.persist();
     return cloneHealth(this.state);
@@ -167,6 +175,31 @@ export class PersistentVaultseerStore implements VaultseerStore {
     return cloneStoredValue(this.state.decisions);
   }
 
+  async replaceVaultWriteOperations(
+    operations: GuardedVaultWriteOperation[]
+  ): Promise<GuardedVaultWriteOperation[]> {
+    this.state = updateStoredVaultIndexWriteOperations(this.state, operations);
+    await this.persist();
+    return cloneStoredValue(this.state.writeOperations);
+  }
+
+  async getVaultWriteOperations(): Promise<GuardedVaultWriteOperation[]> {
+    return cloneStoredValue(this.state.writeOperations);
+  }
+
+  async recordVaultWriteDecision(decision: VaultWriteDecisionRecord): Promise<VaultWriteDecisionRecord[]> {
+    this.state = updateStoredVaultIndexWriteDecisions(
+      this.state,
+      upsertVaultWriteDecisionRecord(this.state.writeDecisions, decision)
+    );
+    await this.persist();
+    return cloneStoredValue(this.state.writeDecisions);
+  }
+
+  async getVaultWriteDecisionRecords(): Promise<VaultWriteDecisionRecord[]> {
+    return cloneStoredValue(this.state.writeDecisions);
+  }
+
   async getFileVersions(): Promise<FileVersionRecord[]> {
     return cloneStoredValue(this.state.fileVersions);
   }
@@ -195,6 +228,8 @@ function hydrateStoredVaultIndex(value: StoredVaultIndex | null): StoredVaultInd
     sourceChunks: cloneStoredValue(value.sourceChunks ?? []),
     sourceExtractionJobs: cloneStoredValue(value.sourceExtractionJobs ?? []),
     suggestions: cloneStoredValue(value.suggestions ?? []),
-    decisions: cloneStoredValue(value.decisions ?? [])
+    decisions: cloneStoredValue(value.decisions ?? []),
+    writeOperations: cloneStoredValue(value.writeOperations ?? []),
+    writeDecisions: cloneStoredValue(value.writeDecisions ?? [])
   };
 }

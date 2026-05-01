@@ -43,6 +43,9 @@ The first Phase 5 foundations are read-only tag suggestions, broken-link target 
 - `planSourceNoteCreationOperation` adapts Mimir's governed-write idea to Vaultseer's smaller Obsidian scope: a source proposal becomes an explicit proposed operation with source provenance, target path, expected file hash, and a preview diff before any plugin adapter can write.
 - `evaluateVaultWritePrecondition` and `createVaultWriteDecisionRecord` keep file-hash validation and approval metadata separate from analysis results.
 - The source preview now opens a dry-run guarded note creation review modal. The modal renders operation metadata, precondition status, linked suggestions, and a preview diff, but it intentionally has no apply control.
+- Core now persists guarded write operation records and write decision records through the store boundary.
+- `mergeVaultWriteOperations` and `upsertVaultWriteDecisionRecord` keep generated operations and user decisions reviewable across sessions and mirror rebuilds without making them vault writes.
+- The source preview persists the generated guarded source-note operation when it persists proposal suggestions, so the next review surface can load pending operations instead of regenerating them as hidden state.
 
 This deliberately borrows the useful behavior from Tags Overview, Dataview, Metadata Extractor, Omnisearch, and Mimir's explainable-evidence style while preserving Vaultseer's core/plugin boundary and write-safety ladder.
 
@@ -53,6 +56,6 @@ This deliberately borrows the useful behavior from Tags Overview, Dataview, Meta
 - No tag merge or rename workflow.
 - No Dataview-compatible query language.
 - No MiniSearch dependency.
-- No Obsidian source-to-note write command yet; preview diffs, hash checks, and plugin dry-run review exist, but apply wiring is still deferred.
+- No Obsidian source-to-note write command yet; persisted operations, preview diffs, hash checks, and plugin dry-run review exist, but apply wiring is still deferred.
 - No AI-authored source-to-note generation until the deterministic proposal shape has been reviewed against real sources.
 - No workbench suggestion decision buttons yet; the store can record decisions, but the UI still needs an explicit review queue/control surface.

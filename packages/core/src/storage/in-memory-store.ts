@@ -10,6 +10,7 @@ import type {
   VaultseerStore,
   VectorRecord
 } from "./types";
+import type { GuardedVaultWriteOperation, VaultWriteDecisionRecord } from "../writes/guarded-write";
 import type { NoteRecord, VaultSnapshot } from "../types";
 import {
   cloneHealth,
@@ -22,10 +23,13 @@ import {
   updateStoredVaultIndexSourceExtractionJobs,
   updateStoredVaultIndexSourceWorkspace,
   updateStoredVaultIndexSuggestions,
-  updateStoredVaultIndexVectors
+  updateStoredVaultIndexVectors,
+  updateStoredVaultIndexWriteDecisions,
+  updateStoredVaultIndexWriteOperations
 } from "./store-state";
 import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
 import { upsertDecisionRecord } from "../suggestions/suggestion-records";
+import { upsertVaultWriteDecisionRecord } from "../writes/guarded-write";
 
 export class InMemoryVaultseerStore implements VaultseerStore {
   private state: StoredVaultIndex = createEmptyStoredVaultIndex();
@@ -50,7 +54,11 @@ export class InMemoryVaultseerStore implements VaultseerStore {
       [],
       this.state.sourceRecords,
       this.state.sourceChunks,
-      this.state.sourceExtractionJobs
+      this.state.sourceExtractionJobs,
+      this.state.suggestions,
+      this.state.decisions,
+      this.state.writeOperations,
+      this.state.writeDecisions
     );
     return cloneHealth(this.state);
   }
@@ -142,6 +150,29 @@ export class InMemoryVaultseerStore implements VaultseerStore {
 
   async getDecisionRecords(): Promise<DecisionRecord[]> {
     return cloneStoredValue(this.state.decisions);
+  }
+
+  async replaceVaultWriteOperations(
+    operations: GuardedVaultWriteOperation[]
+  ): Promise<GuardedVaultWriteOperation[]> {
+    this.state = updateStoredVaultIndexWriteOperations(this.state, operations);
+    return cloneStoredValue(this.state.writeOperations);
+  }
+
+  async getVaultWriteOperations(): Promise<GuardedVaultWriteOperation[]> {
+    return cloneStoredValue(this.state.writeOperations);
+  }
+
+  async recordVaultWriteDecision(decision: VaultWriteDecisionRecord): Promise<VaultWriteDecisionRecord[]> {
+    this.state = updateStoredVaultIndexWriteDecisions(
+      this.state,
+      upsertVaultWriteDecisionRecord(this.state.writeDecisions, decision)
+    );
+    return cloneStoredValue(this.state.writeDecisions);
+  }
+
+  async getVaultWriteDecisionRecords(): Promise<VaultWriteDecisionRecord[]> {
+    return cloneStoredValue(this.state.writeDecisions);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {
