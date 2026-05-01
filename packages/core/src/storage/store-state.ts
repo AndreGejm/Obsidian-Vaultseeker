@@ -8,6 +8,8 @@ import {
   type IndexStatus,
   type LexicalIndexRecord,
   type StoredVaultIndex,
+  type DecisionRecord,
+  type SuggestionRecord,
   type VectorRecord
 } from "./types";
 import type { SourceChunkRecord, SourceRecord } from "../source/types";
@@ -130,6 +132,32 @@ export function updateStoredVaultIndexSourceExtractionJobs(
   return {
     ...state,
     sourceExtractionJobs: cloneStoredValue(sourceExtractionJobs)
+  };
+}
+
+export function updateStoredVaultIndexSuggestions(
+  state: StoredVaultIndex,
+  suggestions: SuggestionRecord[]
+): StoredVaultIndex {
+  const storedSuggestions = cloneStoredValue(suggestions);
+
+  return {
+    ...state,
+    suggestions: storedSuggestions,
+    health: {
+      ...state.health,
+      suggestionCount: storedSuggestions.length
+    }
+  };
+}
+
+export function updateStoredVaultIndexDecisions(
+  state: StoredVaultIndex,
+  decisions: DecisionRecord[]
+): StoredVaultIndex {
+  return {
+    ...state,
+    decisions: cloneStoredValue(decisions)
   };
 }
 

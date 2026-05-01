@@ -93,7 +93,19 @@ export type SuggestionEvidence =
   | { type: "shared_tags"; value: string[] }
   | { type: "semantic_match"; chunkId: string; score: number }
   | { type: "unlinked_mention"; text: string }
-  | { type: "link_overlap"; notePath: string; count: number };
+  | { type: "link_overlap"; notePath: string; count: number }
+  | { type: "source_field"; sourceId: string; field: "title" | "filename"; value: string }
+  | { type: "source_section"; sourceId: string; chunkId: string; sectionPath: string[] }
+  | { type: "source_excerpt"; sourceId: string; chunkId: string; text: string }
+  | {
+      type: "source_term_match";
+      sourceId: string;
+      chunkId: string | null;
+      matchedTerms: string[];
+      tag?: string;
+      notePath?: string;
+    }
+  | { type: "note_match"; notePath: string; matchedText: string; matchKind: "title" | "alias" };
 
 export type DecisionRecord = {
   suggestionId: string;
@@ -147,6 +159,10 @@ export interface VaultseerStore {
   getSourceChunkRecords(): Promise<SourceChunkRecord[]>;
   replaceSourceExtractionQueue(jobs: SourceExtractionJobRecord[]): Promise<SourceExtractionJobRecord[]>;
   getSourceExtractionJobRecords(): Promise<SourceExtractionJobRecord[]>;
+  replaceSuggestionRecords(suggestions: SuggestionRecord[]): Promise<IndexHealth>;
+  getSuggestionRecords(): Promise<SuggestionRecord[]>;
+  recordSuggestionDecision(decision: DecisionRecord): Promise<DecisionRecord[]>;
+  getDecisionRecords(): Promise<DecisionRecord[]>;
   getFileVersions(): Promise<FileVersionRecord[]>;
   clear(): Promise<IndexHealth>;
 }

@@ -1,10 +1,12 @@
 import type {
   ChunkRecord,
+  DecisionRecord,
   EmbeddingJobRecord,
   FileVersionRecord,
   IndexHealth,
   LexicalIndexRecord,
   StoredVaultIndex,
+  SuggestionRecord,
   VaultseerStore,
   VectorRecord
 } from "./types";
@@ -16,11 +18,14 @@ import {
   createReadyStoredVaultIndex,
   updateStoredVaultIndexEmbeddingJobs,
   updateStoredVaultIndexHealth,
+  updateStoredVaultIndexDecisions,
   updateStoredVaultIndexSourceExtractionJobs,
   updateStoredVaultIndexSourceWorkspace,
+  updateStoredVaultIndexSuggestions,
   updateStoredVaultIndexVectors
 } from "./store-state";
 import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
+import { upsertDecisionRecord } from "../suggestions/suggestion-records";
 
 export class InMemoryVaultseerStore implements VaultseerStore {
   private state: StoredVaultIndex = createEmptyStoredVaultIndex();
@@ -119,6 +124,24 @@ export class InMemoryVaultseerStore implements VaultseerStore {
 
   async getSourceExtractionJobRecords(): Promise<SourceExtractionJobRecord[]> {
     return cloneStoredValue(this.state.sourceExtractionJobs);
+  }
+
+  async replaceSuggestionRecords(suggestions: SuggestionRecord[]): Promise<IndexHealth> {
+    this.state = updateStoredVaultIndexSuggestions(this.state, suggestions);
+    return cloneHealth(this.state);
+  }
+
+  async getSuggestionRecords(): Promise<SuggestionRecord[]> {
+    return cloneStoredValue(this.state.suggestions);
+  }
+
+  async recordSuggestionDecision(decision: DecisionRecord): Promise<DecisionRecord[]> {
+    this.state = updateStoredVaultIndexDecisions(this.state, upsertDecisionRecord(this.state.decisions, decision));
+    return cloneStoredValue(this.state.decisions);
+  }
+
+  async getDecisionRecords(): Promise<DecisionRecord[]> {
+    return cloneStoredValue(this.state.decisions);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {

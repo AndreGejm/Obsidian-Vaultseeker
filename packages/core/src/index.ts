@@ -8,6 +8,11 @@ export { buildRelationshipGraph } from "./relationships/graph";
 export { detectNoteQualityIssues } from "./suggestions/note-quality";
 export { suggestLinksForNote } from "./suggestions/link-suggestions";
 export { suggestTagsForNote } from "./suggestions/tag-suggestions";
+export {
+  createSourceNoteProposalSuggestionRecords,
+  mergeSuggestionRecords,
+  upsertDecisionRecord
+} from "./suggestions/suggestion-records";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
 export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
 export { buildSourceLexicalIndex, searchSourceLexicalIndex } from "./source/source-lexical-search";

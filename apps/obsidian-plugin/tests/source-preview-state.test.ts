@@ -80,6 +80,7 @@ describe("buildSourcePreviewState", () => {
       ],
       markdownPreview: "# Timer Datasheet\n\nPin 1 controls reset.",
       noteProposal: null,
+      suggestionRecords: [],
       chunkGroups: [
         {
           label: "Timer Datasheet > Overview",
@@ -138,6 +139,7 @@ describe("buildSourcePreviewState", () => {
       }
     ]);
     expect(state.noteProposal).toBeNull();
+    expect(state.suggestionRecords).toEqual([]);
     expect(state.chunkGroups).toEqual([]);
   });
 
@@ -157,6 +159,7 @@ describe("buildSourcePreviewState", () => {
       attachments: [],
       markdownPreview: "",
       noteProposal: null,
+      suggestionRecords: [],
       chunkGroups: []
     });
   });
@@ -229,6 +232,22 @@ describe("buildSourcePreviewState", () => {
         })
       ]
     });
+    expect(state.suggestionRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "source_note_draft",
+          targetPath: "Sources/Datasheets/timer.pdf"
+        }),
+        expect.objectContaining({
+          type: "source_note_tag",
+          targetPath: "Sources/Datasheets/timer.pdf"
+        }),
+        expect.objectContaining({
+          type: "source_note_link",
+          targetPath: "Sources/Datasheets/timer.pdf"
+        })
+      ])
+    );
   });
 });
 

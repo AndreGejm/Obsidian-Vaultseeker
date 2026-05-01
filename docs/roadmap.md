@@ -179,7 +179,7 @@ Exit gate:
 
 ## Phase 5: Read-Only Suggestions
 
-Status: started. Read-only tag suggestions, broken-link target suggestions, narrow note sanity checks, semantic related notes, and deterministic source-to-note seed proposals are implemented in core and displayed through the workbench or source preview. Suggestions and diagnostics are evidence-bearing and cannot mutate notes.
+Status: started. Read-only tag suggestions, broken-link target suggestions, narrow note sanity checks, semantic related notes, deterministic source-to-note seed proposals, persisted suggestion records, and separate current decision records are implemented in core. Source proposal suggestions are persisted from the source preview. Suggestions and diagnostics are evidence-bearing and cannot mutate notes.
 
 Goal: produce explainable gardening suggestions without applying them.
 
@@ -190,7 +190,7 @@ Implementation steps:
 - suggest note structure, tags, links, and related notes from reviewed source intake workspaces (**implemented as deterministic read-only source preview proposals; AI-assisted proposal generation and persistence remain future work**)
 - suggest missing links from unresolved mentions and strong related-note evidence (**implemented for current-note unresolved Obsidian links using existing notes, aliases, titles, and token overlap; still read-only and not yet backed by semantic evidence**)
 - detect narrow formatting issues only: missing frontmatter field, duplicate aliases, empty title, malformed tag, broken internal link (**implemented as read-only current-note sanity checks in the workbench**)
-- store suggestion evidence and confidence separately
+- store suggestion evidence and confidence separately (**implemented for source proposal suggestions, with separate latest decision records; workbench suggestion persistence and decision UI remain future work**)
 
 Exit gate:
 

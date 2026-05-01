@@ -5,9 +5,10 @@ import type {
   SourceChunkRecord,
   SourceExtractionDiagnostic,
   SourceProvenance,
-  SourceRecord
+  SourceRecord,
+  SuggestionRecord
 } from "@vaultseer/core";
-import { proposeSourceNote } from "@vaultseer/core";
+import { createSourceNoteProposalSuggestionRecords, proposeSourceNote } from "@vaultseer/core";
 
 export type SourcePreviewStatus = "ready" | "failed" | "missing";
 
@@ -60,6 +61,7 @@ export type SourcePreviewState = {
   attachments: SourcePreviewAttachment[];
   markdownPreview: string;
   noteProposal: SourceNoteProposal | null;
+  suggestionRecords: SuggestionRecord[];
   chunkGroups: SourcePreviewChunkGroup[];
 };
 
@@ -68,6 +70,7 @@ export type BuildSourcePreviewStateInput = {
   sources: SourceRecord[];
   chunks: SourceChunkRecord[];
   notes?: NoteRecord[];
+  createdAt?: string;
 };
 
 export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): SourcePreviewState {
@@ -83,11 +86,20 @@ export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): So
       attachments: [],
       markdownPreview: "",
       noteProposal: null,
+      suggestionRecords: [],
       chunkGroups: []
     };
   }
 
   const status: SourcePreviewStatus = source.status === "failed" ? "failed" : "ready";
+  const noteProposal =
+    status === "failed" || !input.notes
+      ? null
+      : proposeSourceNote({
+          source,
+          sourceChunks: input.chunks,
+          notes: input.notes
+        });
 
   return {
     status,
@@ -100,14 +112,10 @@ export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): So
     diagnostics: source.diagnostics.map(toPreviewDiagnostic),
     attachments: source.attachments.map(toPreviewAttachment),
     markdownPreview: source.extractedMarkdown,
-    noteProposal:
-      status === "failed" || !input.notes
-        ? null
-        : proposeSourceNote({
-            source,
-            sourceChunks: input.chunks,
-            notes: input.notes
-          }),
+    noteProposal,
+    suggestionRecords: noteProposal
+      ? createSourceNoteProposalSuggestionRecords(noteProposal, input.createdAt ?? source.importedAt)
+      : [],
     chunkGroups:
       status === "failed"
         ? []

@@ -37,6 +37,8 @@ The first Phase 5 foundations are read-only tag suggestions, broken-link target 
 - Core now owns `proposeSourceNote` for deterministic source-to-note seed proposals.
 - Source proposals reuse the source workspace, source chunk, existing vault tag, existing note, and evidence-first contracts already used by search and suggestions.
 - Source proposals stay read-only in the source preview modal; they produce a Markdown preview but no vault mutation or accepted decision.
+- Core now owns `createSourceNoteProposalSuggestionRecords`, `mergeSuggestionRecords`, and `upsertDecisionRecord` so generated source proposal suggestions can be stored and reviewed independently from any future write operation.
+- The source preview modal persists source proposal suggestion records through the existing rebuildable index store, preserving the analysis-before-write boundary.
 
 This deliberately borrows the useful behavior from Tags Overview, Dataview, Metadata Extractor, Omnisearch, and Mimir's explainable-evidence style while preserving Vaultseer's core/plugin boundary and write-safety ladder.
 
@@ -49,3 +51,4 @@ This deliberately borrows the useful behavior from Tags Overview, Dataview, Meta
 - No MiniSearch dependency.
 - No source-to-note write operation until preview diffs and hash checks exist.
 - No AI-authored source-to-note generation until the deterministic proposal shape has been reviewed against real sources.
+- No workbench suggestion decision buttons yet; the store can record decisions, but the UI still needs an explicit review queue/control surface.

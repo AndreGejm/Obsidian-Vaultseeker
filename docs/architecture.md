@@ -220,6 +220,8 @@ The proposal contains:
 
 This is not a write operation. The source preview modal displays the proposal, but it does not create a note, modify frontmatter, copy attachments, or mark a suggestion as accepted. Later AI-assisted proposal generation should produce the same proposal shape, and Phase 6 guarded writes must still convert any accepted proposal into an explicit operation with preview diff, expected file hash, approval, and decision record.
 
+Source proposal suggestions now have a persistence boundary. `packages/core/src/suggestions/suggestion-records.ts` converts source-note proposals into stable `SuggestionRecord` values and stores the latest `DecisionRecord` for each suggestion separately. The plugin persists generated source proposal suggestions when the source preview opens. This makes suggestions reviewable later without granting them write authority; accepting, rejecting, or deferring a suggestion is still metadata about the suggestion, not a vault mutation.
+
 ## Semantic Queue Foundation
 
 The first Phase 4 foundation is core-only and does not call an embedding provider. `packages/core/src/semantic/embedding-queue.ts` defines a model namespace from provider id, model id, and dimensions, then plans deterministic embedding jobs for chunks that do not already have a reusable vector record for that namespace.

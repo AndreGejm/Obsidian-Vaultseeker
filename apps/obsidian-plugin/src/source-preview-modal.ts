@@ -7,6 +7,7 @@ import type {
   SourceNoteProposalTag,
   VaultseerStore
 } from "@vaultseer/core";
+import { mergeSuggestionRecords } from "@vaultseer/core";
 import {
   buildSourcePreviewState,
   type SourcePreviewAttachment,
@@ -40,12 +41,23 @@ export class VaultseerSourcePreviewModal extends Modal {
     contentEl.createEl("p", { text: "Loading source workspace..." });
 
     try {
-      const [sources, chunks, notes] = await Promise.all([
+      const [sources, chunks, notes, suggestions] = await Promise.all([
         this.store.getSourceRecords(),
         this.store.getSourceChunkRecords(),
-        this.store.getNoteRecords()
+        this.store.getNoteRecords(),
+        this.store.getSuggestionRecords()
       ]);
-      this.renderState(buildSourcePreviewState({ sourceId: this.sourceId, sources, chunks, notes }));
+      const state = buildSourcePreviewState({
+        sourceId: this.sourceId,
+        sources,
+        chunks,
+        notes,
+        createdAt: new Date().toISOString()
+      });
+      if (state.suggestionRecords.length > 0) {
+        await this.store.replaceSuggestionRecords(mergeSuggestionRecords(suggestions, state.suggestionRecords));
+      }
+      this.renderState(state);
     } catch (error) {
       contentEl.empty();
       contentEl.createEl("h2", { text: "Vaultseer Source Preview" });
