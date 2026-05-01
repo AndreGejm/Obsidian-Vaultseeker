@@ -137,7 +137,7 @@ Exit gate:
 
 ## Phase 4.5: High-Fidelity Source Intake
 
-Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, source-job protection from note semantic controls, the core source embedding worker, explicit plugin source semantic controls, and a read-only source search modal are implemented. No extractor adapter, source preview UI, attachment staging, or source-to-note proposal path exists yet.
+Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, source-job protection from note semantic controls, the core source embedding worker, explicit plugin source semantic controls, a read-only source search modal, and a read-only source preview modal are implemented. No extractor adapter, attachment staging directory, image/table rendering preview, or source-to-note proposal path exists yet.
 
 Goal: turn external source files into searchable, reviewable source workspaces before any Obsidian note is written.
 
@@ -161,7 +161,7 @@ Implementation steps:
 - support lexical search over extracted sources without embeddings (**implemented in core for filenames, source section paths, and extracted chunk text, and exposed through `Vaultseer: Search stored source workspaces`**)
 - support semantic ranking over extracted source chunks when vectors already exist (**implemented in core against stored vectors and `source-chunk:` IDs, with optional source search modal integration when semantic search is enabled**)
 - support semantic indexing of extracted source chunks when semantic search is enabled (**implemented for core queue planning, core source worker execution, explicit plugin planning/running/cancellation commands, startup recovery, and optional source search modal evidence**)
-- expose a source preview panel with extracted text, images, tables, diagnostics, and searchable chunks
+- expose a source preview panel with extracted text, diagnostics, staged attachment metadata, and searchable chunks (**implemented as a read-only modal opened from source search results; image/table rendering remains future work**)
 - let AI propose note title, summary, headings, tags, aliases, links, and related notes from the extracted source
 - require user review before turning any source proposal into a vault write operation
 

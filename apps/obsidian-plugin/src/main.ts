@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from ".
 import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
+import { VaultseerSourcePreviewModal } from "./source-preview-modal";
 import { VaultseerSourceSearchModal } from "./source-search-modal";
 import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
 import {
@@ -215,8 +216,15 @@ export default class VaultseerPlugin extends Plugin {
     new VaultseerSourceSearchModal(
       this.app,
       this.store,
-      this.createSourceSearchModalSemanticSearch()
+      this.createSourceSearchModalSemanticSearch(),
+      async (sourceId) => {
+        await this.showSourcePreview(sourceId);
+      }
     ).open();
+  }
+
+  async showSourcePreview(sourceId: string): Promise<void> {
+    new VaultseerSourcePreviewModal(this.app, this.store, sourceId).open();
   }
 
   async openWorkbench(): Promise<void> {

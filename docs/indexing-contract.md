@@ -241,7 +241,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - `recoverSourceSemanticIndexQueue` requeues only running source jobs after an interrupted plugin session and preserves note jobs.
 - Source semantic plugin commands are guarded by the existing disabled-by-default semantic indexing setting.
 - The first plugin provider path is the same Ollama-compatible adapter used by note semantic batches.
-- Source semantic plugin controls do not run extractors, show source previews, schedule background jobs, or write Obsidian notes.
+- Source semantic plugin controls do not run extractors, open source previews, schedule background jobs, or write Obsidian notes.
 
 ## Phase 4.5 Source Search Modal Guarantees
 
@@ -252,7 +252,17 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Semantic provider failures degrade to lexical-only results and show a degraded message.
 - Source search rank fusion gives semantic evidence an explicit modal ranking weight, merges hybrid source evidence, and sorts the merged result set before applying the display limit.
 - Results display filename, source path, evidence reason, and excerpt.
-- The modal does not run extractors, render attachments, show a full source preview, or write Obsidian notes.
+- Result filenames open a read-only source preview modal for the selected stored source workspace.
+- The modal does not run extractors, render attachments inline, or write Obsidian notes.
+
+## Phase 4.5 Source Preview Modal Guarantees
+
+- Source preview reads only stored source records and source chunks.
+- Missing stored source ids show a closed missing-state message instead of guessing from source paths.
+- Failed source workspaces show extraction diagnostics and no searchable chunk groups.
+- Extracted source workspaces show source metadata, diagnostics, staged attachment metadata, extracted Markdown, and searchable source chunks grouped by section path.
+- Staged attachments are displayed as metadata only; the preview does not copy, render, or write attachment files.
+- Source preview does not run Marker, MarkItDown, semantic embedding, source extraction, source-to-note proposal creation, or Obsidian note writes.
 
 ## Not Yet Guaranteed
 
@@ -263,7 +273,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Marker PDF extraction.
 - MarkItDown broad file extraction.
 - Built-in text/code source extraction.
-- Source preview UI.
+- Rendered image/table source preview.
 - Staged attachment persistence outside the stored metadata shape.
 - Source-to-note proposal creation.
 - Dataview-compatible querying.

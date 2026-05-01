@@ -26,7 +26,8 @@ export class VaultseerSourceSearchModal extends Modal {
   constructor(
     app: App,
     private readonly store: VaultseerStore,
-    private readonly semanticSearch?: SourceSearchModalSemanticSearch
+    private readonly semanticSearch?: SourceSearchModalSemanticSearch,
+    private readonly openSourcePreview?: (sourceId: string) => Promise<void>
   ) {
     super(app);
   }
@@ -128,7 +129,19 @@ export class VaultseerSourceSearchModal extends Modal {
   private renderResult(containerEl: HTMLElement, result: SourceSearchModalResult): void {
     const resultEl = containerEl.createEl("div", { cls: "vaultseer-source-search-result" });
 
-    resultEl.createEl("div", { text: result.filename, cls: "vaultseer-source-search-result-title" });
+    if (this.openSourcePreview) {
+      const openButton = resultEl.createEl("button", { text: result.filename });
+      openButton.addEventListener("click", async () => {
+        try {
+          await this.openSourcePreview?.(result.sourceId);
+          this.close();
+        } catch (error) {
+          new Notice(`Vaultseer could not open the source preview: ${getErrorMessage(error)}`);
+        }
+      });
+    } else {
+      resultEl.createEl("div", { text: result.filename, cls: "vaultseer-source-search-result-title" });
+    }
     resultEl.createEl("div", { text: result.sourcePath, cls: "vaultseer-source-search-result-path" });
     resultEl.createEl("div", { text: formatSourceLabel(result.source), cls: "vaultseer-source-search-result-source" });
     if (result.reason) {
