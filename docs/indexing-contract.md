@@ -195,7 +195,8 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Source fields currently include filename, section, and body text.
 - Source search uses the same query and text tokenization as vault-note lexical search, including case-insensitive and diacritic-insensitive matching.
 - Source search requires every query term to be present in a returned source result.
-- Source search has no Obsidian UI surface yet and does not write source results into notes.
+- Source lexical results are exposed through `Vaultseer: Search stored source workspaces`, where the plugin builds the source lexical index from stored source records and chunks at query time.
+- Source search does not write source results into notes.
 
 ## Phase 4.5 Source Semantic Ranking Guarantees
 
@@ -207,7 +208,8 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Failed source workspaces are ignored.
 - Zero, empty, or non-finite query vectors return no results.
 - Results are grouped by source workspace and include matched source chunk evidence with cosine similarity scores.
-- Source semantic ranking has no Obsidian UI surface yet and does not write source results into notes.
+- Source semantic ranking can be used by `Vaultseer: Search stored source workspaces` when semantic search is enabled and stored source vectors exist.
+- Source semantic ranking does not write source results into notes.
 
 ## Phase 4.5 Source Embedding Queue Planning Guarantees
 
@@ -240,6 +242,15 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - The first plugin provider path is the same Ollama-compatible adapter used by note semantic batches.
 - Source semantic plugin controls do not run extractors, show source previews, schedule background jobs, or write Obsidian notes.
 
+## Phase 4.5 Source Search Modal Guarantees
+
+- `Vaultseer: Search stored source workspaces` reads only stored source records, source chunks, and stored vectors.
+- Lexical source search works without embeddings.
+- Optional semantic source search embeds the query through the configured provider only when semantic search is enabled.
+- Semantic provider failures degrade to lexical-only results and show a degraded message.
+- Results display filename, source path, evidence reason, and excerpt.
+- The modal does not run extractors, render attachments, show a full source preview, or write Obsidian notes.
+
 ## Not Yet Guaranteed
 
 - Automatic or background persisted embedding queue execution.
@@ -249,7 +260,6 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Marker PDF extraction.
 - MarkItDown broad file extraction.
 - Built-in text/code source extraction.
-- Source search UI.
 - Source preview UI.
 - Staged attachment persistence outside the stored metadata shape.
 - Source-to-note proposal creation.

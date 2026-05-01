@@ -75,6 +75,7 @@ The plugin currently exposes these operator commands:
 - `Vaultseer: Plan semantic indexing queue`
 - `Vaultseer: Run one semantic indexing batch`
 - `Vaultseer: Cancel active semantic indexing jobs`
+- `Vaultseer: Search stored source workspaces`
 - `Vaultseer: Plan source semantic indexing queue`
 - `Vaultseer: Run one source semantic indexing batch`
 - `Vaultseer: Cancel active source semantic indexing jobs`
@@ -245,4 +246,6 @@ The plugin now exposes explicit source semantic controls. `Vaultseer: Plan sourc
 
 `VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
 
-Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source search UI, attachment staging directory, or source-to-note proposal path exists yet.
+`Vaultseer: Search stored source workspaces` opens a read-only modal over stored source records and source chunks. The modal builds a source lexical index from stored source data at query time, optionally blends stored source-vector evidence when semantic search is enabled, and shows filename, source path, evidence, and excerpt. Provider failures degrade to lexical-only results and do not mutate source workspaces or notes.
+
+Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, attachment staging directory, or source-to-note proposal path exists yet.

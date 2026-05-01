@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from ".
 import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
+import { VaultseerSourceSearchModal } from "./source-search-modal";
 import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
 import {
   cancelSourceSemanticIndexQueue,
@@ -18,7 +19,9 @@ import {
   runSemanticIndexBatch
 } from "./semantic-index-controller";
 import { searchSemanticIndex } from "./semantic-search-controller";
+import { searchSourceSemanticIndex } from "./source-semantic-search-controller";
 import type { SearchModalSemanticSearch } from "./search-modal-query";
+import type { SourceSearchModalSemanticSearch } from "./source-search-modal-query";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
@@ -89,6 +92,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Search read-only vault index",
       callback: async () => {
         await this.showSearch();
+      }
+    });
+
+    this.addCommand({
+      id: "search-source-workspaces",
+      name: "Search stored source workspaces",
+      callback: async () => {
+        await this.showSourceSearch();
       }
     });
 
@@ -197,6 +208,14 @@ export default class VaultseerPlugin extends Plugin {
         await this.app.workspace.openLinkText(path, "", false);
       },
       this.createSearchModalSemanticSearch()
+    ).open();
+  }
+
+  async showSourceSearch(): Promise<void> {
+    new VaultseerSourceSearchModal(
+      this.app,
+      this.store,
+      this.createSourceSearchModalSemanticSearch()
     ).open();
   }
 
@@ -424,6 +443,40 @@ export default class VaultseerPlugin extends Plugin {
         limit: 10,
         minScore: 0.1,
         maxChunksPerNote: 3
+      });
+  }
+
+  private createSourceSearchModalSemanticSearch(): SourceSearchModalSemanticSearch | undefined {
+    if (!this.settings.semanticSearchEnabled) return undefined;
+
+    if (this.settings.embeddingProviderId !== "ollama") {
+      return async () => ({
+        status: "degraded",
+        message: `Source semantic search provider '${this.settings.embeddingProviderId}' is not supported in the search modal.`,
+        results: []
+      });
+    }
+
+    const provider = new OllamaEmbeddingProvider({
+      endpoint: this.settings.embeddingEndpoint,
+      modelId: this.settings.embeddingModelId
+    });
+    const modelProfile = {
+      providerId: this.settings.embeddingProviderId,
+      modelId: this.settings.embeddingModelId,
+      dimensions: this.settings.embeddingDimensions
+    };
+
+    return (query) =>
+      searchSourceSemanticIndex({
+        enabled: true,
+        store: this.store,
+        provider,
+        modelProfile,
+        query,
+        limit: 10,
+        minScore: 0.1,
+        maxChunksPerSource: 3
       });
   }
 }
