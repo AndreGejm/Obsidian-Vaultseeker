@@ -46,6 +46,22 @@ describe("ObsidianVaultWritePort", () => {
     });
   });
 
+  it("blocks dry run when the target parent folder does not exist", async () => {
+    const operation = writeOperation();
+    const vault = new FakeVault([], []);
+    const port = new ObsidianVaultWritePort(vault);
+
+    await expect(port.dryRun(operation)).resolves.toMatchObject({
+      precondition: {
+        ok: false,
+        reason: "missing_parent_folder",
+        expectedCurrentHash: null,
+        actualCurrentHash: null
+      }
+    });
+    expect(vault.files.has(operation.targetPath)).toBe(false);
+  });
+
   it("fails apply when the approved after hash does not match the operation preview", async () => {
     const operation = writeOperation();
     const vault = new FakeVault();
@@ -83,14 +99,17 @@ describe("ObsidianVaultWritePort", () => {
 
 class FakeVault {
   files = new Map<string, string>();
+  folders = new Set<string>();
   readOverride: string | null = null;
 
-  constructor(entries: Array<[string, string]> = []) {
+  constructor(entries: Array<[string, string]> = [], folders: string[] = ["Source Notes"]) {
     this.files = new Map(entries);
+    this.folders = new Set(folders);
   }
 
-  getAbstractFileByPath(path: string): { path: string } | null {
-    return this.files.has(path) ? { path } : null;
+  getAbstractFileByPath(path: string): { path: string; children?: unknown[] } | null {
+    if (this.files.has(path)) return { path };
+    return this.folders.has(path) ? { path, children: [] } : null;
   }
 
   async cachedRead(file: { path: string }): Promise<string> {
@@ -102,6 +121,8 @@ class FakeVault {
 
   async create(path: string, content: string): Promise<{ path: string }> {
     if (this.files.has(path)) throw new Error(`file already exists: ${path}`);
+    const parentPath = path.slice(0, path.lastIndexOf("/"));
+    if (parentPath && !this.folders.has(parentPath)) throw new Error(`missing folder: ${parentPath}`);
     this.files.set(path, content);
     return { path };
   }

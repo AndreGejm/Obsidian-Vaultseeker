@@ -39,6 +39,7 @@ The current write scope is deliberately small: Vaultseer can create a new Markdo
 ## Design Documents
 
 - [Architecture](docs/architecture.md)
+- [Limited go-live smoke checklist](docs/go-live-smoke-checklist.md)
 - [Indexing contract](docs/indexing-contract.md)
 - [Platform principles](docs/platform-principles.md)
 - [Reuse audit](docs/reuse-audit.md)

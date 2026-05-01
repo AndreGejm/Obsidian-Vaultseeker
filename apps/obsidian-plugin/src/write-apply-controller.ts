@@ -112,6 +112,8 @@ function formatPreconditionReason(reason: VaultWritePreconditionReason): string 
       return "target path mismatch";
     case "target_exists":
       return "target already exists";
+    case "missing_parent_folder":
+      return "target folder does not exist";
     case "missing_file":
       return "target file is missing";
     case "stale_file":

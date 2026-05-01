@@ -130,6 +130,8 @@ function formatPreconditionReason(reason: Exclude<VaultWritePreconditionResult, 
       return "target path mismatch";
     case "target_exists":
       return "target note already exists";
+    case "missing_parent_folder":
+      return "target folder does not exist";
     case "missing_file":
       return "target note is missing";
     case "stale_file":

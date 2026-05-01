@@ -3,12 +3,18 @@ import type {
   VaultWriteApplyResult,
   VaultWriteApproval,
   VaultWriteDryRunResult,
+  VaultWritePreconditionResult,
   VaultWritePort
 } from "@vaultseer/core";
 import { evaluateVaultWritePrecondition, hashString } from "@vaultseer/core";
 
 export type ObsidianVaultWriteFile = {
   path: string;
+};
+
+export type ObsidianVaultWriteFolder = {
+  path: string;
+  children: unknown[];
 };
 
 export type ObsidianVaultWriteVault = {
@@ -29,13 +35,11 @@ export class ObsidianVaultWritePort implements VaultWritePort {
 
   async dryRun(operation: GuardedVaultWriteOperation): Promise<VaultWriteDryRunResult> {
     const currentHash = await this.readCurrentHash(operation.targetPath);
+    const precondition = await this.evaluateObsidianPrecondition(operation, currentHash);
 
     return {
       operation,
-      precondition: evaluateVaultWritePrecondition(operation, {
-        path: operation.targetPath,
-        currentHash
-      }),
+      precondition,
       preview: operation.preview
     };
   }
@@ -95,6 +99,29 @@ export class ObsidianVaultWritePort implements VaultWritePort {
     }
   }
 
+  private async evaluateObsidianPrecondition(
+    operation: GuardedVaultWriteOperation,
+    currentHash: string | null
+  ): Promise<VaultWritePreconditionResult> {
+    const basePrecondition = evaluateVaultWritePrecondition(operation, {
+      path: operation.targetPath,
+      currentHash
+    });
+    if (!basePrecondition.ok) return basePrecondition;
+
+    const parentFolderPath = getParentFolderPath(operation.targetPath);
+    if (parentFolderPath && !this.folderExists(parentFolderPath)) {
+      return {
+        ok: false,
+        reason: "missing_parent_folder",
+        expectedCurrentHash: operation.expectedCurrentHash,
+        actualCurrentHash: null
+      };
+    }
+
+    return basePrecondition;
+  }
+
   private async readCurrentHash(path: string): Promise<string | null> {
     const file = this.vault.getAbstractFileByPath(path);
     if (!isVaultWriteFile(file)) return null;
@@ -102,8 +129,27 @@ export class ObsidianVaultWritePort implements VaultWritePort {
     const content = await this.vault.cachedRead(file);
     return hashString(content);
   }
+
+  private folderExists(path: string): boolean {
+    return isVaultWriteFolder(this.vault.getAbstractFileByPath(path));
+  }
 }
 
 function isVaultWriteFile(value: unknown): value is ObsidianVaultWriteFile {
+  return isVaultWritePathObject(value) && !("children" in value);
+}
+
+function isVaultWriteFolder(value: unknown): value is ObsidianVaultWriteFolder {
+  return isVaultWritePathObject(value) && "children" in value && Array.isArray(value.children);
+}
+
+function isVaultWritePathObject(value: unknown): value is { path: string } {
   return typeof value === "object" && value !== null && "path" in value && typeof value.path === "string";
+}
+
+function getParentFolderPath(path: string): string | null {
+  const normalizedPath = path.replace(/\\/g, "/");
+  const lastSlash = normalizedPath.lastIndexOf("/");
+  if (lastSlash <= 0) return null;
+  return normalizedPath.slice(0, lastSlash);
 }

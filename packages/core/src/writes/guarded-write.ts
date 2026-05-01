@@ -43,7 +43,12 @@ export type VaultWriteCurrentSnapshot = {
   currentHash: string | null;
 };
 
-export type VaultWritePreconditionReason = "wrong_target" | "target_exists" | "missing_file" | "stale_file";
+export type VaultWritePreconditionReason =
+  | "wrong_target"
+  | "target_exists"
+  | "missing_parent_folder"
+  | "missing_file"
+  | "stale_file";
 
 export type VaultWritePreconditionResult =
   | { ok: true }

@@ -253,9 +253,9 @@ The first real apply path is intentionally narrow:
 
 - `apps/obsidian-plugin/src/write-apply-controller.ts` refuses anything except an approved operation, runs a dry-run precondition check, calls the write port, and stores either an applied record or a failed record.
 - `apps/obsidian-plugin/src/obsidian-vault-write-port.ts` implements `VaultWritePort` for Obsidian using `vault.create` only for `create_note_from_source`.
-- The adapter validates the approval payload against the operation, rechecks the target path before writing, creates the file, reads it back, verifies the final content hash, and returns the applied hash record.
+- The adapter validates the approval payload against the operation, rechecks the target path before writing, verifies that the target parent folder already exists, creates the file, reads it back, verifies the final content hash, and returns the applied hash record.
 
-This is a write feature, but only for creating a new note from an approved source proposal. It does not modify existing notes, update frontmatter, insert tags, insert links, copy attachments, batch-apply operations, or run automatically.
+This is a write feature, but only for creating a new note from an approved source proposal. It does not create folders, modify existing notes, update frontmatter, insert tags, insert links, copy attachments, batch-apply operations, or run automatically.
 
 ## Semantic Queue Foundation
 
