@@ -16,10 +16,11 @@ import {
   createReadyStoredVaultIndex,
   updateStoredVaultIndexEmbeddingJobs,
   updateStoredVaultIndexHealth,
+  updateStoredVaultIndexSourceExtractionJobs,
   updateStoredVaultIndexSourceWorkspace,
   updateStoredVaultIndexVectors
 } from "./store-state";
-import type { SourceChunkRecord, SourceRecord } from "../source/types";
+import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
 
 export class InMemoryVaultseerStore implements VaultseerStore {
   private state: StoredVaultIndex = createEmptyStoredVaultIndex();
@@ -43,7 +44,8 @@ export class InMemoryVaultseerStore implements VaultseerStore {
       [],
       [],
       this.state.sourceRecords,
-      this.state.sourceChunks
+      this.state.sourceChunks,
+      this.state.sourceExtractionJobs
     );
     return cloneHealth(this.state);
   }
@@ -108,6 +110,15 @@ export class InMemoryVaultseerStore implements VaultseerStore {
 
   async getSourceChunkRecords(): Promise<SourceChunkRecord[]> {
     return cloneStoredValue(this.state.sourceChunks);
+  }
+
+  async replaceSourceExtractionQueue(jobs: SourceExtractionJobRecord[]): Promise<SourceExtractionJobRecord[]> {
+    this.state = updateStoredVaultIndexSourceExtractionJobs(this.state, jobs);
+    return cloneStoredValue(this.state.sourceExtractionJobs);
+  }
+
+  async getSourceExtractionJobRecords(): Promise<SourceExtractionJobRecord[]> {
+    return cloneStoredValue(this.state.sourceExtractionJobs);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {

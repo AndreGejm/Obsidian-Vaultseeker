@@ -48,6 +48,7 @@ Stored entity shapes are defined for:
 - chunk records
 - lexical index records
 - vector records
+- source extraction job records
 - source records
 - source chunk records
 - suggestion records
@@ -234,6 +235,8 @@ This borrows Mimir's import boundary: external source material is evidence, not 
 - `SourceRecord`: normalized extracted source metadata and extracted Markdown.
 - `SourceChunkRecord`: source-owned chunks with source provenance, separate from vault `ChunkRecord` values.
 
+`packages/core/src/source/source-extraction-queue.ts` defines the first source extraction job lifecycle before any heavy extractor is wired. It plans jobs from vault-local source candidates, existing source records, and existing extraction jobs. Job identity includes extractor id, vault source path, source content hash, and extraction options, so changing Marker-style options such as OCR or image preservation can create distinct work. Queue transitions are pure: claim due jobs, complete, cancel, fail with retry/backoff, and recover interrupted running jobs. This borrows the existing semantic queue shape so future Marker and MarkItDown workers can be explicit, cancellable, and reloadable instead of running long extraction in the Obsidian UI path.
+
 `packages/core/src/source/chunk-source.ts` derives `SourceChunkRecord` values from extracted Markdown. It uses the same shared block splitting, text normalization, and stable hash helpers as vault note chunking, but keeps source chunks in the `source-chunk:` ID namespace. Source headings come from extracted Markdown because external sources do not have Obsidian metadata cache entries. Fenced code blocks stay intact, unchanged source blocks keep stable IDs across nearby edits, and duplicate blocks in the same source section use an ordinal only as a collision breaker.
 
 `packages/core/src/source/source-lexical-search.ts` builds a source-only lexical index over filenames, source section paths, and extracted source chunk text. Results are grouped by source workspace, include matched fields and matched source chunks, and stay read-only. The tokenizer is shared with vault-note lexical search so case and diacritic behavior stays consistent across notes and sources.
@@ -246,7 +249,7 @@ This borrows Mimir's import boundary: external source material is evidence, not 
 
 The plugin now exposes explicit source semantic controls. `Vaultseer: Plan source semantic indexing queue` persists source jobs from stored source workspaces while preserving note jobs. `Vaultseer: Run one source semantic indexing batch` runs one ready source batch through the configured Ollama-compatible provider when semantic indexing is enabled. `Vaultseer: Cancel active source semantic indexing jobs` cancels queued or running source jobs while preserving note jobs and completed diagnostics.
 
-`VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
+`VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. Source extraction jobs are persisted through `replaceSourceExtractionQueue` and `getSourceExtractionJobRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces and source extraction jobs, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
 
 `Vaultseer: Import active text/code file as source workspace` is the first source intake path. It reads only the active Obsidian file through the vault adapter, supports Markdown, plain text, scripts, source code, JSON, YAML, and similar readable files, then stores a source workspace and source chunks through `VaultseerStore`. Unsupported active files, including PDFs for now, are stored as failed source workspaces with diagnostics. This command does not read arbitrary filesystem paths and does not write Obsidian notes.
 
@@ -256,4 +259,4 @@ The plugin now exposes explicit source semantic controls. `Vaultseer: Plan sourc
 
 The source preview modal reads stored source records and source chunks, then displays source metadata, extraction diagnostics, staged attachment metadata, extracted Markdown, and chunk groups. It does not run extractors, render staged attachments, copy images or tables into the vault, or create Obsidian notes.
 
-Current limitations: no Marker adapter, MarkItDown adapter, attachment staging directory, rendered image/table preview, or source-to-note proposal path exists yet. The current source picker is intentionally limited to built-in text/code files and does not run PDF, Word, PowerPoint, Excel, or image extraction.
+Current limitations: no Marker adapter, MarkItDown adapter, source extraction worker, plugin command for planning/running source extraction jobs, attachment staging directory, rendered image/table preview, or source-to-note proposal path exists yet. The current source picker is intentionally limited to built-in text/code files and does not run PDF, Word, PowerPoint, Excel, or image extraction.

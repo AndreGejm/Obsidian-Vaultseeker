@@ -19,10 +19,11 @@ import {
   createReadyStoredVaultIndex,
   updateStoredVaultIndexEmbeddingJobs,
   updateStoredVaultIndexHealth,
+  updateStoredVaultIndexSourceExtractionJobs,
   updateStoredVaultIndexSourceWorkspace,
   updateStoredVaultIndexVectors
 } from "./store-state";
-import type { SourceChunkRecord, SourceRecord } from "../source/types";
+import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
 
 export class PersistentVaultseerStore implements VaultseerStore {
   private constructor(
@@ -56,7 +57,8 @@ export class PersistentVaultseerStore implements VaultseerStore {
       [],
       [],
       this.state.sourceRecords,
-      this.state.sourceChunks
+      this.state.sourceChunks,
+      this.state.sourceExtractionJobs
     );
     await this.persist();
     return cloneHealth(this.state);
@@ -130,6 +132,16 @@ export class PersistentVaultseerStore implements VaultseerStore {
     return cloneStoredValue(this.state.sourceChunks);
   }
 
+  async replaceSourceExtractionQueue(jobs: SourceExtractionJobRecord[]): Promise<SourceExtractionJobRecord[]> {
+    this.state = updateStoredVaultIndexSourceExtractionJobs(this.state, jobs);
+    await this.persist();
+    return cloneStoredValue(this.state.sourceExtractionJobs);
+  }
+
+  async getSourceExtractionJobRecords(): Promise<SourceExtractionJobRecord[]> {
+    return cloneStoredValue(this.state.sourceExtractionJobs);
+  }
+
   async getFileVersions(): Promise<FileVersionRecord[]> {
     return cloneStoredValue(this.state.fileVersions);
   }
@@ -156,6 +168,7 @@ function hydrateStoredVaultIndex(value: StoredVaultIndex | null): StoredVaultInd
     embeddingJobs: cloneStoredValue(value.embeddingJobs ?? []),
     sourceRecords: cloneStoredValue(value.sourceRecords ?? []),
     sourceChunks: cloneStoredValue(value.sourceChunks ?? []),
+    sourceExtractionJobs: cloneStoredValue(value.sourceExtractionJobs ?? []),
     suggestions: cloneStoredValue(value.suggestions ?? []),
     decisions: cloneStoredValue(value.decisions ?? [])
   };

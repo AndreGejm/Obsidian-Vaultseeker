@@ -168,12 +168,27 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Source workspaces are not Obsidian notes.
 - Source records are stored separately from note records.
 - Source chunks are stored separately from vault note chunks.
+- Source extraction jobs are stored separately from note embedding jobs and source chunks.
 - `SourceExtractorPort` describes extractor capabilities, dependency checks, and explicit failure modes before any Marker or MarkItDown adapter exists.
 - Source records preserve original source metadata: path, filename, extension, size, content hash, import time, extractor identity, extractor version, extraction options, diagnostics, extracted Markdown, and staged attachment metadata.
 - Source chunks preserve source provenance such as page, section, line range, or unknown provenance.
-- Rebuilding the vault note mirror preserves source records and source chunks.
+- Rebuilding the vault note mirror preserves source records, source chunks, and source extraction jobs.
 - Clearing Vaultseer's full local state clears source workspaces together with notes, chunks, vectors, jobs, suggestions, and decisions.
 - No source workspace API writes a final Obsidian note.
+
+## Phase 4.5 Source Extraction Queue Guarantees
+
+- `planSourceExtractionQueue` is a pure core planner and does not call Marker, MarkItDown, Obsidian APIs, or the filesystem.
+- Planned job identity includes extractor id, vault source path, source content hash, and extraction options.
+- Current extracted source workspaces with the same extractor id, content hash, and extraction options are counted as reusable instead of queued again.
+- Existing queued or running extraction jobs with the same identity are counted as already queued instead of duplicated.
+- Existing source workspaces with the same source path and extractor id but a different content hash or extraction options are counted as stale and can be queued.
+- Failed current source workspaces are not retried automatically unless the planner is explicitly asked to retry failed sources.
+- `maxJobs` limits newly planned extraction jobs while reporting how many candidates were skipped by the limit.
+- Source extraction job transitions are explicit and testable: claim due jobs, complete jobs, cancel jobs, fail with retry/backoff, and recover interrupted running jobs.
+- Source extraction jobs are persisted through `VaultseerStore` and survive vault note mirror rebuilds.
+- Clearing Vaultseer's local state clears source extraction jobs.
+- This queue foundation does not yet provide a worker, background scheduler, plugin command, Marker adapter, MarkItDown adapter, attachment staging, or note writes.
 
 ## Phase 4.5 Built-In Text/Code Source Intake Guarantees
 
@@ -285,6 +300,8 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Vector preservation across mirror rebuilds.
 - Marker PDF extraction.
 - MarkItDown broad file extraction.
+- Source extraction worker execution.
+- Plugin command surfaces for planning, running, cancelling, or recovering source extraction jobs.
 - Source file picker support for PDF, Word, PowerPoint, Excel, image, or other external-extractor formats.
 - Rendered image/table source preview.
 - Staged attachment persistence outside the stored metadata shape.

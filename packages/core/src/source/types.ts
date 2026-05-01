@@ -122,3 +122,25 @@ export type SourceChunkRecord = {
   text: string;
   provenance: SourceProvenance;
 };
+
+export type SourceExtractionJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export type SourceExtractionCandidate = {
+  sourcePath: string;
+  filename: string;
+  extension: string;
+  sizeBytes: number;
+  contentHash: string;
+  extractionOptions: Record<string, unknown>;
+};
+
+export type SourceExtractionJobRecord = SourceExtractionCandidate & {
+  id: string;
+  extractorId: string;
+  status: SourceExtractionJobStatus;
+  attemptCount: number;
+  createdAt: string;
+  updatedAt: string;
+  lastError: string | null;
+  nextAttemptAt: string | null;
+};

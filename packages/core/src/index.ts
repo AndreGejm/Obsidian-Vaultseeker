@@ -11,6 +11,15 @@ export { buildSourceLexicalIndex, searchSourceLexicalIndex } from "./source/sour
 export { searchSourceSemanticVectors } from "./source/source-semantic-search";
 export { chunkSourceRecord, chunkSourceRecords } from "./source/chunk-source";
 export { BuiltInTextSourceExtractor, isBuiltInTextSourceExtension } from "./source/text-source-extractor";
+export {
+  cancelSourceExtractionJobs,
+  claimSourceExtractionJobs,
+  completeSourceExtractionJob,
+  createSourceExtractionJobId,
+  failSourceExtractionJob,
+  planSourceExtractionQueue,
+  recoverRunningSourceExtractionJobs
+} from "./source/source-extraction-queue";
 export { hashString } from "./chunking/text-chunking";
 export {
   buildVectorNamespace,
@@ -101,8 +110,11 @@ export type {
 export type {
   SourceAttachmentRecord,
   SourceChunkRecord,
+  SourceExtractionCandidate,
   SourceExtractionDiagnostic,
   SourceExtractionInput,
+  SourceExtractionJobRecord,
+  SourceExtractionJobStatus,
   SourceExtractionResult,
   SourceExtractorCapability,
   SourceExtractorDependency,
@@ -113,3 +125,14 @@ export type {
   SourceRecord,
   SourceWorkspaceStatus
 } from "./source/types";
+export type {
+  CancelSourceExtractionJobsInput,
+  ClaimSourceExtractionJobsInput,
+  ClaimSourceExtractionJobsResult,
+  CompleteSourceExtractionJobInput,
+  FailSourceExtractionJobInput,
+  PlanSourceExtractionQueueInput,
+  RecoverRunningSourceExtractionJobsInput,
+  SourceExtractionQueuePlan,
+  SourceExtractionQueueTransitionResult
+} from "./source/source-extraction-queue";

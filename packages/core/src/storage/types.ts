@@ -1,5 +1,5 @@
 import type { NoteRecord, VaultSnapshot } from "../types";
-import type { SourceChunkRecord, SourceRecord } from "../source/types";
+import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
 
 export const INDEX_SCHEMA_VERSION = 1;
 
@@ -111,6 +111,7 @@ export type StoredVaultIndex = {
   embeddingJobs: EmbeddingJobRecord[];
   sourceRecords: SourceRecord[];
   sourceChunks: SourceChunkRecord[];
+  sourceExtractionJobs: SourceExtractionJobRecord[];
   suggestions: SuggestionRecord[];
   decisions: DecisionRecord[];
   health: IndexHealth;
@@ -144,6 +145,8 @@ export interface VaultseerStore {
   replaceSourceWorkspace(sources: SourceRecord[], chunks: SourceChunkRecord[]): Promise<SourceRecord[]>;
   getSourceRecords(): Promise<SourceRecord[]>;
   getSourceChunkRecords(): Promise<SourceChunkRecord[]>;
+  replaceSourceExtractionQueue(jobs: SourceExtractionJobRecord[]): Promise<SourceExtractionJobRecord[]>;
+  getSourceExtractionJobRecords(): Promise<SourceExtractionJobRecord[]>;
   getFileVersions(): Promise<FileVersionRecord[]>;
   clear(): Promise<IndexHealth>;
 }
