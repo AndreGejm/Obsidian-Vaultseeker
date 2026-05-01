@@ -137,7 +137,7 @@ Exit gate:
 
 ## Phase 4.5: High-Fidelity Source Intake
 
-Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, persisted source extraction jobs, pure source extraction queue transitions, core source extraction worker execution, Marker PDF adapter, plugin source extraction queue planning/status/manual-run/recovery/cancellation controls, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, source-job protection from note semantic controls, the core source embedding worker, explicit plugin source semantic controls, a read-only source search modal, a read-only source preview modal, vault-local active-file text/code intake, and a vault-local text/code source picker are implemented. No MarkItDown adapter, automatic source extraction scheduler, rendered image/table preview, or source-to-note proposal path exists yet.
+Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, persisted source extraction jobs, pure source extraction queue transitions, core source extraction worker execution, Marker PDF adapter, plugin source extraction queue planning/status/manual-run/recovery/cancellation controls, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, source-job protection from note semantic controls, the core source embedding worker, explicit plugin source semantic controls, a read-only source search modal, a read-only source preview modal, vault-local active-file text/code intake, a vault-local text/code source picker, and deterministic read-only source-to-note proposal previews are implemented. No MarkItDown adapter, automatic source extraction scheduler, rendered image/table preview, AI-authored source proposal path, or guarded source-to-note write path exists yet.
 
 Goal: turn external source files into searchable, reviewable source workspaces before any Obsidian note is written.
 
@@ -164,7 +164,7 @@ Implementation steps:
 - support semantic ranking over extracted source chunks when vectors already exist (**implemented in core against stored vectors and `source-chunk:` IDs, with optional source search modal integration when semantic search is enabled**)
 - support semantic indexing of extracted source chunks when semantic search is enabled (**implemented for core queue planning, core source worker execution, explicit plugin planning/running/cancellation commands, startup recovery, and optional source search modal evidence**)
 - expose a source preview panel with extracted text, diagnostics, staged attachment metadata, and searchable chunks (**implemented as a read-only modal opened from source search results; image/table rendering remains future work**)
-- let AI propose note title, summary, headings, tags, aliases, links, and related notes from the extracted source
+- let AI propose note title, summary, headings, tags, aliases, links, and related notes from the extracted source (**deterministic read-only seed proposals are implemented in source preview; AI generation remains future work**)
 - require user review before turning any source proposal into a vault write operation
 
 Exit gate:
@@ -179,7 +179,7 @@ Exit gate:
 
 ## Phase 5: Read-Only Suggestions
 
-Status: started. Read-only tag suggestions, broken-link target suggestions, and narrow note sanity checks are implemented in core and displayed in the workbench. Suggestions and diagnostics are evidence-bearing and cannot mutate notes.
+Status: started. Read-only tag suggestions, broken-link target suggestions, narrow note sanity checks, semantic related notes, and deterministic source-to-note seed proposals are implemented in core and displayed through the workbench or source preview. Suggestions and diagnostics are evidence-bearing and cannot mutate notes.
 
 Goal: produce explainable gardening suggestions without applying them.
 
@@ -187,7 +187,7 @@ Implementation steps:
 
 - suggest tags from existing vault vocabulary (**implemented for the current workbench note using linked notes, backlinks, co-tags, tag frequency, and existing tag vocabulary only**)
 - suggest related notes from links, tags, lexical search, and semantic search (**implemented for the workbench using links, backlinks, shared tags, lexical matches, and stored note vectors when current chunk vectors already exist**)
-- suggest note structure, tags, links, and related notes from reviewed source intake workspaces
+- suggest note structure, tags, links, and related notes from reviewed source intake workspaces (**implemented as deterministic read-only source preview proposals; AI-assisted proposal generation and persistence remain future work**)
 - suggest missing links from unresolved mentions and strong related-note evidence (**implemented for current-note unresolved Obsidian links using existing notes, aliases, titles, and token overlap; still read-only and not yet backed by semantic evidence**)
 - detect narrow formatting issues only: missing frontmatter field, duplicate aliases, empty title, malformed tag, broken internal link (**implemented as read-only current-note sanity checks in the workbench**)
 - store suggestion evidence and confidence separately

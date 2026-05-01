@@ -34,6 +34,9 @@ The first Phase 5 foundations are read-only tag suggestions, broken-link target 
 - Sanity checks reuse normalized note metadata and the existing relationship graph; they do not parse Markdown or apply formatting.
 - The first diagnostics are intentionally narrow: missing frontmatter tags, duplicate aliases, empty title, malformed tags, and unresolved internal links.
 - The workbench now reuses core `searchSemanticVectors` for related-note evidence when stored note vectors already exist. It does not call an embedding provider from the workbench.
+- Core now owns `proposeSourceNote` for deterministic source-to-note seed proposals.
+- Source proposals reuse the source workspace, source chunk, existing vault tag, existing note, and evidence-first contracts already used by search and suggestions.
+- Source proposals stay read-only in the source preview modal; they produce a Markdown preview but no vault mutation or accepted decision.
 
 This deliberately borrows the useful behavior from Tags Overview, Dataview, Metadata Extractor, Omnisearch, and Mimir's explainable-evidence style while preserving Vaultseer's core/plugin boundary and write-safety ladder.
 
@@ -45,3 +48,4 @@ This deliberately borrows the useful behavior from Tags Overview, Dataview, Meta
 - No Dataview-compatible query language.
 - No MiniSearch dependency.
 - No source-to-note write operation until preview diffs and hash checks exist.
+- No AI-authored source-to-note generation until the deterministic proposal shape has been reviewed against real sources.

@@ -1,5 +1,12 @@
 import { App, Modal, Notice } from "obsidian";
-import type { VaultseerStore } from "@vaultseer/core";
+import type {
+  SourceNoteProposal,
+  SourceNoteProposalHeading,
+  SourceNoteProposalLink,
+  SourceNoteProposalRelatedNote,
+  SourceNoteProposalTag,
+  VaultseerStore
+} from "@vaultseer/core";
 import {
   buildSourcePreviewState,
   type SourcePreviewAttachment,
@@ -33,11 +40,12 @@ export class VaultseerSourcePreviewModal extends Modal {
     contentEl.createEl("p", { text: "Loading source workspace..." });
 
     try {
-      const [sources, chunks] = await Promise.all([
+      const [sources, chunks, notes] = await Promise.all([
         this.store.getSourceRecords(),
-        this.store.getSourceChunkRecords()
+        this.store.getSourceChunkRecords(),
+        this.store.getNoteRecords()
       ]);
-      this.renderState(buildSourcePreviewState({ sourceId: this.sourceId, sources, chunks }));
+      this.renderState(buildSourcePreviewState({ sourceId: this.sourceId, sources, chunks, notes }));
     } catch (error) {
       contentEl.empty();
       contentEl.createEl("h2", { text: "Vaultseer Source Preview" });
@@ -58,6 +66,7 @@ export class VaultseerSourcePreviewModal extends Modal {
 
     this.renderDiagnostics(contentEl, state.diagnostics);
     this.renderAttachments(contentEl, state.attachments);
+    this.renderNoteProposal(contentEl, state.noteProposal);
     this.renderMarkdownPreview(contentEl, state.markdownPreview);
     this.renderChunkGroups(contentEl, state.chunkGroups);
   }
@@ -107,6 +116,92 @@ export class VaultseerSourcePreviewModal extends Modal {
     }
   }
 
+  private renderNoteProposal(containerEl: HTMLElement, proposal: SourceNoteProposal | null): void {
+    if (!proposal) return;
+
+    const sectionEl = containerEl.createEl("section", { cls: "vaultseer-source-preview-note-proposal" });
+    sectionEl.createEl("h3", { text: "Draft Note Proposal" });
+    sectionEl.createEl("p", {
+      text: "Read-only proposal. Vaultseer will not create or edit a note from this preview."
+    });
+    sectionEl.createEl("div", { text: `Title: ${proposal.title}` });
+
+    if (proposal.summary) {
+      sectionEl.createEl("h4", { text: "Summary" });
+      sectionEl.createEl("p", { text: proposal.summary });
+    }
+
+    this.renderAliases(sectionEl, proposal.aliases);
+    this.renderSuggestedTags(sectionEl, proposal.suggestedTags);
+    this.renderSuggestedLinks(sectionEl, proposal.suggestedLinks);
+    this.renderRelatedNotes(sectionEl, proposal.relatedNotes);
+    this.renderOutline(sectionEl, proposal.outlineHeadings);
+
+    sectionEl.createEl("h4", { text: "Markdown Preview" });
+    sectionEl.createEl("pre", { text: proposal.markdownPreview });
+  }
+
+  private renderAliases(containerEl: HTMLElement, aliases: string[]): void {
+    if (aliases.length === 0) return;
+    containerEl.createEl("h4", { text: "Aliases" });
+    const listEl = containerEl.createEl("ul");
+    for (const alias of aliases) {
+      listEl.createEl("li", { text: alias });
+    }
+  }
+
+  private renderSuggestedTags(containerEl: HTMLElement, tags: SourceNoteProposalTag[]): void {
+    containerEl.createEl("h4", { text: "Suggested Tags" });
+    if (tags.length === 0) {
+      containerEl.createEl("p", { text: "No existing vault tags matched this source strongly enough." });
+      return;
+    }
+
+    const listEl = containerEl.createEl("ul");
+    for (const tag of tags) {
+      listEl.createEl("li", { text: `${tag.tag} (${formatConfidence(tag.confidence)}) - ${tag.reason}` });
+    }
+  }
+
+  private renderSuggestedLinks(containerEl: HTMLElement, links: SourceNoteProposalLink[]): void {
+    containerEl.createEl("h4", { text: "Suggested Links" });
+    if (links.length === 0) {
+      containerEl.createEl("p", { text: "No existing notes matched source terms strongly enough for link suggestions." });
+      return;
+    }
+
+    const listEl = containerEl.createEl("ul");
+    for (const link of links) {
+      listEl.createEl("li", { text: `${link.linkText} -> ${link.notePath} (${formatConfidence(link.confidence)}) - ${link.reason}` });
+    }
+  }
+
+  private renderRelatedNotes(containerEl: HTMLElement, relatedNotes: SourceNoteProposalRelatedNote[]): void {
+    containerEl.createEl("h4", { text: "Related Notes" });
+    if (relatedNotes.length === 0) {
+      containerEl.createEl("p", { text: "No related notes found from the current vault mirror." });
+      return;
+    }
+
+    const listEl = containerEl.createEl("ul");
+    for (const note of relatedNotes) {
+      listEl.createEl("li", { text: `${note.title} (${note.notePath}, ${formatConfidence(note.confidence)}) - ${note.reason}` });
+    }
+  }
+
+  private renderOutline(containerEl: HTMLElement, headings: SourceNoteProposalHeading[]): void {
+    containerEl.createEl("h4", { text: "Suggested Outline" });
+    if (headings.length === 0) {
+      containerEl.createEl("p", { text: "No source sections were available for an outline." });
+      return;
+    }
+
+    const listEl = containerEl.createEl("ul");
+    for (const heading of headings) {
+      listEl.createEl("li", { text: `${heading.heading} (${heading.sourceSectionPath.join(" > ")})` });
+    }
+  }
+
   private renderMarkdownPreview(containerEl: HTMLElement, markdownPreview: string): void {
     const sectionEl = containerEl.createEl("section", { cls: "vaultseer-source-preview-markdown" });
     sectionEl.createEl("h3", { text: "Extracted Markdown" });
@@ -149,4 +244,8 @@ function formatBytes(value: number): string {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatConfidence(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }

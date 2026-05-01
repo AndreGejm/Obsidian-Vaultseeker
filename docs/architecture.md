@@ -204,6 +204,22 @@ The workbench toolbar exposes `Rebuild index` and `Clear index`. These actions o
 
 Current limitation: the workbench is still a read-only mirror inspector. It does not yet show guarded actions, suggestion decisions, semantic current-note results, or gardener queues.
 
+## Source-To-Note Proposals
+
+The first source-to-note slice is read-only and deterministic. `packages/core/src/source/source-note-proposal.ts` turns one extracted `SourceRecord`, its `SourceChunkRecord` values, and the current mirrored `NoteRecord` values into a `SourceNoteProposal`.
+
+The proposal contains:
+
+- title inferred from the first Markdown H1, source section, or filename;
+- summary from the first useful source chunk;
+- filename-derived aliases;
+- outline headings from source chunk section paths;
+- suggested tags from existing vault tags only;
+- suggested links and related notes from title, alias, tag, and source-term evidence;
+- a Markdown preview for human review.
+
+This is not a write operation. The source preview modal displays the proposal, but it does not create a note, modify frontmatter, copy attachments, or mark a suggestion as accepted. Later AI-assisted proposal generation should produce the same proposal shape, and Phase 6 guarded writes must still convert any accepted proposal into an explicit operation with preview diff, expected file hash, approval, and decision record.
+
 ## Semantic Queue Foundation
 
 The first Phase 4 foundation is core-only and does not call an embedding provider. `packages/core/src/semantic/embedding-queue.ts` defines a model namespace from provider id, model id, and dimensions, then plans deterministic embedding jobs for chunks that do not already have a reusable vector record for that namespace.

@@ -1,10 +1,13 @@
 import type {
+  NoteRecord,
+  SourceNoteProposal,
   SourceAttachmentRecord,
   SourceChunkRecord,
   SourceExtractionDiagnostic,
   SourceProvenance,
   SourceRecord
 } from "@vaultseer/core";
+import { proposeSourceNote } from "@vaultseer/core";
 
 export type SourcePreviewStatus = "ready" | "failed" | "missing";
 
@@ -56,6 +59,7 @@ export type SourcePreviewState = {
   diagnostics: SourcePreviewDiagnostic[];
   attachments: SourcePreviewAttachment[];
   markdownPreview: string;
+  noteProposal: SourceNoteProposal | null;
   chunkGroups: SourcePreviewChunkGroup[];
 };
 
@@ -63,6 +67,7 @@ export type BuildSourcePreviewStateInput = {
   sourceId: string;
   sources: SourceRecord[];
   chunks: SourceChunkRecord[];
+  notes?: NoteRecord[];
 };
 
 export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): SourcePreviewState {
@@ -77,6 +82,7 @@ export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): So
       diagnostics: [],
       attachments: [],
       markdownPreview: "",
+      noteProposal: null,
       chunkGroups: []
     };
   }
@@ -94,6 +100,14 @@ export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): So
     diagnostics: source.diagnostics.map(toPreviewDiagnostic),
     attachments: source.attachments.map(toPreviewAttachment),
     markdownPreview: source.extractedMarkdown,
+    noteProposal:
+      status === "failed" || !input.notes
+        ? null
+        : proposeSourceNote({
+            source,
+            sourceChunks: input.chunks,
+            notes: input.notes
+          }),
     chunkGroups:
       status === "failed"
         ? []

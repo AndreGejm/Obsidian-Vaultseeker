@@ -12,6 +12,7 @@ export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
 export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
 export { buildSourceLexicalIndex, searchSourceLexicalIndex } from "./source/source-lexical-search";
 export { searchSourceSemanticVectors } from "./source/source-semantic-search";
+export { proposeSourceNote } from "./source/source-note-proposal";
 export { chunkSourceRecord, chunkSourceRecords } from "./source/chunk-source";
 export { BuiltInTextSourceExtractor, isBuiltInTextSourceExtension } from "./source/text-source-extractor";
 export {
@@ -94,6 +95,15 @@ export type {
   SourceSemanticSearchInput,
   SourceSemanticSearchResult
 } from "./source/source-semantic-search";
+export type {
+  ProposeSourceNoteInput,
+  SourceNoteProposal,
+  SourceNoteProposalEvidence,
+  SourceNoteProposalHeading,
+  SourceNoteProposalLink,
+  SourceNoteProposalRelatedNote,
+  SourceNoteProposalTag
+} from "./source/source-note-proposal";
 export type {
   EmbeddingJobRecord,
   EmbeddingJobStatus,

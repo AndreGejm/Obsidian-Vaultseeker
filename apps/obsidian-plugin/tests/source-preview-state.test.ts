@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SourceChunkRecord, SourceRecord } from "@vaultseer/core";
+import type { NoteRecord, SourceChunkRecord, SourceRecord } from "@vaultseer/core";
 import { buildSourcePreviewState } from "../src/source-preview-state";
 
 describe("buildSourcePreviewState", () => {
@@ -79,6 +79,7 @@ describe("buildSourcePreviewState", () => {
         }
       ],
       markdownPreview: "# Timer Datasheet\n\nPin 1 controls reset.",
+      noteProposal: null,
       chunkGroups: [
         {
           label: "Timer Datasheet > Overview",
@@ -136,6 +137,7 @@ describe("buildSourcePreviewState", () => {
         location: "unknown"
       }
     ]);
+    expect(state.noteProposal).toBeNull();
     expect(state.chunkGroups).toEqual([]);
   });
 
@@ -154,6 +156,7 @@ describe("buildSourcePreviewState", () => {
       diagnostics: [],
       attachments: [],
       markdownPreview: "",
+      noteProposal: null,
       chunkGroups: []
     });
   });
@@ -181,6 +184,51 @@ describe("buildSourcePreviewState", () => {
         ]
       }
     ]);
+  });
+
+  it("adds a read-only note proposal when vault notes are provided", () => {
+    const state = buildSourcePreviewState({
+      sourceId: "source:timer",
+      sources: [
+        sourceRecord({
+          id: "source:timer",
+          filename: "timer-datasheet.pdf",
+          extractedMarkdown: "# Precision Timer\n\nReset pins and timing circuits."
+        })
+      ],
+      chunks: [
+        sourceChunk({
+          sourceId: "source:timer",
+          sectionPath: ["Precision Timer", "Reset Pins"],
+          text: "The reset pin controls timing circuits."
+        })
+      ],
+      notes: [
+        noteRecord({
+          path: "Electronics/Timing Circuits.md",
+          title: "Timing Circuits",
+          basename: "Timing Circuits",
+          tags: ["electronics/timing"],
+          aliases: ["timing circuits"]
+        })
+      ]
+    });
+
+    expect(state.noteProposal).toMatchObject({
+      title: "Precision Timer",
+      aliases: ["timer-datasheet"],
+      suggestedTags: [
+        expect.objectContaining({
+          tag: "electronics/timing"
+        })
+      ],
+      suggestedLinks: [
+        expect.objectContaining({
+          notePath: "Electronics/Timing Circuits.md",
+          linkText: "Timing Circuits"
+        })
+      ]
+    });
   });
 });
 
@@ -217,6 +265,22 @@ function sourceChunk(overrides: Partial<SourceChunkRecord>): SourceChunkRecord {
     ordinal: 0,
     text: "Pin 1 controls reset.",
     provenance: { kind: "unknown" },
+    ...overrides
+  };
+}
+
+function noteRecord(overrides: Partial<NoteRecord>): NoteRecord {
+  return {
+    path: "Electronics/Timer.md",
+    basename: "Timer",
+    title: "Timer",
+    contentHash: "sha256:note",
+    stat: { ctime: 1, mtime: 2, size: 100 },
+    frontmatter: {},
+    tags: [],
+    aliases: [],
+    links: [],
+    headings: [],
     ...overrides
   };
 }
