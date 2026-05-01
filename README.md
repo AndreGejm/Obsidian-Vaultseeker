@@ -18,6 +18,7 @@ Markdown notes remain the source of truth. Generated indexes are disposable and 
 - `Vaultseer: Check read-only vault index health`
 - `Vaultseer: Search read-only vault index`
 - `Vaultseer: Search stored source workspaces`
+- `Vaultseer: Open guarded write review queue`
 - `Vaultseer: Import active text/code file as source workspace`
 - `Vaultseer: Choose text/code file to import as source workspace`
 - `Vaultseer: Plan PDF source extraction queue`

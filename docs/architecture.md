@@ -75,6 +75,7 @@ The plugin currently exposes these operator commands:
 - `Vaultseer: Check read-only vault index health`
 - `Vaultseer: Search read-only vault index`
 - `Vaultseer: Open read-only workbench`
+- `Vaultseer: Open guarded write review queue`
 - `Vaultseer: Plan semantic indexing queue`
 - `Vaultseer: Run one semantic indexing batch`
 - `Vaultseer: Cancel active semantic indexing jobs`
@@ -243,7 +244,9 @@ The plugin exposes this through a dry-run review surface, not through an apply s
 
 The source preview persists the generated source-note operation when it persists source proposal suggestions. This makes the dry-run review recoverable later, but it still does not authorize a note write.
 
-This is still not a write feature. No command calls `app.vault.create`, `app.vault.modify`, `processFrontMatter`, or adapter write methods. The next safe step is a review queue for persisted operations and decisions, followed later by a `VaultWritePort` adapter that rechecks the file hash immediately before applying an approved operation.
+The guarded write review queue is the first control surface over persisted operations. `apps/obsidian-plugin/src/write-review-queue-state.ts` builds a read-only queue summary and item list from stored operations and decisions. `apps/obsidian-plugin/src/write-review-queue-controller.ts` records approval, deferral, or rejection as Vaultseer review metadata only. `apps/obsidian-plugin/src/write-review-queue-modal.ts` renders the queue, linked suggestions, preview diffs, and decision buttons. These buttons do not apply operations to Markdown.
+
+This is still not a write feature. No command calls `app.vault.create`, `app.vault.modify`, `processFrontMatter`, or adapter write methods. The next safe step is apply-result storage and then, only after that, a `VaultWritePort` adapter that rechecks the file hash immediately before applying an approved operation.
 
 ## Semantic Queue Foundation
 

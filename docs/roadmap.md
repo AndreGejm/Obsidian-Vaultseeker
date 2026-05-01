@@ -200,7 +200,7 @@ Exit gate:
 
 ## Phase 6: Guarded Write Actions
 
-Status: started. Core now has the first guarded-write contract for source-to-note creation: a source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. Proposed write operations and write decisions are persisted separately from suggestions and survive read-only mirror rebuilds. The plugin source preview stores the generated source-note operation and exposes a dry-run review modal for that proposed operation. No Obsidian write adapter, apply command, write result store, or note mutation exists yet.
+Status: started. Core now has the first guarded-write contract for source-to-note creation: a source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. Proposed write operations and write decisions are persisted separately from suggestions and survive read-only mirror rebuilds. The plugin source preview stores the generated source-note operation and exposes a dry-run review modal for that proposed operation. The plugin also exposes `Vaultseer: Open guarded write review queue`, which lists stored proposals and records approval, deferral, or rejection as review metadata only. No Obsidian write adapter, apply command, write result store, or note mutation exists yet.
 
 Goal: allow explicit, safe changes after preview.
 
@@ -211,8 +211,9 @@ Implementation steps:
 - create proposed operations for source-to-note creation after source intake review (**implemented in core as `planSourceNoteCreationOperation`**)
 - generate preview diffs (**implemented for source note creation as an added-file diff**)
 - verify current file hash before apply (**implemented as `evaluateVaultWritePrecondition`; plugin apply wiring remains future work**)
-- record decisions and write results (**approval/defer/reject decision records are implemented and persisted; apply-result storage remains future work**)
+- record decisions and write results (**approval/defer/reject decision records are implemented, persisted, and controllable from a queue modal; apply-result storage remains future work**)
 - expose a dry-run review surface before any apply path (**implemented from the source preview as a read-only operation/diff/safety modal**)
+- expose a queue for persisted write proposals and decision state (**implemented as a modal command with no apply button**)
 - reject stale operations when the file changed since analysis
 
 Exit gate:

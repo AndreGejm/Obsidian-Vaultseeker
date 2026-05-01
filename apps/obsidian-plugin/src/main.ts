@@ -10,6 +10,7 @@ import { VaultseerSearchModal } from "./search-modal";
 import { VaultseerSourceFilePickerModal } from "./source-file-picker-modal";
 import { VaultseerSourcePreviewModal } from "./source-preview-modal";
 import { VaultseerSourceSearchModal } from "./source-search-modal";
+import { VaultseerWriteReviewQueueModal } from "./write-review-queue-modal";
 import { importVaultTextSourceWorkspace } from "./source-intake-controller";
 import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
 import {
@@ -117,6 +118,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Search stored source workspaces",
       callback: async () => {
         await this.showSourceSearch();
+      }
+    });
+
+    this.addCommand({
+      id: "open-write-review-queue",
+      name: "Open guarded write review queue",
+      callback: async () => {
+        await this.showWriteReviewQueue();
       }
     });
 
@@ -297,6 +306,10 @@ export default class VaultseerPlugin extends Plugin {
 
   async showSourcePreview(sourceId: string): Promise<void> {
     new VaultseerSourcePreviewModal(this.app, this.store, sourceId).open();
+  }
+
+  async showWriteReviewQueue(): Promise<void> {
+    new VaultseerWriteReviewQueueModal(this.app, this.store).open();
   }
 
   async importActiveTextSource(): Promise<void> {
