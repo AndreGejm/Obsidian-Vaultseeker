@@ -15,9 +15,13 @@ import {
   type VectorRecord
 } from "@vaultseer/core";
 import {
+  cancelSourceSemanticIndexQueue,
   cancelSemanticIndexQueue,
+  planSourceSemanticIndexQueue,
   planSemanticIndexQueue,
+  recoverSourceSemanticIndexQueue,
   recoverSemanticIndexQueue,
+  runSourceSemanticIndexBatch,
   runSemanticIndexBatch
 } from "../src/semantic-index-controller";
 
@@ -227,6 +231,48 @@ describe("planSemanticIndexQueue", () => {
   });
 });
 
+describe("planSourceSemanticIndexQueue", () => {
+  it("plans source embedding jobs while preserving note embedding jobs", async () => {
+    const store = await createStore();
+    const chunks = await store.getChunkRecords();
+    const notePlan = planEmbeddingQueue({
+      chunks,
+      vectors: [],
+      modelProfile,
+      createdAt: now
+    });
+    const sourceRecord = source({});
+    const sourceChunks = [sourceChunk({})];
+    await store.replaceSourceWorkspace([sourceRecord], sourceChunks);
+    await store.replaceEmbeddingQueue([notePlan.jobs[0]!]);
+
+    const summary = await planSourceSemanticIndexQueue({
+      store,
+      modelProfile,
+      now,
+      maxJobs: 8
+    });
+
+    expect(summary).toEqual({
+      modelNamespace,
+      queuedJobCount: 1,
+      reusableVectorCount: 0,
+      staleVectorCount: 0,
+      skippedByLimitCount: 0
+    });
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ id: notePlan.jobs[0]!.id, status: "queued" }),
+      expect.objectContaining({
+        targetKind: "source",
+        sourceId: sourceRecord.id,
+        sourcePath: sourceRecord.sourcePath,
+        chunkId: sourceChunks[0]!.id,
+        status: "queued"
+      })
+    ]);
+  });
+});
+
 describe("runSemanticIndexBatch", () => {
   it("runs one explicit persisted queue batch through an injected provider", async () => {
     const store = await createStore();
@@ -267,6 +313,55 @@ describe("runSemanticIndexBatch", () => {
         model: modelNamespace,
         dimensions: 768,
         contentHash: chunks[0]!.normalizedTextHash
+      })
+    ]);
+  });
+});
+
+describe("runSourceSemanticIndexBatch", () => {
+  it("runs one explicit source queue batch through an injected provider", async () => {
+    const store = await createStore();
+    const chunks = await store.getChunkRecords();
+    const notePlan = planEmbeddingQueue({
+      chunks,
+      vectors: [],
+      modelProfile,
+      createdAt: now
+    });
+    const sourceJob = await addSourceQueueJob(store);
+    await store.replaceEmbeddingQueue([
+      notePlan.jobs[0]!,
+      sourceJob
+    ]);
+    const provider = new FakeEmbeddingProvider();
+
+    const summary = await runSourceSemanticIndexBatch({
+      store,
+      provider,
+      modelProfile,
+      now: "2026-04-29T23:35:00.000Z",
+      batchSize: 1,
+      retryDelayMs: 30_000,
+      maxAttempts: 3
+    });
+
+    expect(summary).toEqual({
+      claimed: 1,
+      completed: 1,
+      failed: 0,
+      vectorCount: 1
+    });
+    expect(provider.embeddedTexts).toEqual(["Extracted source text."]);
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ id: notePlan.jobs[0]!.id, status: "queued" }),
+      expect.objectContaining({ id: sourceJob.id, targetKind: "source", status: "completed" })
+    ]);
+    await expect(store.getVectorRecords()).resolves.toEqual([
+      expect.objectContaining({
+        chunkId: sourceJob.chunkId,
+        model: modelNamespace,
+        dimensions: 768,
+        contentHash: sourceJob.contentHash
       })
     ]);
   });
@@ -342,6 +437,42 @@ describe("cancelSemanticIndexQueue", () => {
   });
 });
 
+describe("cancelSourceSemanticIndexQueue", () => {
+  it("cancels active source semantic jobs while preserving note jobs", async () => {
+    const store = await createStore();
+    const chunks = await store.getChunkRecords();
+    const notePlan = planEmbeddingQueue({
+      chunks,
+      vectors: [],
+      modelProfile,
+      createdAt: now
+    });
+    const sourceJob = await addSourceQueueJob(store, "running");
+    const noteJob: EmbeddingJobRecord = {
+      ...notePlan.jobs[0]!,
+      status: "running",
+      updatedAt: "2026-04-29T23:36:00.000Z"
+    };
+    await store.replaceEmbeddingQueue([noteJob, sourceJob]);
+
+    const summary = await cancelSourceSemanticIndexQueue({
+      store,
+      now: "2026-04-29T23:40:00.000Z"
+    });
+
+    expect(summary).toEqual({
+      cancelledJobCount: 1,
+      totalJobCount: 1,
+      remainingQueuedJobCount: 0,
+      remainingRunningJobCount: 0
+    });
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ id: noteJob.id, status: "running" }),
+      expect.objectContaining({ id: sourceJob.id, targetKind: "source", status: "cancelled" })
+    ]);
+  });
+});
+
 describe("recoverSemanticIndexQueue", () => {
   it("requeues running semantic jobs left over from a previous plugin session", async () => {
     const store = await createStore();
@@ -396,6 +527,47 @@ describe("recoverSemanticIndexQueue", () => {
     });
     await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
       expect.objectContaining({ id: sourceJob.id, targetKind: "source", status: "running" })
+    ]);
+  });
+});
+
+describe("recoverSourceSemanticIndexQueue", () => {
+  it("requeues running source semantic jobs while preserving note jobs", async () => {
+    const store = await createStore();
+    const chunks = await store.getChunkRecords();
+    const notePlan = planEmbeddingQueue({
+      chunks,
+      vectors: [],
+      modelProfile,
+      createdAt: now
+    });
+    const sourceJob = await addSourceQueueJob(store, "running");
+    const noteJob: EmbeddingJobRecord = {
+      ...notePlan.jobs[0]!,
+      status: "running",
+      updatedAt: "2026-04-29T23:36:00.000Z"
+    };
+    await store.replaceEmbeddingQueue([noteJob, sourceJob]);
+
+    const summary = await recoverSourceSemanticIndexQueue({
+      store,
+      now: "2026-04-30T00:10:00.000Z"
+    });
+
+    expect(summary).toEqual({
+      recoveredJobCount: 1,
+      totalJobCount: 1,
+      remainingRunningJobCount: 0
+    });
+    await expect(store.getEmbeddingJobRecords()).resolves.toEqual([
+      expect.objectContaining({ id: noteJob.id, status: "running" }),
+      expect.objectContaining({
+        id: sourceJob.id,
+        targetKind: "source",
+        status: "queued",
+        lastError: "Recovered after plugin restart before completion.",
+        nextAttemptAt: null
+      })
     ]);
   });
 });

@@ -137,7 +137,7 @@ Exit gate:
 
 ## Phase 4.5: High-Fidelity Source Intake
 
-Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, source-job protection from note semantic controls, and the core source embedding worker are implemented. No extractor adapter, source preview UI, source search UI, plugin source embedding command/provider integration, attachment staging, or source-to-note proposal path exists yet.
+Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, source-job protection from note semantic controls, the core source embedding worker, and explicit plugin source semantic controls are implemented. No extractor adapter, source preview UI, source search UI, attachment staging, or source-to-note proposal path exists yet.
 
 Goal: turn external source files into searchable, reviewable source workspaces before any Obsidian note is written.
 
@@ -160,7 +160,7 @@ Implementation steps:
 - chunk extracted source content using the same stable chunking principles as vault notes, but keep source chunk IDs in a separate namespace (**implemented for extracted Markdown using source-owned headings, shared block splitting, shared text hashing, and `source-chunk:` IDs**)
 - support lexical search over extracted sources without embeddings (**implemented in core for filenames, source section paths, and extracted chunk text; UI integration remains future work**)
 - support semantic ranking over extracted source chunks when vectors already exist (**implemented in core against stored vectors and `source-chunk:` IDs; embedding queue/provider/UI integration remains future work**)
-- support semantic indexing of extracted source chunks when semantic search is enabled (**implemented for core queue planning and core source worker execution only; plugin command/provider/UI integration remains future work**)
+- support semantic indexing of extracted source chunks when semantic search is enabled (**implemented for core queue planning, core source worker execution, explicit plugin planning/running/cancellation commands, and startup recovery; source UI integration remains future work**)
 - expose a source preview panel with extracted text, images, tables, diagnostics, and searchable chunks
 - let AI propose note title, summary, headings, tags, aliases, links, and related notes from the extracted source
 - require user review before turning any source proposal into a vault write operation

@@ -65,7 +65,7 @@ Semantic settings are explicit but disabled by default. The plugin stores `seman
 
 `rebuildReadOnlyIndex` and `clearReadOnlyIndex` return `IndexHealth`, which records schema version, status, last index time, note count, chunk count, vector count, suggestion count, and warnings.
 
-The plugin currently exposes five operator commands:
+The plugin currently exposes these operator commands:
 
 - `Vaultseer: Rebuild read-only vault index`
 - `Vaultseer: Clear read-only vault index`
@@ -73,6 +73,11 @@ The plugin currently exposes five operator commands:
 - `Vaultseer: Search read-only vault index`
 - `Vaultseer: Open read-only workbench`
 - `Vaultseer: Plan semantic indexing queue`
+- `Vaultseer: Run one semantic indexing batch`
+- `Vaultseer: Cancel active semantic indexing jobs`
+- `Vaultseer: Plan source semantic indexing queue`
+- `Vaultseer: Run one source semantic indexing batch`
+- `Vaultseer: Cancel active source semantic indexing jobs`
 
 The health command checks file-version staleness before showing a status notice, so the operator can see whether the current mirror is empty, ready, stale, degraded, or failed.
 
@@ -207,9 +212,9 @@ The search modal now uses `buildSearchModalQueryState` to merge semantic evidenc
 
 `Vaultseer: Cancel active semantic indexing jobs` is an operator-facing cancellation command. It cancels only queued/running semantic jobs in the persisted queue and preserves completed jobs for diagnostics.
 
-On plugin startup, Vaultseer recovers semantic jobs left in `running` state by a previous interrupted session. Those jobs are requeued with a recovery diagnostic so the next explicit batch can retry them.
+On plugin startup, Vaultseer recovers note and source semantic jobs left in `running` state by a previous interrupted session. Those jobs are requeued with a recovery diagnostic so the next explicit batch can retry them.
 
-Current limitation: the note queue only runs when a caller explicitly invokes the batch controller. There is no background scheduler yet, and source embedding has no plugin command yet.
+Current limitation: note and source queues only run when a caller explicitly invokes a batch command. There is no background scheduler yet.
 
 ## Source Intake Foundation
 
@@ -234,8 +239,10 @@ This borrows Mimir's import boundary: external source material is evidence, not 
 
 `planSourceEmbeddingQueue` adds source-only semantic queue planning. It reuses the same model namespace and vector freshness rules as note chunk planning, but creates jobs with `targetKind: "source"`, `sourceId`, and `sourcePath` instead of pretending source chunks are note chunks. Failed source workspaces and orphan source chunks are skipped. Source jobs are protected from the note worker and note semantic plugin controls.
 
-`runSourceEmbeddingWorkerBatch` is the core source counterpart to the note worker. It claims only `targetKind: "source"` jobs, reads stored source chunks, sends source chunk text to an injected `EmbeddingProviderPort`, validates vector shape, stores vector records under source chunk IDs, and completes or fails source jobs through the same retry rules. It does not call Marker, MarkItDown, Ollama directly, run in the Obsidian UI, persist a newly planned queue through a plugin command, or write final notes.
+`runSourceEmbeddingWorkerBatch` is the core source counterpart to the note worker. It claims only `targetKind: "source"` jobs, reads stored source chunks, sends source chunk text to an injected `EmbeddingProviderPort`, validates vector shape, stores vector records under source chunk IDs, and completes or fails source jobs through the same retry rules. It does not call Marker, MarkItDown, Ollama directly, schedule background work, or write final notes.
+
+The plugin now exposes explicit source semantic controls. `Vaultseer: Plan source semantic indexing queue` persists source jobs from stored source workspaces while preserving note jobs. `Vaultseer: Run one source semantic indexing batch` runs one ready source batch through the configured Ollama-compatible provider when semantic indexing is enabled. `Vaultseer: Cancel active source semantic indexing jobs` cancels queued or running source jobs while preserving note jobs and completed diagnostics.
 
 `VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
 
-Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source search UI, plugin source embedding command/provider integration, attachment staging directory, cancellation controller, or source-to-note proposal path exists yet.
+Current limitations: no Marker adapter, MarkItDown adapter, source preview panel, source search UI, attachment staging directory, or source-to-note proposal path exists yet.

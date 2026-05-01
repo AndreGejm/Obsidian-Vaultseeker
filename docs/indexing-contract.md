@@ -219,7 +219,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Existing vectors from other model namespaces are not treated as replacements.
 - Failed source workspaces and orphan source chunks are skipped.
 - `maxJobs` limits how much source work is planned at once while reporting how many source chunks were skipped by that limit.
-- Source queue planning does not call an embedding provider, persist jobs through a plugin command, run a worker, or write Obsidian notes.
+- Source queue planning does not call an embedding provider, run a worker, or write Obsidian notes.
 
 ## Phase 4.5 Source Embedding Worker Guarantees
 
@@ -230,9 +230,19 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Provider failures, missing source chunks, or wrong vector shapes move claimed source jobs through the same retry/failure transition rules as note jobs.
 - Source embedding execution does not call Marker, MarkItDown, or Obsidian APIs, does not schedule background work, and does not write Obsidian notes.
 
+## Phase 4.5 Source Semantic Plugin Control Guarantees
+
+- `planSourceSemanticIndexQueue` persists planned source jobs from stored source records and source chunks while preserving note jobs.
+- `runSourceSemanticIndexBatch` delegates to the source embedding worker with an injected provider and does not claim note jobs.
+- `cancelSourceSemanticIndexQueue` cancels only queued or running source jobs and preserves note jobs.
+- `recoverSourceSemanticIndexQueue` requeues only running source jobs after an interrupted plugin session and preserves note jobs.
+- Source semantic plugin commands are guarded by the existing disabled-by-default semantic indexing setting.
+- The first plugin provider path is the same Ollama-compatible adapter used by note semantic batches.
+- Source semantic plugin controls do not run extractors, show source previews, schedule background jobs, or write Obsidian notes.
+
 ## Not Yet Guaranteed
 
-- Automatic persisted embedding queue execution.
+- Automatic or background persisted embedding queue execution.
 - Automatic background scheduling.
 - Embedding providers other than the first Ollama-compatible adapter.
 - Vector preservation across mirror rebuilds.
@@ -240,7 +250,6 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - MarkItDown broad file extraction.
 - Built-in text/code source extraction.
 - Source search UI.
-- Plugin source semantic embedding provider integration.
 - Source preview UI.
 - Staged attachment persistence outside the stored metadata shape.
 - Source-to-note proposal creation.
