@@ -116,6 +116,39 @@ describe("searchSourceSemanticIndex", () => {
       results: []
     });
   });
+
+  it("does not call the provider when no eligible source vectors exist", async () => {
+    const store = new InMemoryVaultseerStore();
+    const sources = [source({})];
+    const chunks = [sourceChunk({})];
+    await store.replaceSourceWorkspace(sources, chunks);
+    await store.replaceVectorRecords([
+      {
+        chunkId: chunks[0]!.id,
+        model: "ollama/other-model:3",
+        dimensions: 3,
+        contentHash: chunks[0]!.normalizedTextHash,
+        vector: [1, 0, 0],
+        embeddedAt: "2026-05-01T08:00:00.000Z"
+      }
+    ]);
+    const provider = new FakeEmbeddingProvider(new Error("provider should not be called"));
+
+    await expect(
+      searchSourceSemanticIndex({
+        enabled: true,
+        store,
+        provider,
+        modelProfile,
+        query: "reset"
+      })
+    ).resolves.toEqual({
+      status: "ready",
+      message: "No source semantic results found.",
+      results: []
+    });
+    expect(provider.embeddedTexts).toEqual([]);
+  });
 });
 
 async function createStore(): Promise<InMemoryVaultseerStore> {

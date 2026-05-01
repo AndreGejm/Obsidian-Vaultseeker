@@ -4,7 +4,7 @@ import {
   chunkSourceRecord,
   searchSourceLexicalIndex
 } from "../src/index";
-import type { SourceRecord } from "../src/index";
+import type { SourceChunkRecord, SourceLexicalIndexRecord, SourceRecord } from "../src/index";
 
 function sourceRecord(
   id: string,
@@ -90,6 +90,29 @@ describe("buildSourceLexicalIndex", () => {
       ])
     );
   });
+
+  it("does not index chunks from failed source workspaces", () => {
+    const failedSource: SourceRecord = {
+      ...timerSource,
+      status: "failed",
+      diagnostics: [
+        {
+          severity: "error",
+          code: "extraction_failed",
+          message: "Extractor failed."
+        }
+      ]
+    };
+    const failedChunk: SourceChunkRecord = {
+      ...chunks[0]!,
+      sourceId: failedSource.id,
+      sourcePath: failedSource.sourcePath
+    };
+
+    const index = buildSourceLexicalIndex([failedSource], [failedChunk]);
+
+    expect(index.find((record) => record.term === "reset")).toBeUndefined();
+  });
 });
 
 describe("searchSourceLexicalIndex", () => {
@@ -148,5 +171,46 @@ describe("searchSourceLexicalIndex", () => {
 
     expect(searchSourceLexicalIndex({ query: "", index, sources, chunks })).toEqual([]);
     expect(searchSourceLexicalIndex({ query: "nonexistent", index, sources, chunks })).toEqual([]);
+  });
+
+  it("does not return failed source workspaces even when stale index refs exist", () => {
+    const failedSource: SourceRecord = {
+      ...timerSource,
+      status: "failed",
+      diagnostics: [
+        {
+          severity: "error",
+          code: "extraction_failed",
+          message: "Extractor failed."
+        }
+      ]
+    };
+    const failedChunk: SourceChunkRecord = {
+      ...chunks[0]!,
+      sourceId: failedSource.id,
+      sourcePath: failedSource.sourcePath
+    };
+    const staleIndex: SourceLexicalIndexRecord[] = [
+      {
+        term: "reset",
+        refs: [
+          {
+            sourceId: failedSource.id,
+            sourcePath: failedSource.sourcePath,
+            chunkId: failedChunk.id,
+            field: "body"
+          }
+        ]
+      }
+    ];
+
+    expect(
+      searchSourceLexicalIndex({
+        query: "reset",
+        index: staleIndex,
+        sources: [failedSource],
+        chunks: [failedChunk]
+      })
+    ).toEqual([]);
   });
 });

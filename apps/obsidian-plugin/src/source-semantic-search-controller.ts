@@ -3,9 +3,12 @@ import {
   searchSourceSemanticVectors,
   type EmbeddingModelProfile,
   type EmbeddingProviderPort,
+  type SourceChunkRecord,
+  type SourceRecord,
   type SourceSemanticSearchInput,
   type SourceSemanticSearchResult,
-  type VaultseerStore
+  type VaultseerStore,
+  type VectorRecord
 } from "@vaultseer/core";
 
 export type SourceSemanticSearchStatus = "disabled" | "ready" | "degraded";
@@ -48,15 +51,30 @@ export async function searchSourceSemanticIndex(
   }
 
   try {
-    const [sources, chunks, vectors, queryVector] = await Promise.all([
+    const [sources, chunks, vectors] = await Promise.all([
       options.store.getSourceRecords(),
       options.store.getSourceChunkRecords(),
-      options.store.getVectorRecords(),
-      embedQuery(options.provider, query, options.modelProfile.dimensions)
+      options.store.getVectorRecords()
     ]);
+    const modelNamespace = buildVectorNamespace(options.modelProfile);
+    if (!hasEligibleSourceVectors({
+      sources,
+      chunks,
+      vectors,
+      modelNamespace,
+      dimensions: options.modelProfile.dimensions
+    })) {
+      return {
+        status: "ready",
+        message: formatReadyMessage(0),
+        results: []
+      };
+    }
+
+    const queryVector = await embedQuery(options.provider, query, options.modelProfile.dimensions);
     const searchInput: SourceSemanticSearchInput = {
       queryVector,
-      modelNamespace: buildVectorNamespace(options.modelProfile),
+      modelNamespace,
       sources,
       chunks,
       vectors
@@ -79,6 +97,33 @@ export async function searchSourceSemanticIndex(
       results: []
     };
   }
+}
+
+function hasEligibleSourceVectors(input: {
+  sources: SourceRecord[];
+  chunks: SourceChunkRecord[];
+  vectors: VectorRecord[];
+  modelNamespace: string;
+  dimensions: number;
+}): boolean {
+  const extractedSourceIds = new Set(
+    input.sources
+      .filter((source) => source.status === "extracted")
+      .map((source) => source.id)
+  );
+  const currentSourceChunks = new Map(
+    input.chunks
+      .filter((chunk) => extractedSourceIds.has(chunk.sourceId))
+      .map((chunk) => [chunk.id, chunk])
+  );
+
+  return input.vectors.some((vector) => {
+    if (vector.model !== input.modelNamespace) return false;
+    if (vector.dimensions !== input.dimensions || vector.vector.length !== input.dimensions) return false;
+
+    const chunk = currentSourceChunks.get(vector.chunkId);
+    return Boolean(chunk && vector.contentHash === chunk.normalizedTextHash);
+  });
 }
 
 async function embedQuery(

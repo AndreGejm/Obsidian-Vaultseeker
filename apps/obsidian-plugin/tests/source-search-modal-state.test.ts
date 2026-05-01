@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SourceChunkRecord, SourceRecord, SourceSemanticSearchResult } from "@vaultseer/core";
+import type { SourceChunkRecord, SourceLexicalIndexRecord, SourceRecord, SourceSemanticSearchResult } from "@vaultseer/core";
 import { buildSourceSearchModalState } from "../src/source-search-modal-state";
 import type { SourceSemanticSearchControllerResult } from "../src/source-semantic-search-controller";
 
@@ -80,8 +80,70 @@ describe("buildSourceSearchModalState", () => {
       expect.objectContaining({
         sourceId: "source:timer",
         source: "hybrid",
-        score: 1,
+        score: 6.52,
         reason: "reset in body; semantic match 0.92 in Timer"
+      })
+    ]);
+  });
+
+  it("uses a caller-provided source lexical index", () => {
+    const emptyIndex: SourceLexicalIndexRecord[] = [];
+
+    const state = buildSourceSearchModalState({
+      query: "reset",
+      sources,
+      chunks,
+      lexicalIndex: emptyIndex
+    });
+
+    expect(state).toEqual({
+      status: "ready",
+      message: "No source results found.",
+      results: []
+    });
+  });
+
+  it("ranks strong semantic-only source results ahead of weak lexical body hits", () => {
+    const semanticSource = source({
+      id: "source:semantic",
+      sourcePath: "Sources/Papers/theory.pdf",
+      filename: "theory.pdf"
+    });
+    const semantic: SourceSemanticSearchControllerResult = {
+      status: "ready",
+      message: "1 source semantic result found.",
+      results: [
+        semanticResult({
+          sourceId: semanticSource.id,
+          sourcePath: semanticSource.sourcePath,
+          filename: semanticSource.filename,
+          score: 0.95,
+          matchedChunks: [
+            {
+              chunkId: "source-chunk:semantic-reset",
+              sectionPath: ["Reset Theory"],
+              text: "This paper discusses adjacent reset mechanisms.",
+              provenance: { kind: "unknown" },
+              score: 0.95
+            }
+          ]
+        })
+      ]
+    };
+
+    const state = buildSourceSearchModalState({
+      query: "reset",
+      sources: [...sources, semanticSource],
+      chunks,
+      semantic,
+      limit: 1
+    });
+
+    expect(state.results).toEqual([
+      expect.objectContaining({
+        sourceId: "source:semantic",
+        source: "semantic",
+        reason: "semantic match 0.95 in Reset Theory"
       })
     ]);
   });

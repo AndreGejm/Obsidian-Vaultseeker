@@ -2,6 +2,7 @@ import {
   buildSourceLexicalIndex,
   searchSourceLexicalIndex,
   type SourceChunkRecord,
+  type SourceLexicalIndexRecord,
   type SourceLexicalSearchResult,
   type SourceRecord,
   type SourceSemanticSearchResult
@@ -28,9 +29,12 @@ export type BuildSourceSearchModalStateInput = {
   query: string;
   sources: SourceRecord[];
   chunks: SourceChunkRecord[];
+  lexicalIndex?: SourceLexicalIndexRecord[];
   semantic?: SourceSemanticSearchControllerResult;
   limit?: number;
 };
+
+const SEMANTIC_RANK_WEIGHT = 6;
 
 export function buildSourceSearchModalState(input: BuildSourceSearchModalStateInput): SourceSearchModalState {
   const extractedSources = input.sources.filter((source) => source.status === "extracted");
@@ -50,7 +54,7 @@ export function buildSourceSearchModalState(input: BuildSourceSearchModalStateIn
     };
   }
 
-  const lexicalIndex = buildSourceLexicalIndex(input.sources, input.chunks);
+  const lexicalIndex = input.lexicalIndex ?? buildSourceLexicalIndex(input.sources, input.chunks);
   const lexicalResults = searchSourceLexicalIndex({
     query: input.query,
     index: lexicalIndex,
@@ -87,7 +91,7 @@ function toSemanticModalResult(result: SourceSemanticSearchResult): SourceSearch
     sourceId: result.sourceId,
     sourcePath: result.sourcePath,
     filename: result.filename,
-    score: result.score,
+    score: roundScore(result.score * SEMANTIC_RANK_WEIGHT),
     source: "semantic",
     reason: formatSemanticReason(result),
     excerpt: formatSemanticExcerpt(result)
@@ -100,31 +104,30 @@ function mergeResults(
   limit: number
 ): SourceSearchModalResult[] {
   const mergedById = new Map<string, SourceSearchModalResult>();
-  const order: string[] = [];
 
   for (const result of lexicalResults) {
     mergedById.set(result.sourceId, result);
-    order.push(result.sourceId);
   }
 
   for (const result of semanticResults) {
     const existing = mergedById.get(result.sourceId);
     if (!existing) {
       mergedById.set(result.sourceId, result);
-      order.push(result.sourceId);
       continue;
     }
 
     mergedById.set(result.sourceId, {
       ...existing,
-      score: Math.max(existing.score, result.score),
+      score: roundScore(existing.score + result.score),
       source: "hybrid",
       reason: joinReasons(existing.reason, result.reason),
       excerpt: existing.excerpt || result.excerpt
     });
   }
 
-  return order.map((sourceId) => mergedById.get(sourceId)!).slice(0, limit);
+  return [...mergedById.values()]
+    .sort((left, right) => right.score - left.score || left.sourcePath.localeCompare(right.sourcePath))
+    .slice(0, limit);
 }
 
 function getSearchableMessage(resultCount: number): string {
@@ -186,4 +189,8 @@ function truncate(value: string): string {
   const text = value.replace(/\s+/g, " ").trim();
   if (text.length <= 160) return text;
   return `${text.slice(0, 157).trimEnd()}...`;
+}
+
+function roundScore(value: number): number {
+  return Math.round(value * 100) / 100;
 }

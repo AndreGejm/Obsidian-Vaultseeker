@@ -75,9 +75,11 @@ export function buildSourceLexicalIndex(
   chunks: SourceChunkRecord[]
 ): SourceLexicalIndexRecord[] {
   const records = new Map<string, Map<string, SourceLexicalRef>>();
+  const extractedSourceIds = new Set<string>();
 
   for (const source of sources) {
     if (source.status !== "extracted") continue;
+    extractedSourceIds.add(source.id);
     addTextRefs(records, source.filename, {
       sourceId: source.id,
       sourcePath: source.sourcePath,
@@ -86,6 +88,7 @@ export function buildSourceLexicalIndex(
   }
 
   for (const chunk of chunks) {
+    if (!extractedSourceIds.has(chunk.sourceId)) continue;
     const baseRef = {
       sourceId: chunk.sourceId,
       sourcePath: chunk.sourcePath,
@@ -114,8 +117,16 @@ export function searchSourceLexicalIndex(input: SourceLexicalSearchInput): Sourc
   if (queryTerms.length === 0) return [];
 
   const indexByTerm = new Map(input.index.map((record) => [record.term, record.refs]));
-  const sourceById = new Map(input.sources.map((source) => [source.id, source]));
-  const chunkById = new Map(input.chunks.map((chunk) => [chunk.id, chunk]));
+  const sourceById = new Map(
+    input.sources
+      .filter((source) => source.status === "extracted")
+      .map((source) => [source.id, source])
+  );
+  const chunkById = new Map(
+    input.chunks
+      .filter((chunk) => sourceById.has(chunk.sourceId))
+      .map((chunk) => [chunk.id, chunk])
+  );
   const resultsById = new Map<string, MutableSourceLexicalSearchResult>();
 
   for (const term of queryTerms) {

@@ -1,5 +1,11 @@
 import { App, Modal, Notice, Setting } from "obsidian";
-import type { SourceChunkRecord, SourceRecord, VaultseerStore } from "@vaultseer/core";
+import {
+  buildSourceLexicalIndex,
+  type SourceChunkRecord,
+  type SourceLexicalIndexRecord,
+  type SourceRecord,
+  type VaultseerStore
+} from "@vaultseer/core";
 import {
   buildSourceSearchModalState,
   type SourceSearchModalResult,
@@ -13,6 +19,7 @@ import {
 type SourceSearchData = {
   sources: SourceRecord[];
   chunks: SourceChunkRecord[];
+  lexicalIndex: SourceLexicalIndexRecord[];
 };
 
 export class VaultseerSourceSearchModal extends Modal {
@@ -55,7 +62,11 @@ export class VaultseerSourceSearchModal extends Modal {
       this.store.getSourceChunkRecords()
     ]);
 
-    return { sources, chunks };
+    return {
+      sources,
+      chunks,
+      lexicalIndex: buildSourceLexicalIndex(sources, chunks)
+    };
   }
 
   private renderSearch(data: SourceSearchData): void {
@@ -66,6 +77,8 @@ export class VaultseerSourceSearchModal extends Modal {
     const statusEl = contentEl.createEl("p");
     const resultsEl = contentEl.createEl("div");
     let activeRequestId = 0;
+    let currentQuery = "";
+    const hasSearchableSource = data.sources.some((source) => source.status === "extracted");
 
     const renderState = (state: SourceSearchModalState): void => {
       statusEl.textContent = state.message;
@@ -76,12 +89,12 @@ export class VaultseerSourceSearchModal extends Modal {
       }
     };
 
-    const renderResults = (query: string): void => {
+    const renderResults = (query: string, options: { runSemantic?: boolean } = {}): void => {
       const requestId = ++activeRequestId;
       const initialState = buildSourceSearchModalState({ query, ...data });
       renderState(initialState);
 
-      if (!this.semanticSearch || !query.trim() || data.sources.length === 0) return;
+      if (!options.runSemantic || !this.semanticSearch || !query.trim() || !hasSearchableSource) return;
 
       statusEl.textContent = `${initialState.message} Source semantic search is running...`;
       void buildSourceSearchModalQueryState({ query, ...data, semanticSearch: this.semanticSearch }).then((state) => {
@@ -90,14 +103,24 @@ export class VaultseerSourceSearchModal extends Modal {
       });
     };
 
-    new Setting(contentEl)
+    const searchSetting = new Setting(contentEl)
       .setName("Search sources")
       .setDesc("Search stored extracted source workspaces.")
       .addText((text) => {
         text.setPlaceholder("filename, section, phrase, or topic");
-        text.inputEl.addEventListener("input", () => renderResults(text.inputEl.value));
+        text.inputEl.addEventListener("input", () => {
+          currentQuery = text.inputEl.value;
+          renderResults(currentQuery);
+        });
         text.inputEl.focus();
       });
+
+    if (this.semanticSearch) {
+      searchSetting.addButton((button) => {
+        button.setButtonText("Run semantic");
+        button.onClick(() => renderResults(currentQuery, { runSemantic: true }));
+      });
+    }
 
     renderResults("");
   }

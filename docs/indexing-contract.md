@@ -195,7 +195,8 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Source fields currently include filename, section, and body text.
 - Source search uses the same query and text tokenization as vault-note lexical search, including case-insensitive and diacritic-insensitive matching.
 - Source search requires every query term to be present in a returned source result.
-- Source lexical results are exposed through `Vaultseer: Search stored source workspaces`, where the plugin builds the source lexical index from stored source records and chunks at query time.
+- Failed source workspaces and chunks belonging to failed source workspaces are ignored.
+- Source lexical results are exposed through `Vaultseer: Search stored source workspaces`, where the plugin builds the source lexical index from stored source records and chunks when the modal opens.
 - Source search does not write source results into notes.
 
 ## Phase 4.5 Source Semantic Ranking Guarantees
@@ -246,8 +247,10 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 
 - `Vaultseer: Search stored source workspaces` reads only stored source records, source chunks, and stored vectors.
 - Lexical source search works without embeddings.
-- Optional semantic source search embeds the query through the configured provider only when semantic search is enabled.
+- The modal builds its source lexical index once per open modal session and reuses it for live lexical queries.
+- Optional semantic source search embeds the query through the configured provider only when semantic search is enabled, stored current source vectors exist, and the operator explicitly runs semantic search.
 - Semantic provider failures degrade to lexical-only results and show a degraded message.
+- Source search rank fusion gives semantic evidence an explicit modal ranking weight, merges hybrid source evidence, and sorts the merged result set before applying the display limit.
 - Results display filename, source path, evidence reason, and excerpt.
 - The modal does not run extractors, render attachments, show a full source preview, or write Obsidian notes.
 
