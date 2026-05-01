@@ -19,7 +19,7 @@ describe("buildWriteReviewQueueState", () => {
     });
   });
 
-  it("lists pending and decided operations without exposing apply state", () => {
+  it("marks approved unapplied operations as ready for guarded apply", () => {
     const pending = writeOperation({
       id: "vault-write:create-note-from-source:pending",
       targetPath: "Source Notes/Pending.md",
@@ -68,7 +68,7 @@ describe("buildWriteReviewQueueState", () => {
     });
     expect(state.items.map((item) => [item.operationId, item.decisionState, item.applyState, item.canApply])).toEqual([
       [pending.id, "pending", "not_applied", false],
-      [approved.id, "approved", "not_applied", false],
+      [approved.id, "approved", "not_applied", true],
       [rejected.id, "rejected", "not_applied", false]
     ]);
     expect(state.items[0]).toMatchObject({
@@ -151,6 +151,61 @@ describe("buildWriteReviewQueueState", () => {
     expect(state.items.map((item) => [item.operationId, item.applyState, item.applyLabel])).toEqual([
       [failed.id, "failed", "Apply failed: Target file changed before apply."],
       [applied.id, "applied", "Applied at 2026-05-01T18:30:00.000Z"]
+    ]);
+  });
+
+  it("allows retry only when the latest apply failure is retryable", () => {
+    const retryable = writeOperation({
+      id: "vault-write:create-note-from-source:retryable",
+      targetPath: "Source Notes/Retryable.md",
+      createdAt: "2026-05-01T09:00:00.000Z"
+    });
+    const blocked = writeOperation({
+      id: "vault-write:create-note-from-source:blocked",
+      targetPath: "Source Notes/Blocked.md",
+      createdAt: "2026-05-01T08:00:00.000Z"
+    });
+    const applied = writeOperation({
+      id: "vault-write:create-note-from-source:already-applied",
+      targetPath: "Source Notes/Already Applied.md",
+      createdAt: "2026-05-01T07:00:00.000Z"
+    });
+
+    const state = buildWriteReviewQueueState({
+      operations: [applied, blocked, retryable],
+      decisions: [
+        writeDecision({ operationId: retryable.id, targetPath: retryable.targetPath, decision: "approved" }),
+        writeDecision({ operationId: blocked.id, targetPath: blocked.targetPath, decision: "approved" }),
+        writeDecision({ operationId: applied.id, targetPath: applied.targetPath, decision: "approved" })
+      ],
+      applyResults: [
+        applyResult({
+          operationId: retryable.id,
+          targetPath: retryable.targetPath,
+          status: "failed",
+          retryable: true,
+          failedAt: "2026-05-01T18:00:00.000Z"
+        }),
+        applyResult({
+          operationId: blocked.id,
+          targetPath: blocked.targetPath,
+          status: "failed",
+          retryable: false,
+          failedAt: "2026-05-01T18:05:00.000Z"
+        }),
+        applyResult({
+          operationId: applied.id,
+          targetPath: applied.targetPath,
+          status: "applied",
+          appliedAt: "2026-05-01T18:10:00.000Z"
+        })
+      ]
+    });
+
+    expect(state.items.map((item) => [item.operationId, item.canApply])).toEqual([
+      [retryable.id, true],
+      [blocked.id, false],
+      [applied.id, false]
     ]);
   });
 });

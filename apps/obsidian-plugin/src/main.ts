@@ -11,6 +11,7 @@ import { VaultseerSourceFilePickerModal } from "./source-file-picker-modal";
 import { VaultseerSourcePreviewModal } from "./source-preview-modal";
 import { VaultseerSourceSearchModal } from "./source-search-modal";
 import { VaultseerWriteReviewQueueModal } from "./write-review-queue-modal";
+import { ObsidianVaultWritePort, type ObsidianVaultWriteVault } from "./obsidian-vault-write-port";
 import { importVaultTextSourceWorkspace } from "./source-intake-controller";
 import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
 import {
@@ -309,7 +310,11 @@ export default class VaultseerPlugin extends Plugin {
   }
 
   async showWriteReviewQueue(): Promise<void> {
-    new VaultseerWriteReviewQueueModal(this.app, this.store).open();
+    new VaultseerWriteReviewQueueModal(
+      this.app,
+      this.store,
+      new ObsidianVaultWritePort(this.app.vault as unknown as ObsidianVaultWriteVault)
+    ).open();
   }
 
   async importActiveTextSource(): Promise<void> {

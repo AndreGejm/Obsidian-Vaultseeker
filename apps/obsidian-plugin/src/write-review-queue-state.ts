@@ -21,7 +21,7 @@ export type WriteReviewQueueItem = {
   applyResult: VaultWriteApplyResultRecord | null;
   applyState: WriteReviewQueueApplyState;
   applyLabel: string;
-  canApply: false;
+  canApply: boolean;
   previewDiff: string;
 };
 
@@ -86,7 +86,7 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
       applyResult,
       applyState,
       applyLabel: formatApplyState(applyResult),
-      canApply: false,
+      canApply: canApplyOperation(decisionState, applyResult),
       previewDiff: operation.preview.diff
     };
   });
@@ -167,6 +167,15 @@ function formatApplyState(result: VaultWriteApplyResultRecord | null): string {
     case "failed":
       return `Apply failed: ${result.message}`;
   }
+}
+
+function canApplyOperation(
+  decisionState: WriteReviewQueueDecisionState,
+  applyResult: VaultWriteApplyResultRecord | null
+): boolean {
+  if (decisionState !== "approved") return false;
+  if (!applyResult) return true;
+  return applyResult.status === "failed" && applyResult.retryable;
 }
 
 function applyResultTimestamp(result: VaultWriteApplyResultRecord): string {

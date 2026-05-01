@@ -1,5 +1,6 @@
 import { App, Modal, Notice } from "obsidian";
-import type { GuardedVaultWriteOperation, VaultseerStore, VaultWriteDecision } from "@vaultseer/core";
+import type { GuardedVaultWriteOperation, VaultseerStore, VaultWriteDecision, VaultWritePort } from "@vaultseer/core";
+import { applyApprovedVaultWriteOperation } from "./write-apply-controller";
 import { recordWriteReviewQueueDecision } from "./write-review-queue-controller";
 import { buildWriteReviewQueueState, type WriteReviewQueueItem, type WriteReviewQueueState } from "./write-review-queue-state";
 
@@ -7,6 +8,7 @@ export class VaultseerWriteReviewQueueModal extends Modal {
   constructor(
     app: App,
     private readonly store: VaultseerStore,
+    private readonly writePort: VaultWritePort,
     private readonly now: () => string = () => new Date().toISOString()
   ) {
     super(app);
@@ -62,7 +64,7 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     summaryEl.createEl("div", { text: `Apply failures: ${state.failedApplyCount}` });
     summaryEl.createEl("div", { text: `Applied records: ${state.appliedCount}` });
     summaryEl.createEl("p", {
-      text: "Decision buttons update Vaultseer review metadata only. They do not apply changes to notes."
+      text: "Decision buttons update Vaultseer review metadata only. Create note re-checks the target before writing."
     });
 
     const operationById = new Map(operations.map((operation) => [operation.id, operation]));
@@ -110,6 +112,12 @@ export class VaultseerWriteReviewQueueModal extends Modal {
         void this.recordDecision(operation, decision);
       });
     }
+    const applyButton = actionsEl.createEl("button", { text: applyButtonLabel(item) });
+    applyButton.disabled = !operation || !item.canApply;
+    applyButton.addEventListener("click", () => {
+      if (!operation) return;
+      void this.applyOperation(operation, item);
+    });
 
     const diffEl = itemEl.createEl("section", { cls: "vaultseer-write-review-queue-diff" });
     diffEl.createEl("h5", { text: "Preview Diff" });
@@ -130,6 +138,22 @@ export class VaultseerWriteReviewQueueModal extends Modal {
       new Notice(`Vaultseer could not record the write review decision: ${getErrorMessage(error)}`);
     }
   }
+
+  private async applyOperation(operation: GuardedVaultWriteOperation, item: WriteReviewQueueItem): Promise<void> {
+    try {
+      const summary = await applyApprovedVaultWriteOperation({
+        store: this.store,
+        writePort: this.writePort,
+        operation,
+        decision: item.decision,
+        now: this.now
+      });
+      new Notice(summary.message);
+      await this.loadAndRender();
+    } catch (error) {
+      new Notice(`Vaultseer could not apply the guarded write: ${getErrorMessage(error)}`);
+    }
+  }
 }
 
 function decisionButtonLabel(decision: VaultWriteDecision): string {
@@ -141,6 +165,12 @@ function decisionButtonLabel(decision: VaultWriteDecision): string {
     case "rejected":
       return "Reject";
   }
+}
+
+function applyButtonLabel(item: WriteReviewQueueItem): string {
+  if (item.applyState === "applied") return "Already created";
+  if (item.applyState === "failed" && item.canApply) return "Retry create note";
+  return "Create note";
 }
 
 function getErrorMessage(error: unknown): string {

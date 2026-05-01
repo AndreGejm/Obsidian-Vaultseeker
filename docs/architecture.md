@@ -35,7 +35,7 @@ The initial implementation includes:
 - tested read-only vault adapter
 - minimal plugin command: `Vaultseer: Rebuild read-only vault index`
 
-No note write operations exist yet.
+The only current note write path is the guarded Phase 6 source-note creation flow described below. It can create a new Markdown note from an approved source proposal, but it cannot edit existing notes, tags, links, frontmatter, aliases, or attachments.
 
 ## Storage And Index Health
 
@@ -230,7 +230,7 @@ Suggestion records and suggestion decisions are preserved across read-only mirro
 
 ## Guarded Write Foundation
 
-The first Phase 6 slice is core-only. `packages/core/src/writes/guarded-write.ts` defines the write boundary before any Obsidian write adapter exists.
+Phase 6 starts with the write boundary rather than broad editing features. `packages/core/src/writes/guarded-write.ts` defines proposed operations, preview diffs, precondition checks, review decisions, and apply result records before any note mutation is allowed.
 
 The current implemented operation is `create_note_from_source`:
 
@@ -241,15 +241,21 @@ The current implemented operation is `create_note_from_source`:
 
 Guarded write operations now have a persistence boundary. `VaultseerStore` stores proposed `GuardedVaultWriteOperation` records separately from `VaultWriteDecisionRecord` records. `mergeVaultWriteOperations` upserts proposed operations by operation id, and `upsertVaultWriteDecisionRecord` stores the latest decision for each operation id. These records are preserved across read-only mirror rebuilds, so rebuilding the search/index mirror does not erase pending write reviews.
 
-Apply result records are modeled before any apply adapter exists. `VaultWriteApplyResultRecord` has explicit `applied` and `failed` variants. Failures record stage, expected hash, actual hash, message, retryability, and timestamp so future apply work can fail closed and explain recovery state instead of leaving an ambiguous partial operation.
+Apply result records are explicit. `VaultWriteApplyResultRecord` has `applied` and `failed` variants. Failures record stage, expected hash, actual hash, message, retryability, and timestamp so apply work can fail closed and explain recovery state instead of leaving an ambiguous partial operation.
 
 The plugin exposes this through a dry-run review surface, not through an apply surface. `apps/obsidian-plugin/src/source-note-write-review-state.ts` builds the review state from a source proposal, stored note records, persisted suggestion records, and the core guarded-write functions. `apps/obsidian-plugin/src/source-note-write-review-modal.ts` renders the proposed operation, target path, source provenance, precondition status, linked suggestion IDs, and preview diff.
 
 The source preview persists the generated source-note operation when it persists source proposal suggestions. This makes the dry-run review recoverable later, but it still does not authorize a note write.
 
-The guarded write review queue is the first control surface over persisted operations. `apps/obsidian-plugin/src/write-review-queue-state.ts` builds a read-only queue summary and item list from stored operations, decisions, and apply results. `apps/obsidian-plugin/src/write-review-queue-controller.ts` records approval, deferral, or rejection as Vaultseer review metadata only. `apps/obsidian-plugin/src/write-review-queue-modal.ts` renders the queue, linked suggestions, preview diffs, apply result state, and decision buttons. These buttons do not apply operations to Markdown.
+The guarded write review queue is the first control surface over persisted operations. `apps/obsidian-plugin/src/write-review-queue-state.ts` builds a queue summary and item list from stored operations, decisions, and apply results. `apps/obsidian-plugin/src/write-review-queue-controller.ts` records approval, deferral, or rejection as Vaultseer review metadata. `apps/obsidian-plugin/src/write-review-queue-modal.ts` renders the queue, linked suggestions, preview diffs, apply result state, decision buttons, and a guarded `Create note` button for approved source-note operations.
 
-This is still not a write feature. No command calls `app.vault.create`, `app.vault.modify`, `processFrontMatter`, or adapter write methods. The next safe step is a dry-run/apply planning controller that consumes the stored result model, and then, only after that, a `VaultWritePort` adapter that rechecks the file hash immediately before applying an approved operation.
+The first real apply path is intentionally narrow:
+
+- `apps/obsidian-plugin/src/write-apply-controller.ts` refuses anything except an approved operation, runs a dry-run precondition check, calls the write port, and stores either an applied record or a failed record.
+- `apps/obsidian-plugin/src/obsidian-vault-write-port.ts` implements `VaultWritePort` for Obsidian using `vault.create` only for `create_note_from_source`.
+- The adapter validates the approval payload against the operation, rechecks the target path before writing, creates the file, reads it back, verifies the final content hash, and returns the applied hash record.
+
+This is a write feature, but only for creating a new note from an approved source proposal. It does not modify existing notes, update frontmatter, insert tags, insert links, copy attachments, batch-apply operations, or run automatically.
 
 ## Semantic Queue Foundation
 

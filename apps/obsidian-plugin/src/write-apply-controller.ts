@@ -1,0 +1,124 @@
+import type {
+  GuardedVaultWriteOperation,
+  VaultseerStore,
+  VaultWriteDecisionRecord,
+  VaultWritePort,
+  VaultWritePreconditionReason
+} from "@vaultseer/core";
+import {
+  createVaultWriteApplyFailureRecord,
+  createVaultWriteApplySuccessRecord
+} from "@vaultseer/core";
+
+export type ApplyApprovedVaultWriteOperationStatus = "applied" | "failed" | "blocked";
+
+export type ApplyApprovedVaultWriteOperationInput = {
+  store: VaultseerStore;
+  writePort: VaultWritePort;
+  operation: GuardedVaultWriteOperation;
+  decision: VaultWriteDecisionRecord | null;
+  now: () => string;
+};
+
+export type ApplyApprovedVaultWriteOperationSummary = {
+  status: ApplyApprovedVaultWriteOperationStatus;
+  operationId: string;
+  targetPath: string;
+  message: string;
+};
+
+export async function applyApprovedVaultWriteOperation(
+  input: ApplyApprovedVaultWriteOperationInput
+): Promise<ApplyApprovedVaultWriteOperationSummary> {
+  if (input.decision?.decision !== "approved") {
+    return {
+      status: "blocked",
+      operationId: input.operation.id,
+      targetPath: input.operation.targetPath,
+      message: `${input.operation.targetPath} is not approved for apply.`
+    };
+  }
+
+  const dryRun = await input.writePort.dryRun(input.operation);
+  if (!dryRun.precondition.ok) {
+    const message = formatPreconditionReason(dryRun.precondition.reason);
+    await input.store.recordVaultWriteApplyResult(
+      createVaultWriteApplyFailureRecord({
+        operation: input.operation,
+        stage: "precondition",
+        expectedCurrentHash: dryRun.precondition.expectedCurrentHash,
+        actualCurrentHash: dryRun.precondition.actualCurrentHash,
+        message,
+        retryable: false,
+        failedAt: input.now()
+      })
+    );
+    return {
+      status: "failed",
+      operationId: input.operation.id,
+      targetPath: input.operation.targetPath,
+      message: `Could not create ${input.operation.targetPath}: ${message}.`
+    };
+  }
+
+  try {
+    const appliedAt = input.now();
+    const result = await input.writePort.apply(input.operation, {
+      operationId: input.operation.id,
+      targetPath: input.operation.targetPath,
+      expectedCurrentHash: input.operation.expectedCurrentHash,
+      afterHash: input.operation.preview.afterHash,
+      approvedAt: appliedAt
+    });
+    await input.store.recordVaultWriteApplyResult(
+      createVaultWriteApplySuccessRecord({
+        operation: input.operation,
+        beforeHash: result.beforeHash,
+        afterHash: result.afterHash,
+        appliedAt: result.appliedAt
+      })
+    );
+    return {
+      status: "applied",
+      operationId: input.operation.id,
+      targetPath: input.operation.targetPath,
+      message: `Created ${input.operation.targetPath}.`
+    };
+  } catch (error) {
+    const message = getErrorMessage(error);
+    await input.store.recordVaultWriteApplyResult(
+      createVaultWriteApplyFailureRecord({
+        operation: input.operation,
+        stage: "write",
+        expectedCurrentHash: input.operation.expectedCurrentHash,
+        actualCurrentHash: null,
+        message,
+        retryable: true,
+        failedAt: input.now()
+      })
+    );
+    return {
+      status: "failed",
+      operationId: input.operation.id,
+      targetPath: input.operation.targetPath,
+      message: `Could not create ${input.operation.targetPath}: ${message}.`
+    };
+  }
+}
+
+function formatPreconditionReason(reason: VaultWritePreconditionReason): string {
+  switch (reason) {
+    case "wrong_target":
+      return "target path mismatch";
+    case "target_exists":
+      return "target already exists";
+    case "missing_file":
+      return "target file is missing";
+    case "stale_file":
+      return "target changed since review";
+  }
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

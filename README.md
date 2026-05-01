@@ -11,6 +11,8 @@ The project is intentionally split into:
 
 Markdown notes remain the source of truth. Generated indexes are disposable and must be rebuildable from the vault.
 
+The current write scope is deliberately small: Vaultseer can create a new Markdown note from an approved source-note proposal through the guarded write review queue. It does not yet edit existing notes, tags, links, frontmatter, aliases, or attachments.
+
 ## Current Plugin Commands
 
 - `Vaultseer: Rebuild read-only vault index`
