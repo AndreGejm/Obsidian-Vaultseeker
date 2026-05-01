@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from ".
 import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
+import { VaultseerSourceFilePickerModal } from "./source-file-picker-modal";
 import { VaultseerSourcePreviewModal } from "./source-preview-modal";
 import { VaultseerSourceSearchModal } from "./source-search-modal";
 import { importVaultTextSourceWorkspace } from "./source-intake-controller";
@@ -110,6 +111,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Import active text/code file as source workspace",
       callback: async () => {
         await this.importActiveTextSource();
+      }
+    });
+
+    this.addCommand({
+      id: "choose-text-source-file",
+      name: "Choose text/code file to import as source workspace",
+      callback: async () => {
+        await this.chooseTextSourceFile();
       }
     });
 
@@ -254,6 +263,16 @@ export default class VaultseerPlugin extends Plugin {
     });
 
     new Notice(summary.message);
+  }
+
+  async chooseTextSourceFile(): Promise<void> {
+    new VaultseerSourceFilePickerModal(
+      this.app,
+      this.store,
+      this.app.vault.getFiles(),
+      this.settings.excludedFolders,
+      () => new Date().toISOString()
+    ).open();
   }
 
   async openWorkbench(): Promise<void> {

@@ -18,6 +18,8 @@ Markdown notes remain the source of truth. Generated indexes are disposable and 
 - `Vaultseer: Check read-only vault index health`
 - `Vaultseer: Search read-only vault index`
 - `Vaultseer: Search stored source workspaces`
+- `Vaultseer: Import active text/code file as source workspace`
+- `Vaultseer: Choose text/code file to import as source workspace`
 - `Vaultseer: Open read-only workbench`
 - `Vaultseer: Plan semantic indexing queue`
 - `Vaultseer: Run one semantic indexing batch`

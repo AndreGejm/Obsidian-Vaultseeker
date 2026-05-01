@@ -179,13 +179,14 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 
 - `BuiltInTextSourceExtractor` supports Markdown, plain text, scripts, source code, JSON, YAML, and similar readable text files without an external process.
 - The Obsidian plugin command `Vaultseer: Import active text/code file as source workspace` reads only the active vault file through Obsidian's vault adapter.
-- The command stores extracted source records and source chunks through `VaultseerStore`; it does not create or modify Obsidian notes.
+- The Obsidian plugin command `Vaultseer: Choose text/code file to import as source workspace` opens a vault-local picker that lists only supported built-in text/code extensions and honors Vaultseer's excluded-folder settings.
+- Both built-in intake commands store extracted source records and source chunks through `VaultseerStore`; they do not create or modify Obsidian notes.
 - Markdown sources preserve their extracted Markdown as-is after newline normalization.
 - Plain text sources are wrapped under a source filename heading.
 - Code-like sources are wrapped in fenced Markdown code blocks with a language hint when the extension is known.
 - Unsupported active files, including PDFs until Marker is wired, are stored as failed source workspaces with diagnostics and no chunks.
 - Re-importing the same source path replaces the previous stored source workspace for that path instead of leaving stale chunks behind.
-- This intake path does not read arbitrary filesystem paths, run Marker, run MarkItDown, render attachments, or create source-to-note proposals.
+- These intake paths do not read arbitrary filesystem paths, run Marker, run MarkItDown, render attachments, or create source-to-note proposals.
 
 ## Phase 4.5 Source Chunking Guarantees
 
@@ -284,7 +285,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Vector preservation across mirror rebuilds.
 - Marker PDF extraction.
 - MarkItDown broad file extraction.
-- Source file picker for text/code source extraction.
+- Source file picker support for PDF, Word, PowerPoint, Excel, image, or other external-extractor formats.
 - Rendered image/table source preview.
 - Staged attachment persistence outside the stored metadata shape.
 - Source-to-note proposal creation.

@@ -77,6 +77,7 @@ The plugin currently exposes these operator commands:
 - `Vaultseer: Cancel active semantic indexing jobs`
 - `Vaultseer: Search stored source workspaces`
 - `Vaultseer: Import active text/code file as source workspace`
+- `Vaultseer: Choose text/code file to import as source workspace`
 - `Vaultseer: Plan source semantic indexing queue`
 - `Vaultseer: Run one source semantic indexing batch`
 - `Vaultseer: Cancel active source semantic indexing jobs`
@@ -247,10 +248,12 @@ The plugin now exposes explicit source semantic controls. `Vaultseer: Plan sourc
 
 `VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
 
-`Vaultseer: Import active text/code file as source workspace` is the first source intake path. It reads only the active Obsidian file through the vault adapter, supports Markdown, plain text, scripts, source code, JSON, YAML, and similar readable files, then stores a source workspace and source chunks through `VaultseerStore`. Unsupported files, including PDFs for now, are stored as failed source workspaces with diagnostics. This command does not read arbitrary filesystem paths and does not write Obsidian notes.
+`Vaultseer: Import active text/code file as source workspace` is the first source intake path. It reads only the active Obsidian file through the vault adapter, supports Markdown, plain text, scripts, source code, JSON, YAML, and similar readable files, then stores a source workspace and source chunks through `VaultseerStore`. Unsupported active files, including PDFs for now, are stored as failed source workspaces with diagnostics. This command does not read arbitrary filesystem paths and does not write Obsidian notes.
+
+`Vaultseer: Choose text/code file to import as source workspace` opens a vault-local file picker over the same built-in readable text/code extractor. The picker lists only supported file extensions from Obsidian's vault file list and honors Vaultseer's excluded-folder settings, so `.obsidian`, `research`, and operator-configured excluded folders are not offered as source imports. Choosing a file reads it through `app.vault.cachedRead`, replaces any previous stored source workspace for that vault path, and still does not create or modify Obsidian notes.
 
 `Vaultseer: Search stored source workspaces` opens a read-only modal over stored source records and source chunks. The modal builds a source lexical index once from stored source data when it opens, uses that cached modal-session index for live lexical searches, and only calls the semantic provider when the operator explicitly runs semantic search. Semantic evidence is blended with lexical evidence through an explicit source-ranking policy, and provider failures degrade to lexical-only results without mutating source workspaces or notes. Search results can open a read-only source preview modal for the selected stored source workspace.
 
 The source preview modal reads stored source records and source chunks, then displays source metadata, extraction diagnostics, staged attachment metadata, extracted Markdown, and chunk groups. It does not run extractors, render staged attachments, copy images or tables into the vault, or create Obsidian notes.
 
-Current limitations: no Marker adapter, MarkItDown adapter, source file picker, attachment staging directory, rendered image/table preview, or source-to-note proposal path exists yet.
+Current limitations: no Marker adapter, MarkItDown adapter, attachment staging directory, rendered image/table preview, or source-to-note proposal path exists yet. The current source picker is intentionally limited to built-in text/code files and does not run PDF, Word, PowerPoint, Excel, or image extraction.
