@@ -200,7 +200,7 @@ Exit gate:
 
 ## Phase 6: Guarded Write Actions
 
-Status: started. Core now has the first guarded-write contract for source-to-note creation: a source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. No Obsidian write adapter, apply command, or note mutation exists yet.
+Status: started. Core now has the first guarded-write contract for source-to-note creation: a source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. The plugin source preview also exposes a dry-run review modal for that proposed operation. No Obsidian write adapter, apply command, or note mutation exists yet.
 
 Goal: allow explicit, safe changes after preview.
 
@@ -212,6 +212,7 @@ Implementation steps:
 - generate preview diffs (**implemented for source note creation as an added-file diff**)
 - verify current file hash before apply (**implemented as `evaluateVaultWritePrecondition`; plugin apply wiring remains future work**)
 - record decisions and write results (**approval/defer/reject decision record shape is implemented; persistence and apply-result storage remain future work**)
+- expose a dry-run review surface before any apply path (**implemented from the source preview as a read-only operation/diff/safety modal**)
 - reject stale operations when the file changed since analysis
 
 Exit gate:

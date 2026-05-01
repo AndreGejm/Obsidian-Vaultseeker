@@ -233,7 +233,9 @@ The current implemented operation is `create_note_from_source`:
 - validation: `evaluateVaultWritePrecondition` checks the current target file hash before any future apply call can proceed;
 - decision metadata: `createVaultWriteDecisionRecord` records approval, rejection, or deferral separately from the proposed operation.
 
-This is still not a write feature. No command calls `app.vault.create`, `app.vault.modify`, `processFrontMatter`, or adapter write methods. The next safe step is a plugin-side dry-run review surface, followed later by a `VaultWritePort` adapter that rechecks the file hash immediately before applying an approved operation.
+The plugin exposes this through a dry-run review surface, not through an apply surface. `apps/obsidian-plugin/src/source-note-write-review-state.ts` builds the review state from a source proposal, stored note records, persisted suggestion records, and the core guarded-write functions. `apps/obsidian-plugin/src/source-note-write-review-modal.ts` renders the proposed operation, target path, source provenance, precondition status, linked suggestion IDs, and preview diff.
+
+This is still not a write feature. No command calls `app.vault.create`, `app.vault.modify`, `processFrontMatter`, or adapter write methods. The next safe step is persisted operation/decision review, followed later by a `VaultWritePort` adapter that rechecks the file hash immediately before applying an approved operation.
 
 ## Semantic Queue Foundation
 

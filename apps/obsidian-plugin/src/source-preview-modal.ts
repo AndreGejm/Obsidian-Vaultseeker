@@ -16,6 +16,7 @@ import {
   type SourcePreviewSourceSummary,
   type SourcePreviewState
 } from "./source-preview-state";
+import { VaultseerSourceNoteWriteReviewModal } from "./source-note-write-review-modal";
 
 export class VaultseerSourcePreviewModal extends Modal {
   constructor(
@@ -78,7 +79,7 @@ export class VaultseerSourcePreviewModal extends Modal {
 
     this.renderDiagnostics(contentEl, state.diagnostics);
     this.renderAttachments(contentEl, state.attachments);
-    this.renderNoteProposal(contentEl, state.noteProposal);
+    this.renderNoteProposal(contentEl, state.noteProposal, state.noteWriteReview);
     this.renderMarkdownPreview(contentEl, state.markdownPreview);
     this.renderChunkGroups(contentEl, state.chunkGroups);
   }
@@ -128,7 +129,11 @@ export class VaultseerSourcePreviewModal extends Modal {
     }
   }
 
-  private renderNoteProposal(containerEl: HTMLElement, proposal: SourceNoteProposal | null): void {
+  private renderNoteProposal(
+    containerEl: HTMLElement,
+    proposal: SourceNoteProposal | null,
+    noteWriteReview: SourcePreviewState["noteWriteReview"]
+  ): void {
     if (!proposal) return;
 
     const sectionEl = containerEl.createEl("section", { cls: "vaultseer-source-preview-note-proposal" });
@@ -137,6 +142,13 @@ export class VaultseerSourcePreviewModal extends Modal {
       text: "Read-only proposal. Vaultseer will not create or edit a note from this preview."
     });
     sectionEl.createEl("div", { text: `Title: ${proposal.title}` });
+
+    if (noteWriteReview) {
+      const reviewButton = sectionEl.createEl("button", { text: "Review guarded note creation" });
+      reviewButton.addEventListener("click", () => {
+        new VaultseerSourceNoteWriteReviewModal(this.app, noteWriteReview).open();
+      });
+    }
 
     if (proposal.summary) {
       sectionEl.createEl("h4", { text: "Summary" });

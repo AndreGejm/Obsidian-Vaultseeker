@@ -81,6 +81,7 @@ describe("buildSourcePreviewState", () => {
       markdownPreview: "# Timer Datasheet\n\nPin 1 controls reset.",
       noteProposal: null,
       suggestionRecords: [],
+      noteWriteReview: null,
       chunkGroups: [
         {
           label: "Timer Datasheet > Overview",
@@ -140,6 +141,7 @@ describe("buildSourcePreviewState", () => {
     ]);
     expect(state.noteProposal).toBeNull();
     expect(state.suggestionRecords).toEqual([]);
+    expect(state.noteWriteReview).toBeNull();
     expect(state.chunkGroups).toEqual([]);
   });
 
@@ -160,6 +162,7 @@ describe("buildSourcePreviewState", () => {
       markdownPreview: "",
       noteProposal: null,
       suggestionRecords: [],
+      noteWriteReview: null,
       chunkGroups: []
     });
   });
@@ -248,6 +251,16 @@ describe("buildSourcePreviewState", () => {
         })
       ])
     );
+    expect(state.noteWriteReview).toMatchObject({
+      status: "ready",
+      targetPath: "Source Notes/Precision Timer.md",
+      canApply: false,
+      source: {
+        sourceId: "source:timer",
+        sourcePath: "Sources/Datasheets/timer.pdf",
+        sourceContentHash: "sha256:timer"
+      }
+    });
   });
 });
 

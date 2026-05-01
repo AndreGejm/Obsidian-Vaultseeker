@@ -9,6 +9,10 @@ import type {
   SuggestionRecord
 } from "@vaultseer/core";
 import { createSourceNoteProposalSuggestionRecords, proposeSourceNote } from "@vaultseer/core";
+import {
+  buildSourceNoteWriteReviewState,
+  type SourceNoteWriteReviewState
+} from "./source-note-write-review-state";
 
 export type SourcePreviewStatus = "ready" | "failed" | "missing";
 
@@ -62,6 +66,7 @@ export type SourcePreviewState = {
   markdownPreview: string;
   noteProposal: SourceNoteProposal | null;
   suggestionRecords: SuggestionRecord[];
+  noteWriteReview: SourceNoteWriteReviewState | null;
   chunkGroups: SourcePreviewChunkGroup[];
 };
 
@@ -87,6 +92,7 @@ export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): So
       markdownPreview: "",
       noteProposal: null,
       suggestionRecords: [],
+      noteWriteReview: null,
       chunkGroups: []
     };
   }
@@ -100,6 +106,9 @@ export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): So
           sourceChunks: input.chunks,
           notes: input.notes
         });
+  const suggestionRecords = noteProposal
+    ? createSourceNoteProposalSuggestionRecords(noteProposal, input.createdAt ?? source.importedAt)
+    : [];
 
   return {
     status,
@@ -113,9 +122,16 @@ export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): So
     attachments: source.attachments.map(toPreviewAttachment),
     markdownPreview: source.extractedMarkdown,
     noteProposal,
-    suggestionRecords: noteProposal
-      ? createSourceNoteProposalSuggestionRecords(noteProposal, input.createdAt ?? source.importedAt)
-      : [],
+    suggestionRecords,
+    noteWriteReview:
+      noteProposal && input.notes
+        ? buildSourceNoteWriteReviewState({
+            proposal: noteProposal,
+            notes: input.notes,
+            suggestionRecords,
+            createdAt: input.createdAt ?? source.importedAt
+          })
+        : null,
     chunkGroups:
       status === "failed"
         ? []
