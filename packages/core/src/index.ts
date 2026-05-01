@@ -20,6 +20,7 @@ export {
   planSourceExtractionQueue,
   recoverRunningSourceExtractionJobs
 } from "./source/source-extraction-queue";
+export { runSourceExtractionWorkerBatch } from "./source/source-extraction-worker";
 export { hashString } from "./chunking/text-chunking";
 export {
   buildVectorNamespace,
@@ -136,3 +137,7 @@ export type {
   SourceExtractionQueuePlan,
   SourceExtractionQueueTransitionResult
 } from "./source/source-extraction-queue";
+export type {
+  RunSourceExtractionWorkerBatchInput,
+  SourceExtractionWorkerBatchSummary
+} from "./source/source-extraction-worker";

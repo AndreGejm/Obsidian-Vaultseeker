@@ -199,6 +199,10 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - The planned Marker options preserve images and tables so PDF intake starts from the high-fidelity path required for papers, datasheets, and technical literature.
 - Planning stores jobs through `VaultseerStore` and does not read PDF bytes, run Marker, call MarkItDown, call an embedding provider, or write Obsidian notes.
 - `Vaultseer: Show source extraction queue status` reports persisted source extraction job counts by status.
+- `Vaultseer: Run one PDF source extraction batch` checks for the local `marker_single` command, claims one queued Marker job, runs Marker as an external process, and stores the result as a source workspace.
+- Marker output is staged under `.obsidian/plugins/<plugin-id>/source-workspaces/marker` before it is represented as stored source metadata.
+- Successful Marker extraction stores extracted Markdown, source chunks, and image/attachment metadata; it does not copy attachments into final note locations.
+- Failed Marker extraction stores diagnostics and moves the job through retry/failure metadata.
 - `Vaultseer: Recover interrupted source extraction jobs` requeues only source extraction jobs left in `running` state and records a recovery diagnostic.
 - `Vaultseer: Cancel active source extraction jobs` cancels only queued or running source extraction jobs and preserves completed jobs for diagnostics.
 - Plugin startup also recovers interrupted source extraction jobs so stale `running` state does not block later explicit execution.
@@ -311,10 +315,9 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Automatic background scheduling.
 - Embedding providers other than the first Ollama-compatible adapter.
 - Vector preservation across mirror rebuilds.
-- Marker PDF extraction.
+- Automatic or scheduled Marker PDF extraction.
 - MarkItDown broad file extraction.
-- Source extraction worker execution.
-- Plugin command surface for running source extraction jobs.
+- Source extraction workers other than the manual Marker batch command.
 - Source file picker support for PDF, Word, PowerPoint, Excel, image, or other external-extractor formats.
 - Rendered image/table source preview.
 - Staged attachment persistence outside the stored metadata shape.

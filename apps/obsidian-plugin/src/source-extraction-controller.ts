@@ -2,9 +2,12 @@ import {
   cancelSourceExtractionJobs,
   planSourceExtractionQueue,
   recoverRunningSourceExtractionJobs,
+  runSourceExtractionWorkerBatch,
   type SourceExtractionCandidate,
   type SourceExtractionJobRecord,
   type SourceExtractionJobStatus,
+  type SourceExtractionWorkerBatchSummary,
+  type SourceExtractorPort,
   type VaultseerStore
 } from "@vaultseer/core";
 
@@ -58,6 +61,15 @@ export type CancelSourceExtractionQueueSummary = SourceExtractionQueueStatusSumm
 
 export type RecoverSourceExtractionQueueSummary = SourceExtractionQueueStatusSummary & {
   recoveredJobCount: number;
+};
+
+export type RunMarkerSourceExtractionBatchOptions = {
+  store: VaultseerStore;
+  extractor: SourceExtractorPort;
+  now: string;
+  batchSize: number;
+  retryDelayMs: number;
+  maxAttempts: number;
 };
 
 const MARKER_EXTRACTION_OPTIONS = {
@@ -141,6 +153,23 @@ export async function recoverSourceExtractionQueue(
     recoveredJobCount: result.changedJobIds.length,
     ...summarizeJobs(persistedJobs)
   };
+}
+
+export async function runMarkerSourceExtractionBatch(
+  options: RunMarkerSourceExtractionBatchOptions
+): Promise<SourceExtractionWorkerBatchSummary> {
+  if (options.extractor.id !== MARKER_EXTRACTOR_ID) {
+    throw new Error(`Expected '${MARKER_EXTRACTOR_ID}' source extractor, received '${options.extractor.id}'.`);
+  }
+
+  return runSourceExtractionWorkerBatch({
+    store: options.store,
+    extractor: options.extractor,
+    now: options.now,
+    batchSize: options.batchSize,
+    retryDelayMs: options.retryDelayMs,
+    maxAttempts: options.maxAttempts
+  });
 }
 
 function buildMarkerSourceExtractionCandidates(

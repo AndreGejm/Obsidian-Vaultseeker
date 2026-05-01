@@ -1,3 +1,4 @@
+import path from "node:path";
 import { Notice, Plugin } from "obsidian";
 import { PersistentVaultseerStore, type IndexHealth, type VaultseerStore } from "@vaultseer/core";
 import { checkReadOnlyIndexStaleness, clearReadOnlyIndex, rebuildReadOnlyIndex } from "./index-controller";
@@ -27,9 +28,11 @@ import {
   cancelSourceExtractionQueue,
   planMarkerSourceExtractionQueue,
   recoverSourceExtractionQueue,
+  runMarkerSourceExtractionBatch,
   summarizeSourceExtractionQueue,
   type SourceExtractionQueueStatusSummary
 } from "./source-extraction-controller";
+import { MarkerSourceExtractor } from "./marker-source-extractor";
 import type { SearchModalSemanticSearch } from "./search-modal-query";
 import type { SourceSearchModalSemanticSearch } from "./source-search-modal-query";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
@@ -37,6 +40,9 @@ import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWor
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
 const SOURCE_EXTRACTION_PLAN_LIMIT = 8;
+const SOURCE_EXTRACTION_BATCH_SIZE = 1;
+const SOURCE_EXTRACTION_RETRY_DELAY_MS = 30_000;
+const SOURCE_EXTRACTION_MAX_ATTEMPTS = 3;
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
@@ -143,6 +149,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Show source extraction queue status",
       callback: async () => {
         await this.showSourceExtractionQueueStatus();
+      }
+    });
+
+    this.addCommand({
+      id: "run-source-extraction-batch",
+      name: "Run one PDF source extraction batch",
+      callback: async () => {
+        await this.runSourceExtractionBatch();
       }
     });
 
@@ -336,6 +350,46 @@ export default class VaultseerPlugin extends Plugin {
     });
 
     new Notice(`Vaultseer source extraction queue: ${formatSourceExtractionQueueStatus(summary)}.`);
+  }
+
+  async runSourceExtractionBatch(): Promise<void> {
+    const vaultBasePath = getVaultBasePath(this.app);
+    if (!vaultBasePath) {
+      new Notice("Vaultseer can only run Marker extraction with a local filesystem vault.");
+      return;
+    }
+
+    const extractor = new MarkerSourceExtractor({
+      outputRoot: path.join(vaultBasePath, ".obsidian", "plugins", this.manifest.id, "source-workspaces", "marker"),
+      resolveSourcePath: (sourcePath) => path.join(vaultBasePath, ...sourcePath.split("/"))
+    });
+    const dependencies = await extractor.checkDependencies();
+    const missingRequired = dependencies.find(
+      (dependency) => dependency.required && dependency.status !== "available"
+    );
+
+    if (missingRequired) {
+      new Notice(`Vaultseer cannot run Marker extraction: ${missingRequired.message ?? missingRequired.name}`);
+      return;
+    }
+
+    const summary = await runMarkerSourceExtractionBatch({
+      store: this.store,
+      extractor,
+      now: new Date().toISOString(),
+      batchSize: SOURCE_EXTRACTION_BATCH_SIZE,
+      retryDelayMs: SOURCE_EXTRACTION_RETRY_DELAY_MS,
+      maxAttempts: SOURCE_EXTRACTION_MAX_ATTEMPTS
+    });
+
+    if (summary.claimed === 0) {
+      new Notice("Vaultseer found no queued PDF source extraction jobs ready to run.");
+    } else {
+      new Notice(
+        `Vaultseer source extraction completed ${summary.completed}/${summary.claimed} job${summary.claimed === 1 ? "" : "s"}; ${summary.failed} failed.`
+      );
+    }
+    await this.refreshWorkbenchViews();
   }
 
   async recoverSourceExtractionQueue(): Promise<void> {
@@ -641,6 +695,11 @@ function getFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
   if (lastDot <= 0 || lastDot === filename.length - 1) return "";
   return filename.slice(lastDot);
+}
+
+function getVaultBasePath(app: { vault: { adapter: unknown } }): string | null {
+  const adapter = app.vault.adapter as { getBasePath?: () => string };
+  return typeof adapter.getBasePath === "function" ? adapter.getBasePath() : null;
 }
 
 function formatSourceExtractionQueueStatus(summary: SourceExtractionQueueStatusSummary): string {

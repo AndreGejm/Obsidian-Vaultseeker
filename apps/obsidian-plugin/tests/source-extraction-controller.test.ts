@@ -3,12 +3,17 @@ import {
   createSourceExtractionJobId,
   InMemoryVaultseerStore,
   type SourceExtractionJobRecord,
+  type SourceExtractionResult,
+  type SourceExtractorCapability,
+  type SourceExtractorDependency,
+  type SourceExtractorPort,
   type SourceRecord
 } from "@vaultseer/core";
 import {
   cancelSourceExtractionQueue,
   planMarkerSourceExtractionQueue,
   recoverSourceExtractionQueue,
+  runMarkerSourceExtractionBatch,
   summarizeSourceExtractionQueue
 } from "../src/source-extraction-controller";
 
@@ -160,6 +165,59 @@ describe("source extraction queue status controls", () => {
   });
 });
 
+describe("runMarkerSourceExtractionBatch", () => {
+  it("runs one marker extraction batch through the core worker", async () => {
+    const store = new InMemoryVaultseerStore();
+    const extractedSource = source({
+      id: "source:extracted",
+      contentHash: "vault-file:200:20"
+    });
+    await store.replaceSourceExtractionQueue([
+      job({
+        id: createSourceExtractionJobId("marker", "Sources/Papers/paper.pdf", "vault-file:200:20", {
+          preserveImages: true,
+          preserveTables: true
+        }),
+        contentHash: "vault-file:200:20",
+        extractionOptions: {
+          preserveImages: true,
+          preserveTables: true
+        }
+      })
+    ]);
+    const extractor = new FakeMarkerExtractor({
+      ok: true,
+      source: extractedSource,
+      chunks: []
+    });
+
+    const summary = await runMarkerSourceExtractionBatch({
+      store,
+      extractor,
+      now,
+      batchSize: 1,
+      retryDelayMs: 30_000,
+      maxAttempts: 3
+    });
+
+    expect(summary).toEqual({
+      claimed: 1,
+      completed: 1,
+      failed: 0,
+      sourceCount: 1,
+      chunkCount: 0
+    });
+    expect(extractor.inputCount).toBe(1);
+    await expect(store.getSourceRecords()).resolves.toEqual([extractedSource]);
+    await expect(store.getSourceExtractionJobRecords()).resolves.toEqual([
+      expect.objectContaining({
+        status: "completed",
+        updatedAt: now
+      })
+    ]);
+  });
+});
+
 function file(path: string, name: string, extension: string, size: number, mtime: number) {
   return {
     path,
@@ -219,4 +277,25 @@ function job(overrides: Partial<SourceExtractionJobRecord>): SourceExtractionJob
     nextAttemptAt: null,
     ...overrides
   };
+}
+
+class FakeMarkerExtractor implements SourceExtractorPort {
+  readonly id = "marker";
+  readonly displayName = "Marker";
+  inputCount = 0;
+
+  constructor(private readonly result: SourceExtractionResult) {}
+
+  listCapabilities(): SourceExtractorCapability[] {
+    return [];
+  }
+
+  async checkDependencies(): Promise<SourceExtractorDependency[]> {
+    return [];
+  }
+
+  async extract(): Promise<SourceExtractionResult> {
+    this.inputCount += 1;
+    return this.result;
+  }
 }
