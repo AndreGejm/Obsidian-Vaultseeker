@@ -222,6 +222,19 @@ This is not a write operation. The source preview modal displays the proposal, b
 
 Source proposal suggestions now have a persistence boundary. `packages/core/src/suggestions/suggestion-records.ts` converts source-note proposals into stable `SuggestionRecord` values and stores the latest `DecisionRecord` for each suggestion separately. The plugin persists generated source proposal suggestions when the source preview opens. This makes suggestions reviewable later without granting them write authority; accepting, rejecting, or deferring a suggestion is still metadata about the suggestion, not a vault mutation.
 
+## Guarded Write Foundation
+
+The first Phase 6 slice is core-only. `packages/core/src/writes/guarded-write.ts` defines the write boundary before any Obsidian write adapter exists.
+
+The current implemented operation is `create_note_from_source`:
+
+- input: a reviewed `SourceNoteProposal`, an explicit target Markdown path, related suggestion IDs, and a creation timestamp;
+- output: a proposed operation with normalized Markdown content, source provenance, `expectedCurrentHash: null`, and an added-file preview diff;
+- validation: `evaluateVaultWritePrecondition` checks the current target file hash before any future apply call can proceed;
+- decision metadata: `createVaultWriteDecisionRecord` records approval, rejection, or deferral separately from the proposed operation.
+
+This is still not a write feature. No command calls `app.vault.create`, `app.vault.modify`, `processFrontMatter`, or adapter write methods. The next safe step is a plugin-side dry-run review surface, followed later by a `VaultWritePort` adapter that rechecks the file hash immediately before applying an approved operation.
+
 ## Semantic Queue Foundation
 
 The first Phase 4 foundation is core-only and does not call an embedding provider. `packages/core/src/semantic/embedding-queue.ts` defines a model namespace from provider id, model id, and dimensions, then plans deterministic embedding jobs for chunks that do not already have a reusable vector record for that namespace.

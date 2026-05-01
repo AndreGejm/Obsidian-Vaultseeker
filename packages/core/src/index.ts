@@ -13,6 +13,11 @@ export {
   mergeSuggestionRecords,
   upsertDecisionRecord
 } from "./suggestions/suggestion-records";
+export {
+  createVaultWriteDecisionRecord,
+  evaluateVaultWritePrecondition,
+  planSourceNoteCreationOperation
+} from "./writes/guarded-write";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
 export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
 export { buildSourceLexicalIndex, searchSourceLexicalIndex } from "./source/source-lexical-search";
@@ -153,6 +158,23 @@ export type {
   SourceRecord,
   SourceWorkspaceStatus
 } from "./source/types";
+export type {
+  CreateVaultWriteDecisionRecordInput,
+  GuardedVaultWriteOperation,
+  PlanSourceNoteCreationOperationInput,
+  SourceNoteCreationOperation,
+  VaultWriteApplyResult,
+  VaultWriteApproval,
+  VaultWriteCurrentSnapshot,
+  VaultWriteDecision,
+  VaultWriteDecisionRecord,
+  VaultWriteDryRunResult,
+  VaultWriteOperationType,
+  VaultWritePort,
+  VaultWritePreconditionReason,
+  VaultWritePreconditionResult,
+  VaultWritePreview
+} from "./writes/guarded-write";
 export type {
   CancelSourceExtractionJobsInput,
   ClaimSourceExtractionJobsInput,
