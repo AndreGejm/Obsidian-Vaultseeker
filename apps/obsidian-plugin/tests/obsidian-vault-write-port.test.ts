@@ -96,8 +96,8 @@ describe("ObsidianVaultWritePort", () => {
     ).rejects.toThrow(VaultWriteVerificationError);
   });
 
-  it("supports dry run but refuses to apply preview-only tag update operations", async () => {
-    const currentContent = "# Precision Timer\n";
+  it("applies an approved tag update after a clean dry run and verifies the written hash", async () => {
+    const currentContent = ["---", "tags:", "  - electronics", "---", "", "# Precision Timer", ""].join("\n");
     const operation = tagUpdateOperation(currentContent);
     const vault = new FakeVault([[operation.targetPath, currentContent]], ["Electronics"]);
     const port = new ObsidianVaultWritePort(vault);
@@ -114,8 +114,43 @@ describe("ObsidianVaultWritePort", () => {
         afterHash: operation.preview.afterHash,
         approvedAt: "2026-05-01T21:00:00.000Z"
       })
-    ).rejects.toThrow("update_note_tags apply is not supported yet");
-    expect(vault.files.get(operation.targetPath)).toBe(currentContent);
+    ).resolves.toEqual({
+      operationId: operation.id,
+      targetPath: operation.targetPath,
+      beforeHash: operation.expectedCurrentHash,
+      afterHash: operation.preview.afterHash,
+      appliedAt: "2026-05-01T21:00:00.000Z"
+    });
+    expect(vault.modifyCount).toBe(1);
+    expect(vault.files.get(operation.targetPath)).toBe(operation.content);
+  });
+
+  it("blocks tag update apply when the note changed since review", async () => {
+    const reviewedContent = "# Precision Timer\n";
+    const changedContent = "# Precision Timer\n\nEdited after review.\n";
+    const operation = tagUpdateOperation(reviewedContent);
+    const vault = new FakeVault([[operation.targetPath, changedContent]], ["Electronics"]);
+    const port = new ObsidianVaultWritePort(vault);
+
+    await expect(port.dryRun(operation)).resolves.toMatchObject({
+      precondition: {
+        ok: false,
+        reason: "stale_file",
+        expectedCurrentHash: operation.expectedCurrentHash,
+        actualCurrentHash: hashString(changedContent)
+      }
+    });
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-01T21:00:00.000Z"
+      })
+    ).rejects.toThrow("precondition failed: stale_file");
+    expect(vault.modifyCount).toBe(0);
+    expect(vault.files.get(operation.targetPath)).toBe(changedContent);
   });
 });
 
@@ -123,6 +158,7 @@ class FakeVault {
   files = new Map<string, string>();
   folders = new Set<string>();
   readOverride: string | null = null;
+  modifyCount = 0;
 
   constructor(entries: Array<[string, string]> = [], folders: string[] = ["Source Notes"]) {
     this.files = new Map(entries);
@@ -147,6 +183,12 @@ class FakeVault {
     if (parentPath && !this.folders.has(parentPath)) throw new Error(`missing folder: ${parentPath}`);
     this.files.set(path, content);
     return { path };
+  }
+
+  async modify(file: { path: string }, content: string): Promise<void> {
+    if (!this.files.has(file.path)) throw new Error(`missing file ${file.path}`);
+    this.modifyCount += 1;
+    this.files.set(file.path, content);
   }
 }
 

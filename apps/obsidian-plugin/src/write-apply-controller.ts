@@ -57,7 +57,7 @@ export async function applyApprovedVaultWriteOperation(
       status: "failed",
       operationId: input.operation.id,
       targetPath: input.operation.targetPath,
-      message: `Could not create ${input.operation.targetPath}: ${message}.`
+      message: `${failureMessagePrefix(input.operation)}: ${message}.`
     };
   }
 
@@ -82,7 +82,7 @@ export async function applyApprovedVaultWriteOperation(
       status: "applied",
       operationId: input.operation.id,
       targetPath: input.operation.targetPath,
-      message: `Created ${input.operation.targetPath}.`
+      message: successMessage(input.operation)
     };
   } catch (error) {
     const message = getErrorMessage(error);
@@ -101,8 +101,26 @@ export async function applyApprovedVaultWriteOperation(
       status: "failed",
       operationId: input.operation.id,
       targetPath: input.operation.targetPath,
-      message: `Could not create ${input.operation.targetPath}: ${message}.`
+      message: `${failureMessagePrefix(input.operation)}: ${message}.`
     };
+  }
+}
+
+function successMessage(operation: GuardedVaultWriteOperation): string {
+  switch (operation.type) {
+    case "create_note_from_source":
+      return `Created ${operation.targetPath}.`;
+    case "update_note_tags":
+      return `Applied tag update to ${operation.targetPath}.`;
+  }
+}
+
+function failureMessagePrefix(operation: GuardedVaultWriteOperation): string {
+  switch (operation.type) {
+    case "create_note_from_source":
+      return `Could not create ${operation.targetPath}`;
+    case "update_note_tags":
+      return `Could not apply tag update to ${operation.targetPath}`;
   }
 }
 

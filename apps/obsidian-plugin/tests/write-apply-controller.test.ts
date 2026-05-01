@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   GuardedVaultWriteOperation,
   VaultWriteApplyResult,
+  VaultWriteApproval,
   VaultWriteDecisionRecord,
   VaultWriteDryRunResult,
   VaultWritePort
@@ -9,6 +10,7 @@ import type {
 import {
   createVaultWriteDecisionRecord,
   InMemoryVaultseerStore,
+  planNoteTagUpdateOperation,
   planSourceNoteCreationOperation
 } from "@vaultseer/core";
 import { applyApprovedVaultWriteOperation } from "../src/write-apply-controller";
@@ -147,6 +149,39 @@ describe("applyApprovedVaultWriteOperation", () => {
       }
     ]);
   });
+
+  it("applies an approved tag update operation and records the before hash", async () => {
+    const store = new InMemoryVaultseerStore();
+    const operation = tagUpdateOperation();
+    const decision = decisionRecord(operation, "approved");
+    const port = new FakeWritePort({ dryRun: okDryRun(operation), applyResult: appliedResult(operation) });
+    await store.replaceVaultWriteOperations([operation]);
+    await store.recordVaultWriteDecision(decision);
+
+    const summary = await applyApprovedVaultWriteOperation({
+      store,
+      writePort: port,
+      operation,
+      decision,
+      now: () => "2026-05-01T21:30:00.000Z"
+    });
+
+    expect(port.applyCount).toBe(1);
+    expect(summary).toMatchObject({
+      status: "applied",
+      message: "Applied tag update to Electronics/Precision Timer.md."
+    });
+    await expect(store.getVaultWriteApplyResultRecords()).resolves.toEqual([
+      {
+        operationId: operation.id,
+        status: "applied",
+        targetPath: operation.targetPath,
+        beforeHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        appliedAt: "2026-05-01T21:30:00.000Z"
+      }
+    ]);
+  });
 });
 
 class FakeWritePort implements VaultWritePort {
@@ -164,11 +199,14 @@ class FakeWritePort implements VaultWritePort {
     return this.options.dryRun;
   }
 
-  async apply(): Promise<VaultWriteApplyResult> {
+  async apply(_operation: GuardedVaultWriteOperation, approval: VaultWriteApproval): Promise<VaultWriteApplyResult> {
     this.applyCount += 1;
     if (this.options.applyError) throw this.options.applyError;
     if (!this.options.applyResult) throw new Error("missing fake apply result");
-    return this.options.applyResult;
+    return {
+      ...this.options.applyResult,
+      appliedAt: approval.approvedAt
+    };
   }
 }
 
@@ -184,7 +222,7 @@ function appliedResult(operation: GuardedVaultWriteOperation): VaultWriteApplyRe
   return {
     operationId: operation.id,
     targetPath: operation.targetPath,
-    beforeHash: null,
+    beforeHash: operation.expectedCurrentHash,
     afterHash: operation.preview.afterHash,
     appliedAt: "2026-05-01T20:00:00.000Z"
   };
@@ -208,6 +246,19 @@ function writeOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): Gu
       targetPath: "Source Notes/Ragnarok.md",
       suggestionIds: ["suggestion:source-note:source:ragnarok:draft"],
       createdAt: "2026-05-01T15:00:00.000Z"
+    }),
+    ...overrides
+  };
+}
+
+function tagUpdateOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): GuardedVaultWriteOperation {
+  return {
+    ...planNoteTagUpdateOperation({
+      targetPath: "Electronics/Precision Timer.md",
+      currentContent: "# Precision Timer\n",
+      tagsToAdd: ["electronics/timing"],
+      suggestionIds: ["suggestion:note-tag:Electronics/Precision Timer.md:electronics/timing"],
+      createdAt: "2026-05-01T21:00:00.000Z"
     }),
     ...overrides
   };

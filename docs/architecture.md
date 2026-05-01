@@ -202,11 +202,11 @@ Semantic related-note evidence is computed from vectors already stored in the mi
 
 The sanity checks are diagnostics over the indexed mirror, not a formatter. They point out narrow issues only and do not infer a house style for headings, prose, templates, or frontmatter schemas.
 
-The view refreshes when Obsidian opens another file and after Vaultseer rebuilds or clears the index. It opens notes through Obsidian when the operator clicks a related note, resolved link, or suggested link target. It can stage suggested tags as a guarded write review proposal, but that action only stores suggestion and operation records. It does not mutate notes.
+The view refreshes when Obsidian opens another file and after Vaultseer rebuilds or clears the index. It opens notes through Obsidian when the operator clicks a related note, resolved link, or suggested link target. It can stage suggested tags as a guarded write review proposal, but that action only stores suggestion and operation records. The note is edited only later, from the guarded write review queue, after explicit approval and a current-file hash check.
 
 The workbench toolbar exposes `Rebuild index` and `Clear index`. These actions operate only on Vaultseer's disposable mirror through the same plugin methods as the command palette commands. They do not edit Markdown notes, frontmatter, tags, links, aliases, or vault files.
 
-Current limitation: the workbench is still mostly a read-only mirror inspector. It has one guarded-action bridge for staging suggested tags into the write review queue. It does not apply tag updates, insert links, expose suggestion decisions inline, show semantic current-note results, or provide a full gardener queue.
+Current limitation: the workbench is still mostly a read-only mirror inspector. It has one guarded-action bridge for staging suggested tags into the write review queue. It does not apply tag updates directly, insert links, expose suggestion decisions inline, show semantic current-note results, or provide a full gardener queue.
 
 ## Source-To-Note Proposals
 
@@ -243,7 +243,7 @@ Guarded write operations now have a persistence boundary. `VaultseerStore` store
 
 Apply result records are explicit. `VaultWriteApplyResultRecord` has `applied` and `failed` variants. Failures record stage, expected hash, actual hash, message, retryability, and timestamp so apply work can fail closed and explain recovery state instead of leaving an ambiguous partial operation.
 
-Core now has a preview-only existing-note tag update operation. `packages/core/src/writes/guarded-write.ts` exposes `planNoteTagUpdateOperation`, which accepts a target note path, current Markdown content, proposed tags, suggestion IDs, and a timestamp. It normalizes frontmatter tags, preserves unrelated frontmatter fields, produces modified Markdown content, stores the expected current content hash, and creates a full-file preview diff. `packages/core/src/suggestions/suggestion-records.ts` converts workbench tag suggestions into stable `note_tag` suggestion records with evidence for linked-note tags, backlink tags, co-tag statistics, and tag frequency. This operation is reviewable through the shared guarded-write queue, but it is intentionally not applyable by the Obsidian adapter yet.
+Core now has an existing-note tag update operation. `packages/core/src/writes/guarded-write.ts` exposes `planNoteTagUpdateOperation`, which accepts a target note path, current Markdown content, proposed tags, suggestion IDs, and a timestamp. It normalizes frontmatter tags, preserves unrelated frontmatter fields, produces modified Markdown content, stores the expected current content hash, and creates a full-file preview diff. `packages/core/src/suggestions/suggestion-records.ts` converts workbench tag suggestions into stable `note_tag` suggestion records with evidence for linked-note tags, backlink tags, co-tag statistics, and tag frequency. This operation is reviewable through the shared guarded-write queue and applyable only after approval and a fresh precondition check.
 
 The plugin exposes this through a dry-run review surface, not through an apply surface. `apps/obsidian-plugin/src/source-note-write-review-state.ts` builds the review state from a source proposal, stored note records, persisted suggestion records, the configured source note folder, and the core guarded-write functions. `apps/obsidian-plugin/src/source-note-write-review-modal.ts` renders the proposed operation, target path, source provenance, precondition status, linked suggestion IDs, and preview diff.
 
@@ -251,14 +251,14 @@ The source preview persists the generated source-note operation when it persists
 
 The guarded write review queue is the first control surface over persisted operations. `apps/obsidian-plugin/src/write-review-queue-state.ts` builds a queue summary and item list from stored operations, decisions, and apply results. `apps/obsidian-plugin/src/write-review-queue-controller.ts` records approval, deferral, or rejection as Vaultseer review metadata. `apps/obsidian-plugin/src/write-review-queue-modal.ts` renders the queue, linked suggestions, preview diffs, apply result state, decision buttons, and a guarded `Create note` button for approved source-note operations. `apps/obsidian-plugin/src/tag-write-proposal-controller.ts` lets the workbench stage current-note tag suggestions into this queue without changing the note.
 
-The first real apply path is intentionally narrow:
+The first real apply paths are intentionally narrow:
 
 - `apps/obsidian-plugin/src/write-apply-controller.ts` refuses anything except an approved operation, runs a dry-run precondition check, calls the write port, and stores either an applied record or a failed record.
-- `apps/obsidian-plugin/src/obsidian-vault-write-port.ts` implements `VaultWritePort` for Obsidian using `vault.create` only for `create_note_from_source`.
-- `update_note_tags` dry-runs through the same precondition mechanism but `apply` throws `update_note_tags apply is not supported yet`.
-- The adapter validates the approval payload against the operation, rechecks the target path before writing, verifies that the target parent folder already exists, creates the file, reads it back, verifies the final content hash, and returns the applied hash record.
+- `apps/obsidian-plugin/src/obsidian-vault-write-port.ts` implements `VaultWritePort` for Obsidian using `vault.create` for `create_note_from_source` and `vault.modify` for approved `update_note_tags`.
+- `update_note_tags` uses the same precondition mechanism and requires the current note hash to match the reviewed operation before `vault.modify` runs.
+- The adapter validates the approval payload against the operation, rechecks the target path before writing, verifies that the target parent folder already exists, writes the content, reads it back, verifies the final content hash, and returns the applied hash record.
 
-This is a write feature, but only for creating a new note from an approved source proposal into the configured source note folder. The default folder is `Source Notes`; `apps/obsidian-plugin/src/settings-model.ts` owns the default and folder-path normalization. Existing-note tag updates can be planned and reviewed as preview-only operations, but they cannot be applied. Vaultseer does not create folders, modify existing notes, insert links, copy attachments, batch-apply operations, or run automatically.
+This is a write feature, but only for creating a new note from an approved source proposal into the configured source note folder and applying approved current-note tag additions from the guarded queue. The default source-note folder is `Source Notes`; `apps/obsidian-plugin/src/settings-model.ts` owns the default and folder-path normalization. Vaultseer does not create folders, rename tags, insert links, apply arbitrary frontmatter cleanup, copy attachments, batch-apply operations, or run automatically.
 
 ## Semantic Queue Foundation
 

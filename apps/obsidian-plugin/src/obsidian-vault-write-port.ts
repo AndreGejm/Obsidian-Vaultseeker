@@ -21,6 +21,7 @@ export type ObsidianVaultWriteVault = {
   getAbstractFileByPath(path: string): unknown;
   cachedRead(file: ObsidianVaultWriteFile): Promise<string>;
   create(path: string, content: string): Promise<ObsidianVaultWriteFile>;
+  modify(file: ObsidianVaultWriteFile, content: string): Promise<void>;
 };
 
 export class VaultWriteVerificationError extends Error {
@@ -56,7 +57,7 @@ export class ObsidianVaultWritePort implements VaultWritePort {
       case "create_note_from_source":
         return this.createNoteFromSource(operation, approval);
       case "update_note_tags":
-        throw new VaultWriteVerificationError("update_note_tags apply is not supported yet");
+        return this.updateNoteTags(operation, approval);
     }
   }
 
@@ -66,6 +67,34 @@ export class ObsidianVaultWritePort implements VaultWritePort {
   ): Promise<VaultWriteApplyResult> {
     const createdFile = await this.vault.create(operation.targetPath, operation.content);
     const writtenContent = await this.vault.cachedRead(createdFile);
+    const afterHash = hashString(writtenContent);
+
+    if (afterHash !== approval.afterHash) {
+      throw new VaultWriteVerificationError(
+        `written content hash mismatch for ${operation.targetPath}: expected ${approval.afterHash}, got ${afterHash}`
+      );
+    }
+
+    return {
+      operationId: operation.id,
+      targetPath: operation.targetPath,
+      beforeHash: operation.expectedCurrentHash,
+      afterHash,
+      appliedAt: approval.approvedAt
+    };
+  }
+
+  private async updateNoteTags(
+    operation: GuardedVaultWriteOperation,
+    approval: VaultWriteApproval
+  ): Promise<VaultWriteApplyResult> {
+    const file = this.vault.getAbstractFileByPath(operation.targetPath);
+    if (!isVaultWriteFile(file)) {
+      throw new VaultWriteVerificationError(`target file is missing: ${operation.targetPath}`);
+    }
+
+    await this.vault.modify(file, operation.content);
+    const writtenContent = await this.vault.cachedRead(file);
     const afterHash = hashString(writtenContent);
 
     if (afterHash !== approval.afterHash) {

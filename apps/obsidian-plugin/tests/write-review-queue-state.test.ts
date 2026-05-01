@@ -210,7 +210,7 @@ describe("buildWriteReviewQueueState", () => {
     ]);
   });
 
-  it("shows note tag updates as preview-only operations until the write port supports them", () => {
+  it("marks approved note tag updates as ready for guarded apply", () => {
     const operation = tagUpdateOperation();
 
     const state = buildWriteReviewQueueState({
@@ -228,8 +228,34 @@ describe("buildWriteReviewQueueState", () => {
         sourcePath: null,
         sourceContentHash: null,
         decisionState: "approved",
-        canApply: false,
+        canApply: true,
         previewDiff: expect.stringContaining("+++ b/Electronics/Precision Timer.md")
+      })
+    ]);
+  });
+
+  it("does not allow already-applied note tag updates to be applied again", () => {
+    const operation = tagUpdateOperation();
+
+    const state = buildWriteReviewQueueState({
+      operations: [operation],
+      decisions: [writeDecision({ operationId: operation.id, targetPath: operation.targetPath, decision: "approved" })],
+      applyResults: [
+        applyResult({
+          operationId: operation.id,
+          targetPath: operation.targetPath,
+          status: "applied",
+          beforeHash: operation.expectedCurrentHash,
+          afterHash: operation.preview.afterHash
+        })
+      ]
+    });
+
+    expect(state.items).toEqual([
+      expect.objectContaining({
+        operationId: operation.id,
+        applyState: "applied",
+        canApply: false
       })
     ]);
   });

@@ -64,7 +64,7 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     summaryEl.createEl("div", { text: `Apply failures: ${state.failedApplyCount}` });
     summaryEl.createEl("div", { text: `Applied records: ${state.appliedCount}` });
     summaryEl.createEl("p", {
-      text: "Decision buttons update Vaultseer review metadata only. Source-note creation re-checks the target before writing; tag updates are preview-only for now."
+      text: "Decision buttons update Vaultseer review metadata only. Apply actions re-check the target before writing."
     });
 
     const operationById = new Map(operations.map((operation) => [operation.id, operation]));
@@ -168,7 +168,11 @@ function decisionButtonLabel(decision: VaultWriteDecision): string {
 }
 
 function applyButtonLabel(item: WriteReviewQueueItem): string {
-  if (item.operationType === "update_note_tags") return "Tag update preview only";
+  if (item.operationType === "update_note_tags") {
+    if (item.applyState === "applied") return "Tag update applied";
+    if (item.applyState === "failed" && item.canApply) return "Retry tag update";
+    return "Apply tag update";
+  }
   if (item.applyState === "applied") return "Already created";
   if (item.applyState === "failed" && item.canApply) return "Retry create note";
   return "Create note";

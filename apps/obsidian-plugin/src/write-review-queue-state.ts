@@ -174,7 +174,11 @@ function canApplyOperation(
   decisionState: WriteReviewQueueDecisionState,
   applyResult: VaultWriteApplyResultRecord | null
 ): boolean {
-  if (operation.type !== "create_note_from_source") return false;
+  switch (operation.type) {
+    case "create_note_from_source":
+    case "update_note_tags":
+      break;
+  }
   if (decisionState !== "approved") return false;
   if (!applyResult) return true;
   return applyResult.status === "failed" && applyResult.retryable;
