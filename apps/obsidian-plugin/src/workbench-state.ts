@@ -1,5 +1,6 @@
 import {
   buildRelationshipGraph,
+  detectNoteQualityIssues,
   searchLexicalIndex,
   suggestLinksForNote,
   suggestTagsForNote,
@@ -8,6 +9,7 @@ import {
   type LinkSuggestion,
   type LexicalIndexRecord,
   type NoteRecord,
+  type NoteQualityIssue,
   type ResolvedLink,
   type TagSuggestion,
   type VaultSnapshot
@@ -43,6 +45,13 @@ export type WorkbenchLinkSuggestion = {
   reason: string;
 };
 
+export type WorkbenchQualityIssue = {
+  id: string;
+  kind: NoteQualityIssue["kind"];
+  severity: NoteQualityIssue["severity"];
+  message: string;
+};
+
 export type WorkbenchControlId = "rebuild-index" | "clear-index";
 
 export type WorkbenchControl = {
@@ -66,6 +75,7 @@ export type WorkbenchState =
       relatedNotes: [];
       linkSuggestions: [];
       tagSuggestions: [];
+      qualityIssues: [];
       warnings: [];
     }
   | {
@@ -80,6 +90,7 @@ export type WorkbenchState =
       relatedNotes: WorkbenchRelatedNote[];
       linkSuggestions: WorkbenchLinkSuggestion[];
       tagSuggestions: WorkbenchTagSuggestion[];
+      qualityIssues: WorkbenchQualityIssue[];
       warnings: string[];
     };
 
@@ -117,6 +128,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       relatedNotes: [],
       linkSuggestions: [],
       tagSuggestions: [],
+      qualityIssues: [],
       warnings: []
     };
   }
@@ -134,6 +146,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       relatedNotes: [],
       linkSuggestions: [],
       tagSuggestions: [],
+      qualityIssues: [],
       warnings: statusWarnings(input.health)
     };
   }
@@ -154,6 +167,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       relatedNotes: [],
       linkSuggestions: [],
       tagSuggestions: [],
+      qualityIssues: [],
       warnings: statusWarnings(input.health)
     };
   }
@@ -198,6 +212,10 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       graph,
       limit: 6
     }).map(toWorkbenchTagSuggestion),
+    qualityIssues: detectNoteQualityIssues({
+      currentNote,
+      graph
+    }).map(toWorkbenchQualityIssue),
     warnings: [
       ...statusWarnings(input.health),
       ...relationshipWarnings(currentNote.path, unresolvedLinks, graph.weaklyConnectedNotePaths)
@@ -296,6 +314,15 @@ function toWorkbenchLinkSuggestion(suggestion: LinkSuggestion): WorkbenchLinkSug
     suggestedTitle: suggestion.suggestedTitle,
     confidence: suggestion.confidence,
     reason: suggestion.reason
+  };
+}
+
+function toWorkbenchQualityIssue(issue: NoteQualityIssue): WorkbenchQualityIssue {
+  return {
+    id: issue.id,
+    kind: issue.kind,
+    severity: issue.severity,
+    message: issue.message
   };
 }
 

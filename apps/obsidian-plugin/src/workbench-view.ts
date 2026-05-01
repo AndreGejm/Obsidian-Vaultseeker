@@ -5,6 +5,7 @@ import {
   type WorkbenchControl,
   type WorkbenchControlId,
   type WorkbenchLinkSuggestion,
+  type WorkbenchQualityIssue,
   type WorkbenchRelatedNote,
   type WorkbenchTagSuggestion,
   type WorkbenchState
@@ -100,6 +101,7 @@ export class VaultseerWorkbenchView extends ItemView {
     this.renderLinks(contentEl, "Outgoing", state.outgoingLinks.map((link) => ({ path: link.targetPath, text: link.targetPath })));
     this.renderLinks(contentEl, "Backlinks", state.backlinks.map((path) => ({ path, text: path })));
     this.renderTextList(contentEl, "Unresolved", state.unresolvedLinks.map((link) => link.raw));
+    this.renderQualityIssues(contentEl, state.qualityIssues);
     this.renderRelatedNotes(contentEl, state.relatedNotes);
     this.renderLinkSuggestions(contentEl, state.linkSuggestions);
     this.renderTagSuggestions(contentEl, state.tagSuggestions);
@@ -197,6 +199,23 @@ export class VaultseerWorkbenchView extends ItemView {
         await this.openNote(related.notePath);
       });
       item.createEl("div", { text: related.reason, cls: "vaultseer-workbench-related-reason" });
+    }
+  }
+
+  private renderQualityIssues(containerEl: HTMLElement, qualityIssues: WorkbenchQualityIssue[]): void {
+    const section = containerEl.createDiv({ cls: "vaultseer-workbench-section" });
+    section.createEl("h3", { text: "Sanity checks" });
+
+    if (qualityIssues.length === 0) {
+      section.createEl("p", { text: "None" });
+      return;
+    }
+
+    const list = section.createEl("ul");
+    for (const issue of qualityIssues) {
+      const item = list.createEl("li");
+      item.createEl("strong", { text: issue.severity });
+      item.createSpan({ text: ` ${issue.message}` });
     }
   }
 

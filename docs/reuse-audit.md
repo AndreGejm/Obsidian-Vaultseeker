@@ -19,7 +19,7 @@ Last refreshed: 2026-05-01. The local research clones were fetched and each chec
 
 ## Implemented From Phase 5
 
-The first Phase 5 foundations are read-only tag suggestions and broken-link target suggestions:
+The first Phase 5 foundations are read-only tag suggestions, broken-link target suggestions, and narrow note sanity checks:
 
 - Core owns `suggestTagsForNote`.
 - The scorer uses the existing relationship graph and tag statistics instead of a new parser.
@@ -30,8 +30,11 @@ The first Phase 5 foundations are read-only tag suggestions and broken-link targ
 - Core also owns `suggestLinksForNote`.
 - Link suggestions use unresolved links from the existing relationship graph and compare them to existing note aliases, titles, basenames, and path tokens.
 - Suggested link targets are displayed as navigation-only buttons in the workbench; they do not rewrite Markdown links.
+- Core owns `detectNoteQualityIssues`.
+- Sanity checks reuse normalized note metadata and the existing relationship graph; they do not parse Markdown or apply formatting.
+- The first diagnostics are intentionally narrow: missing frontmatter tags, duplicate aliases, empty title, malformed tags, and unresolved internal links.
 
-This deliberately borrows the useful behavior from Tags Overview, Dataview, Metadata Extractor, and Omnisearch while preserving Vaultseer's core/plugin boundary and write-safety ladder.
+This deliberately borrows the useful behavior from Tags Overview, Dataview, Metadata Extractor, Omnisearch, and Mimir's explainable-evidence style while preserving Vaultseer's core/plugin boundary and write-safety ladder.
 
 ## Deferred
 

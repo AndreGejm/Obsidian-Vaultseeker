@@ -189,9 +189,12 @@ For the active note, the view shows:
 - backlinks;
 - unresolved links;
 - relationship warnings such as weak connection or unresolved links;
+- read-only sanity checks for missing tags frontmatter, duplicate aliases, empty titles, malformed tags, and unresolved internal links;
 - related notes from linked notes, backlinks, shared tags, and lexical matches.
 - read-only suggested tags from linked notes, backlinks, co-tag statistics, and tag frequency.
 - read-only suggested link targets for unresolved links, using existing note aliases, titles, basenames, and token overlap.
+
+The sanity checks are diagnostics over the indexed mirror, not a formatter. They point out narrow issues only and do not infer a house style for headings, prose, templates, or frontmatter schemas.
 
 The view refreshes when Obsidian opens another file and after Vaultseer rebuilds or clears the index. It opens notes through Obsidian when the operator clicks a related note, resolved link, or suggested link target. It does not mutate notes.
 

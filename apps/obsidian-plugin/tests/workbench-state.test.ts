@@ -241,6 +241,26 @@ describe("buildWorkbenchState", () => {
     });
   });
 
+  it("shows read-only quality issues for the current note", () => {
+    const state = buildWorkbenchState({
+      activePath: "Projects/Vaultseer Platform.md",
+      health: health({ status: "ready" }),
+      notes: snapshot.notes,
+      chunks,
+      lexicalIndex
+    });
+
+    expect(state).toMatchObject({
+      status: "ready",
+      qualityIssues: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "broken_internal_link",
+          message: "This note has an unresolved internal link: Missing Note."
+        })
+      ])
+    });
+  });
+
   it("warns for stale mirrors and weakly connected notes", () => {
     const state = buildWorkbenchState({
       activePath: "Garden/Loose Idea.md",

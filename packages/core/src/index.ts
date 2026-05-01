@@ -5,6 +5,7 @@ export { PersistentVaultseerStore } from "./storage/persistent-store";
 export { INDEX_SCHEMA_VERSION } from "./storage/types";
 export { compareFileVersions } from "./storage/file-version-diff";
 export { buildRelationshipGraph } from "./relationships/graph";
+export { detectNoteQualityIssues } from "./suggestions/note-quality";
 export { suggestLinksForNote } from "./suggestions/link-suggestions";
 export { suggestTagsForNote } from "./suggestions/tag-suggestions";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
@@ -67,6 +68,13 @@ export type {
 } from "./storage/types";
 export type { FileVersionDiff } from "./storage/file-version-diff";
 export type { RelationshipGraph, ResolvedLink, TagCoOccurrence, TagStat } from "./relationships/types";
+export type {
+  DetectNoteQualityIssuesInput,
+  NoteQualityIssue,
+  NoteQualityIssueEvidence,
+  NoteQualityIssueKind,
+  NoteQualityIssueSeverity
+} from "./suggestions/note-quality";
 export type { LinkSuggestion, LinkSuggestionEvidence, SuggestLinksForNoteInput } from "./suggestions/link-suggestions";
 export type { SuggestTagsForNoteInput, TagSuggestion, TagSuggestionEvidence } from "./suggestions/tag-suggestions";
 export type { ChunkingOptions } from "./chunking/chunk-note";
