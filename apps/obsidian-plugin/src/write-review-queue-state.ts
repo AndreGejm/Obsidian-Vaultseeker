@@ -1,7 +1,8 @@
-import type { GuardedVaultWriteOperation, VaultWriteDecisionRecord } from "@vaultseer/core";
+import type { GuardedVaultWriteOperation, VaultWriteApplyResultRecord, VaultWriteDecisionRecord } from "@vaultseer/core";
 
 export type WriteReviewQueueStatus = "empty" | "ready";
 export type WriteReviewQueueDecisionState = "pending" | VaultWriteDecisionRecord["decision"];
+export type WriteReviewQueueApplyState = "not_applied" | VaultWriteApplyResultRecord["status"];
 
 export type WriteReviewQueueItem = {
   operationId: string;
@@ -17,6 +18,9 @@ export type WriteReviewQueueItem = {
   decisionState: WriteReviewQueueDecisionState;
   decisionLabel: string;
   decidedAt: string | null;
+  applyResult: VaultWriteApplyResultRecord | null;
+  applyState: WriteReviewQueueApplyState;
+  applyLabel: string;
   canApply: false;
   previewDiff: string;
 };
@@ -30,12 +34,15 @@ export type WriteReviewQueueState = {
   deferredCount: number;
   approvedCount: number;
   rejectedCount: number;
+  failedApplyCount: number;
+  appliedCount: number;
   items: WriteReviewQueueItem[];
 };
 
 export type BuildWriteReviewQueueStateInput = {
   operations: GuardedVaultWriteOperation[];
   decisions: VaultWriteDecisionRecord[];
+  applyResults?: VaultWriteApplyResultRecord[];
 };
 
 export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInput): WriteReviewQueueState {
@@ -49,14 +56,19 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
       deferredCount: 0,
       approvedCount: 0,
       rejectedCount: 0,
+      failedApplyCount: 0,
+      appliedCount: 0,
       items: []
     };
   }
 
   const decisionsByOperationId = latestDecisionsByOperationId(input.decisions);
+  const applyResultsByOperationId = latestApplyResultsByOperationId(input.applyResults ?? []);
   const items = input.operations.map((operation): WriteReviewQueueItem => {
     const decision = decisionsByOperationId.get(operation.id) ?? null;
     const decisionState = decision?.decision ?? "pending";
+    const applyResult = applyResultsByOperationId.get(operation.id) ?? null;
+    const applyState = applyResult?.status ?? "not_applied";
     return {
       operationId: operation.id,
       operationType: operation.type,
@@ -71,6 +83,9 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
       decisionState,
       decisionLabel: formatDecisionState(decisionState),
       decidedAt: decision?.decidedAt ?? null,
+      applyResult,
+      applyState,
+      applyLabel: formatApplyState(applyResult),
       canApply: false,
       previewDiff: operation.preview.diff
     };
@@ -81,6 +96,8 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
   const deferredCount = sortedItems.filter((item) => item.decisionState === "deferred").length;
   const approvedCount = sortedItems.filter((item) => item.decisionState === "approved").length;
   const rejectedCount = sortedItems.filter((item) => item.decisionState === "rejected").length;
+  const failedApplyCount = sortedItems.filter((item) => item.applyState === "failed").length;
+  const appliedCount = sortedItems.filter((item) => item.applyState === "applied").length;
 
   return {
     status: "ready",
@@ -91,6 +108,8 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
     deferredCount,
     approvedCount,
     rejectedCount,
+    failedApplyCount,
+    appliedCount,
     items: sortedItems
   };
 }
@@ -101,6 +120,17 @@ function latestDecisionsByOperationId(decisions: VaultWriteDecisionRecord[]): Ma
     const existing = byOperationId.get(decision.operationId);
     if (!existing || existing.decidedAt.localeCompare(decision.decidedAt) < 0) {
       byOperationId.set(decision.operationId, structuredClone(decision));
+    }
+  }
+  return byOperationId;
+}
+
+function latestApplyResultsByOperationId(results: VaultWriteApplyResultRecord[]): Map<string, VaultWriteApplyResultRecord> {
+  const byOperationId = new Map<string, VaultWriteApplyResultRecord>();
+  for (const result of results) {
+    const existing = byOperationId.get(result.operationId);
+    if (!existing || applyResultTimestamp(existing).localeCompare(applyResultTimestamp(result)) < 0) {
+      byOperationId.set(result.operationId, structuredClone(result));
     }
   }
   return byOperationId;
@@ -127,6 +157,20 @@ function decisionSortOrder(decisionState: WriteReviewQueueDecisionState): number
     case "rejected":
       return 3;
   }
+}
+
+function formatApplyState(result: VaultWriteApplyResultRecord | null): string {
+  if (!result) return "Not applied";
+  switch (result.status) {
+    case "applied":
+      return `Applied at ${result.appliedAt}`;
+    case "failed":
+      return `Apply failed: ${result.message}`;
+  }
+}
+
+function applyResultTimestamp(result: VaultWriteApplyResultRecord): string {
+  return result.status === "applied" ? result.appliedAt : result.failedAt;
 }
 
 function formatOperationType(type: GuardedVaultWriteOperation["type"]): string {

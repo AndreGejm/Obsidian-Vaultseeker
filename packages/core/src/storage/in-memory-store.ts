@@ -24,12 +24,17 @@ import {
   updateStoredVaultIndexSourceWorkspace,
   updateStoredVaultIndexSuggestions,
   updateStoredVaultIndexVectors,
+  updateStoredVaultIndexWriteApplyResults,
   updateStoredVaultIndexWriteDecisions,
   updateStoredVaultIndexWriteOperations
 } from "./store-state";
 import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
 import { upsertDecisionRecord } from "../suggestions/suggestion-records";
-import { upsertVaultWriteDecisionRecord } from "../writes/guarded-write";
+import {
+  upsertVaultWriteApplyResultRecord,
+  upsertVaultWriteDecisionRecord,
+  type VaultWriteApplyResultRecord
+} from "../writes/guarded-write";
 
 export class InMemoryVaultseerStore implements VaultseerStore {
   private state: StoredVaultIndex = createEmptyStoredVaultIndex();
@@ -58,7 +63,8 @@ export class InMemoryVaultseerStore implements VaultseerStore {
       this.state.suggestions,
       this.state.decisions,
       this.state.writeOperations,
-      this.state.writeDecisions
+      this.state.writeDecisions,
+      this.state.writeApplyResults
     );
     return cloneHealth(this.state);
   }
@@ -173,6 +179,18 @@ export class InMemoryVaultseerStore implements VaultseerStore {
 
   async getVaultWriteDecisionRecords(): Promise<VaultWriteDecisionRecord[]> {
     return cloneStoredValue(this.state.writeDecisions);
+  }
+
+  async recordVaultWriteApplyResult(result: VaultWriteApplyResultRecord): Promise<VaultWriteApplyResultRecord[]> {
+    this.state = updateStoredVaultIndexWriteApplyResults(
+      this.state,
+      upsertVaultWriteApplyResultRecord(this.state.writeApplyResults, result)
+    );
+    return cloneStoredValue(this.state.writeApplyResults);
+  }
+
+  async getVaultWriteApplyResultRecords(): Promise<VaultWriteApplyResultRecord[]> {
+    return cloneStoredValue(this.state.writeApplyResults);
   }
 
   async getFileVersions(): Promise<FileVersionRecord[]> {

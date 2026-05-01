@@ -27,12 +27,17 @@ import {
   updateStoredVaultIndexSourceWorkspace,
   updateStoredVaultIndexSuggestions,
   updateStoredVaultIndexVectors,
+  updateStoredVaultIndexWriteApplyResults,
   updateStoredVaultIndexWriteDecisions,
   updateStoredVaultIndexWriteOperations
 } from "./store-state";
 import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
 import { upsertDecisionRecord } from "../suggestions/suggestion-records";
-import { upsertVaultWriteDecisionRecord } from "../writes/guarded-write";
+import {
+  upsertVaultWriteApplyResultRecord,
+  upsertVaultWriteDecisionRecord,
+  type VaultWriteApplyResultRecord
+} from "../writes/guarded-write";
 
 export class PersistentVaultseerStore implements VaultseerStore {
   private constructor(
@@ -71,7 +76,8 @@ export class PersistentVaultseerStore implements VaultseerStore {
       this.state.suggestions,
       this.state.decisions,
       this.state.writeOperations,
-      this.state.writeDecisions
+      this.state.writeDecisions,
+      this.state.writeApplyResults
     );
     await this.persist();
     return cloneHealth(this.state);
@@ -200,6 +206,19 @@ export class PersistentVaultseerStore implements VaultseerStore {
     return cloneStoredValue(this.state.writeDecisions);
   }
 
+  async recordVaultWriteApplyResult(result: VaultWriteApplyResultRecord): Promise<VaultWriteApplyResultRecord[]> {
+    this.state = updateStoredVaultIndexWriteApplyResults(
+      this.state,
+      upsertVaultWriteApplyResultRecord(this.state.writeApplyResults, result)
+    );
+    await this.persist();
+    return cloneStoredValue(this.state.writeApplyResults);
+  }
+
+  async getVaultWriteApplyResultRecords(): Promise<VaultWriteApplyResultRecord[]> {
+    return cloneStoredValue(this.state.writeApplyResults);
+  }
+
   async getFileVersions(): Promise<FileVersionRecord[]> {
     return cloneStoredValue(this.state.fileVersions);
   }
@@ -230,6 +249,7 @@ function hydrateStoredVaultIndex(value: StoredVaultIndex | null): StoredVaultInd
     suggestions: cloneStoredValue(value.suggestions ?? []),
     decisions: cloneStoredValue(value.decisions ?? []),
     writeOperations: cloneStoredValue(value.writeOperations ?? []),
-    writeDecisions: cloneStoredValue(value.writeDecisions ?? [])
+    writeDecisions: cloneStoredValue(value.writeDecisions ?? []),
+    writeApplyResults: cloneStoredValue(value.writeApplyResults ?? [])
   };
 }

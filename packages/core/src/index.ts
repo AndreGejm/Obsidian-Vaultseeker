@@ -14,9 +14,12 @@ export {
   upsertDecisionRecord
 } from "./suggestions/suggestion-records";
 export {
+  createVaultWriteApplyFailureRecord,
+  createVaultWriteApplySuccessRecord,
   createVaultWriteDecisionRecord,
   evaluateVaultWritePrecondition,
   mergeVaultWriteOperations,
+  upsertVaultWriteApplyResultRecord,
   upsertVaultWriteDecisionRecord,
   planSourceNoteCreationOperation
 } from "./writes/guarded-write";
@@ -165,7 +168,13 @@ export type {
   GuardedVaultWriteOperation,
   PlanSourceNoteCreationOperationInput,
   SourceNoteCreationOperation,
+  CreateVaultWriteApplyFailureRecordInput,
+  CreateVaultWriteApplySuccessRecordInput,
+  VaultWriteApplyFailureRecord,
+  VaultWriteApplyFailureStage,
   VaultWriteApplyResult,
+  VaultWriteApplyResultRecord,
+  VaultWriteApplySuccessRecord,
   VaultWriteApproval,
   VaultWriteCurrentSnapshot,
   VaultWriteDecision,

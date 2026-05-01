@@ -14,7 +14,11 @@ import {
 } from "./types";
 import type { SourceChunkRecord, SourceRecord } from "../source/types";
 import type { SourceExtractionJobRecord } from "../source/types";
-import type { GuardedVaultWriteOperation, VaultWriteDecisionRecord } from "../writes/guarded-write";
+import type {
+  GuardedVaultWriteOperation,
+  VaultWriteApplyResultRecord,
+  VaultWriteDecisionRecord
+} from "../writes/guarded-write";
 
 export function createEmptyStoredVaultIndex(): StoredVaultIndex {
   return {
@@ -32,6 +36,7 @@ export function createEmptyStoredVaultIndex(): StoredVaultIndex {
     decisions: [],
     writeOperations: [],
     writeDecisions: [],
+    writeApplyResults: [],
     health: {
       schemaVersion: INDEX_SCHEMA_VERSION,
       status: "empty",
@@ -59,7 +64,8 @@ export function createReadyStoredVaultIndex(
   suggestionRecords: SuggestionRecord[] = [],
   decisionRecords: DecisionRecord[] = [],
   writeOperationRecords: GuardedVaultWriteOperation[] = [],
-  writeDecisionRecords: VaultWriteDecisionRecord[] = []
+  writeDecisionRecords: VaultWriteDecisionRecord[] = [],
+  writeApplyResultRecords: VaultWriteApplyResultRecord[] = []
 ): StoredVaultIndex {
   const notes = cloneStoredValue(snapshot.notes);
   const chunks = cloneStoredValue(chunkRecords);
@@ -82,6 +88,7 @@ export function createReadyStoredVaultIndex(
     decisions: cloneStoredValue(decisionRecords),
     writeOperations: cloneStoredValue(writeOperationRecords),
     writeDecisions: cloneStoredValue(writeDecisionRecords),
+    writeApplyResults: cloneStoredValue(writeApplyResultRecords),
     health: {
       schemaVersion: INDEX_SCHEMA_VERSION,
       status: "ready",
@@ -188,6 +195,16 @@ export function updateStoredVaultIndexWriteDecisions(
   return {
     ...state,
     writeDecisions: cloneStoredValue(writeDecisions)
+  };
+}
+
+export function updateStoredVaultIndexWriteApplyResults(
+  state: StoredVaultIndex,
+  writeApplyResults: VaultWriteApplyResultRecord[]
+): StoredVaultIndex {
+  return {
+    ...state,
+    writeApplyResults: cloneStoredValue(writeApplyResults)
   };
 }
 

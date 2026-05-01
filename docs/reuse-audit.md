@@ -47,6 +47,7 @@ The first Phase 5 foundations are read-only tag suggestions, broken-link target 
 - `mergeVaultWriteOperations` and `upsertVaultWriteDecisionRecord` keep generated operations and user decisions reviewable across sessions and mirror rebuilds without making them vault writes.
 - The source preview persists the generated guarded source-note operation when it persists proposal suggestions, so the next review surface can load pending operations instead of regenerating them as hidden state.
 - The guarded write review queue borrows the explicit review-control idea from metadata tooling without adopting direct frontmatter edits: decisions are stored as review metadata, while note mutation remains unavailable until a later `VaultWritePort` apply adapter exists.
+- Core now models and persists guarded write apply result records before any apply adapter exists. Applied records capture before/after hashes and timestamp; failed records capture failure stage, expected hash, actual hash, retryability, and message so future write work has an explicit recovery trail.
 
 This deliberately borrows the useful behavior from Tags Overview, Dataview, Metadata Extractor, Omnisearch, and Mimir's explainable-evidence style while preserving Vaultseer's core/plugin boundary and write-safety ladder.
 
@@ -57,6 +58,6 @@ This deliberately borrows the useful behavior from Tags Overview, Dataview, Meta
 - No tag merge or rename workflow.
 - No Dataview-compatible query language.
 - No MiniSearch dependency.
-- No Obsidian source-to-note write command yet; persisted operations, preview diffs, hash checks, plugin dry-run review, and review decision controls exist, but apply wiring is still deferred.
+- No Obsidian source-to-note write command yet; persisted operations, preview diffs, hash checks, plugin dry-run review, review decision controls, and apply result state records exist, but apply wiring is still deferred.
 - No AI-authored source-to-note generation until the deterministic proposal shape has been reviewed against real sources.
 - No workbench suggestion decision buttons yet; the store can record decisions, but the UI still needs an explicit review queue/control surface.

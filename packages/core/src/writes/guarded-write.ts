@@ -92,6 +92,43 @@ export type VaultWriteApplyResult = {
   appliedAt: string;
 };
 
+export type VaultWriteApplyFailureStage = "precondition" | "write" | "unknown";
+
+export type VaultWriteApplySuccessRecord = VaultWriteApplyResult & {
+  status: "applied";
+};
+
+export type VaultWriteApplyFailureRecord = {
+  operationId: string;
+  status: "failed";
+  targetPath: string;
+  stage: VaultWriteApplyFailureStage;
+  expectedCurrentHash: string | null;
+  actualCurrentHash: string | null;
+  message: string;
+  retryable: boolean;
+  failedAt: string;
+};
+
+export type VaultWriteApplyResultRecord = VaultWriteApplySuccessRecord | VaultWriteApplyFailureRecord;
+
+export type CreateVaultWriteApplySuccessRecordInput = {
+  operation: GuardedVaultWriteOperation;
+  beforeHash: string | null;
+  afterHash: string;
+  appliedAt: string;
+};
+
+export type CreateVaultWriteApplyFailureRecordInput = {
+  operation: GuardedVaultWriteOperation;
+  stage: VaultWriteApplyFailureStage;
+  expectedCurrentHash: string | null;
+  actualCurrentHash: string | null;
+  message: string;
+  retryable: boolean;
+  failedAt: string;
+};
+
 export interface VaultWritePort {
   dryRun(operation: GuardedVaultWriteOperation): Promise<VaultWriteDryRunResult>;
   apply(operation: GuardedVaultWriteOperation, approval: VaultWriteApproval): Promise<VaultWriteApplyResult>;
@@ -173,6 +210,35 @@ export function createVaultWriteDecisionRecord(input: CreateVaultWriteDecisionRe
   };
 }
 
+export function createVaultWriteApplySuccessRecord(
+  input: CreateVaultWriteApplySuccessRecordInput
+): VaultWriteApplySuccessRecord {
+  return {
+    operationId: input.operation.id,
+    status: "applied",
+    targetPath: input.operation.targetPath,
+    beforeHash: input.beforeHash,
+    afterHash: input.afterHash,
+    appliedAt: input.appliedAt
+  };
+}
+
+export function createVaultWriteApplyFailureRecord(
+  input: CreateVaultWriteApplyFailureRecordInput
+): VaultWriteApplyFailureRecord {
+  return {
+    operationId: input.operation.id,
+    status: "failed",
+    targetPath: input.operation.targetPath,
+    stage: input.stage,
+    expectedCurrentHash: input.expectedCurrentHash,
+    actualCurrentHash: input.actualCurrentHash,
+    message: input.message,
+    retryable: input.retryable,
+    failedAt: input.failedAt
+  };
+}
+
 export function mergeVaultWriteOperations(
   existing: GuardedVaultWriteOperation[],
   incoming: GuardedVaultWriteOperation[]
@@ -191,6 +257,16 @@ export function upsertVaultWriteDecisionRecord(
   for (const decision of existing) decisionsByOperationId.set(decision.operationId, clone(decision));
   decisionsByOperationId.set(incoming.operationId, clone(incoming));
   return [...decisionsByOperationId.values()].sort((left, right) => left.operationId.localeCompare(right.operationId));
+}
+
+export function upsertVaultWriteApplyResultRecord(
+  existing: VaultWriteApplyResultRecord[],
+  incoming: VaultWriteApplyResultRecord
+): VaultWriteApplyResultRecord[] {
+  const resultsByOperationId = new Map<string, VaultWriteApplyResultRecord>();
+  for (const result of existing) resultsByOperationId.set(result.operationId, clone(result));
+  resultsByOperationId.set(incoming.operationId, clone(incoming));
+  return [...resultsByOperationId.values()].sort((left, right) => left.operationId.localeCompare(right.operationId));
 }
 
 function createFilePreview(targetPath: string, content: string): VaultWritePreview {

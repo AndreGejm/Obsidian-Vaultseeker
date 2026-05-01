@@ -27,11 +27,12 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     contentEl.createEl("p", { text: "Loading proposed operations..." });
 
     try {
-      const [operations, decisions] = await Promise.all([
+      const [operations, decisions, applyResults] = await Promise.all([
         this.store.getVaultWriteOperations(),
-        this.store.getVaultWriteDecisionRecords()
+        this.store.getVaultWriteDecisionRecords(),
+        this.store.getVaultWriteApplyResultRecords()
       ]);
-      const state = buildWriteReviewQueueState({ operations, decisions });
+      const state = buildWriteReviewQueueState({ operations, decisions, applyResults });
       this.renderState(state, operations);
     } catch (error) {
       contentEl.empty();
@@ -58,6 +59,8 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     summaryEl.createEl("div", { text: `Deferred: ${state.deferredCount}` });
     summaryEl.createEl("div", { text: `Approved for later apply: ${state.approvedCount}` });
     summaryEl.createEl("div", { text: `Rejected: ${state.rejectedCount}` });
+    summaryEl.createEl("div", { text: `Apply failures: ${state.failedApplyCount}` });
+    summaryEl.createEl("div", { text: `Applied records: ${state.appliedCount}` });
     summaryEl.createEl("p", {
       text: "Decision buttons update Vaultseer review metadata only. They do not apply changes to notes."
     });
@@ -76,12 +79,18 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     itemEl.createEl("h4", { text: item.targetPath });
     itemEl.createEl("div", { text: `Operation: ${item.operationTypeLabel}` });
     itemEl.createEl("div", { text: `Decision: ${item.decisionLabel}` });
+    itemEl.createEl("div", { text: `Apply result: ${item.applyLabel}` });
     itemEl.createEl("div", { text: `Created: ${item.createdAt}` });
     if (item.decidedAt) itemEl.createEl("div", { text: `Decided: ${item.decidedAt}` });
     itemEl.createEl("div", { text: `Source: ${item.sourcePath ?? "unknown source"}` });
     itemEl.createEl("div", { text: `Source hash: ${item.sourceContentHash ?? "unknown hash"}` });
     itemEl.createEl("div", { text: `Expected current hash: ${item.expectedCurrentHash ?? "no existing file"}` });
     itemEl.createEl("div", { text: `Apply available: ${item.canApply ? "yes" : "no"}` });
+    if (item.applyResult?.status === "failed") {
+      itemEl.createEl("div", { text: `Failure stage: ${item.applyResult.stage}` });
+      itemEl.createEl("div", { text: `Retryable: ${item.applyResult.retryable ? "yes" : "no"}` });
+      itemEl.createEl("div", { text: `Actual hash: ${item.applyResult.actualCurrentHash ?? "no existing file"}` });
+    }
 
     const suggestionsEl = itemEl.createEl("section", { cls: "vaultseer-write-review-queue-suggestions" });
     suggestionsEl.createEl("h5", { text: "Linked Suggestions" });

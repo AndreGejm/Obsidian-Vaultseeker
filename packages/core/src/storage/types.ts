@@ -1,6 +1,10 @@
 import type { NoteRecord, VaultSnapshot } from "../types";
 import type { SourceChunkRecord, SourceExtractionJobRecord, SourceRecord } from "../source/types";
-import type { GuardedVaultWriteOperation, VaultWriteDecisionRecord } from "../writes/guarded-write";
+import type {
+  GuardedVaultWriteOperation,
+  VaultWriteApplyResultRecord,
+  VaultWriteDecisionRecord
+} from "../writes/guarded-write";
 
 export const INDEX_SCHEMA_VERSION = 1;
 
@@ -129,6 +133,7 @@ export type StoredVaultIndex = {
   decisions: DecisionRecord[];
   writeOperations: GuardedVaultWriteOperation[];
   writeDecisions: VaultWriteDecisionRecord[];
+  writeApplyResults: VaultWriteApplyResultRecord[];
   health: IndexHealth;
 };
 
@@ -170,6 +175,8 @@ export interface VaultseerStore {
   getVaultWriteOperations(): Promise<GuardedVaultWriteOperation[]>;
   recordVaultWriteDecision(decision: VaultWriteDecisionRecord): Promise<VaultWriteDecisionRecord[]>;
   getVaultWriteDecisionRecords(): Promise<VaultWriteDecisionRecord[]>;
+  recordVaultWriteApplyResult(result: VaultWriteApplyResultRecord): Promise<VaultWriteApplyResultRecord[]>;
+  getVaultWriteApplyResultRecords(): Promise<VaultWriteApplyResultRecord[]>;
   getFileVersions(): Promise<FileVersionRecord[]>;
   clear(): Promise<IndexHealth>;
 }
