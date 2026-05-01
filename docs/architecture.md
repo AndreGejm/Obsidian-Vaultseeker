@@ -76,6 +76,7 @@ The plugin currently exposes these operator commands:
 - `Vaultseer: Run one semantic indexing batch`
 - `Vaultseer: Cancel active semantic indexing jobs`
 - `Vaultseer: Search stored source workspaces`
+- `Vaultseer: Import active text/code file as source workspace`
 - `Vaultseer: Plan source semantic indexing queue`
 - `Vaultseer: Run one source semantic indexing batch`
 - `Vaultseer: Cancel active source semantic indexing jobs`
@@ -246,8 +247,10 @@ The plugin now exposes explicit source semantic controls. `Vaultseer: Plan sourc
 
 `VaultseerStore` now persists source records and source chunks through `replaceSourceWorkspace`, `getSourceRecords`, and `getSourceChunkRecords`. These records are stored separately from Obsidian note records. Rebuilding the vault note mirror preserves source workspaces, while a full local state clear removes them with the rest of Vaultseer's disposable local state.
 
+`Vaultseer: Import active text/code file as source workspace` is the first source intake path. It reads only the active Obsidian file through the vault adapter, supports Markdown, plain text, scripts, source code, JSON, YAML, and similar readable files, then stores a source workspace and source chunks through `VaultseerStore`. Unsupported files, including PDFs for now, are stored as failed source workspaces with diagnostics. This command does not read arbitrary filesystem paths and does not write Obsidian notes.
+
 `Vaultseer: Search stored source workspaces` opens a read-only modal over stored source records and source chunks. The modal builds a source lexical index once from stored source data when it opens, uses that cached modal-session index for live lexical searches, and only calls the semantic provider when the operator explicitly runs semantic search. Semantic evidence is blended with lexical evidence through an explicit source-ranking policy, and provider failures degrade to lexical-only results without mutating source workspaces or notes. Search results can open a read-only source preview modal for the selected stored source workspace.
 
 The source preview modal reads stored source records and source chunks, then displays source metadata, extraction diagnostics, staged attachment metadata, extracted Markdown, and chunk groups. It does not run extractors, render staged attachments, copy images or tables into the vault, or create Obsidian notes.
 
-Current limitations: no Marker adapter, MarkItDown adapter, attachment staging directory, rendered image/table preview, or source-to-note proposal path exists yet.
+Current limitations: no Marker adapter, MarkItDown adapter, source file picker, attachment staging directory, rendered image/table preview, or source-to-note proposal path exists yet.

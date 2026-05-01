@@ -10,6 +10,8 @@ export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
 export { buildSourceLexicalIndex, searchSourceLexicalIndex } from "./source/source-lexical-search";
 export { searchSourceSemanticVectors } from "./source/source-semantic-search";
 export { chunkSourceRecord, chunkSourceRecords } from "./source/chunk-source";
+export { BuiltInTextSourceExtractor, isBuiltInTextSourceExtension } from "./source/text-source-extractor";
+export { hashString } from "./chunking/text-chunking";
 export {
   buildVectorNamespace,
   cancelEmbeddingJobs,

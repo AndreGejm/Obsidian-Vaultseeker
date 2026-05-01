@@ -8,6 +8,7 @@ import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
 import { VaultseerSourcePreviewModal } from "./source-preview-modal";
 import { VaultseerSourceSearchModal } from "./source-search-modal";
+import { importVaultTextSourceWorkspace } from "./source-intake-controller";
 import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
 import {
   cancelSourceSemanticIndexQueue,
@@ -101,6 +102,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Search stored source workspaces",
       callback: async () => {
         await this.showSourceSearch();
+      }
+    });
+
+    this.addCommand({
+      id: "import-active-text-source",
+      name: "Import active text/code file as source workspace",
+      callback: async () => {
+        await this.importActiveTextSource();
       }
     });
 
@@ -225,6 +234,26 @@ export default class VaultseerPlugin extends Plugin {
 
   async showSourcePreview(sourceId: string): Promise<void> {
     new VaultseerSourcePreviewModal(this.app, this.store, sourceId).open();
+  }
+
+  async importActiveTextSource(): Promise<void> {
+    const file = this.app.workspace.getActiveFile();
+    if (!file) {
+      new Notice("Open a text or code file before importing a source workspace.");
+      return;
+    }
+
+    const summary = await importVaultTextSourceWorkspace({
+      store: this.store,
+      sourcePath: file.path,
+      filename: file.name,
+      extension: file.extension ? `.${file.extension}` : getFileExtension(file.name),
+      sizeBytes: file.stat.size,
+      readText: async () => this.app.vault.cachedRead(file),
+      now: () => new Date().toISOString()
+    });
+
+    new Notice(summary.message);
   }
 
   async openWorkbench(): Promise<void> {
@@ -487,4 +516,10 @@ export default class VaultseerPlugin extends Plugin {
         maxChunksPerSource: 3
       });
   }
+}
+
+function getFileExtension(filename: string): string {
+  const lastDot = filename.lastIndexOf(".");
+  if (lastDot <= 0 || lastDot === filename.length - 1) return "";
+  return filename.slice(lastDot);
 }

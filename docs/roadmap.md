@@ -137,7 +137,7 @@ Exit gate:
 
 ## Phase 4.5: High-Fidelity Source Intake
 
-Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, source-job protection from note semantic controls, the core source embedding worker, explicit plugin source semantic controls, a read-only source search modal, and a read-only source preview modal are implemented. No extractor adapter, attachment staging directory, image/table rendering preview, or source-to-note proposal path exists yet.
+Status: in progress. Core source/extractor contracts, normalized source records, persisted source records, persisted source chunks, source preservation across vault mirror rebuilds, deterministic extracted-Markdown source chunking, pure source lexical search, pure source semantic vector ranking, pure source embedding queue planning, source-job protection from note semantic controls, the core source embedding worker, explicit plugin source semantic controls, a read-only source search modal, a read-only source preview modal, and vault-local active-file text/code intake are implemented. No Marker adapter, MarkItDown adapter, source file picker, attachment staging directory, image/table rendering preview, or source-to-note proposal path exists yet.
 
 Goal: turn external source files into searchable, reviewable source workspaces before any Obsidian note is written.
 
@@ -147,11 +147,12 @@ Extractor order:
 
 1. **Marker adapter for serious PDF intake.** Use Marker as the primary PDF engine for papers, datasheets, manuals, literature, scanned or OCR-heavy documents, tables, equations, images, and layout-sensitive PDFs. Marker should run as an external job, not inside the Obsidian UI thread.
 2. **Microsoft MarkItDown adapter for broad file intake.** Use MarkItDown for DOCX, PPTX, XLSX, HTML, EPUB, text-based formats, and other non-PDF sources where broad coverage matters more than high-fidelity PDF layout.
-3. **Built-in text and code intake.** Use native Vaultseer extraction for Markdown, plain text, scripts, batch files, source code, JSON, YAML, and similar readable files. Code-like sources should preserve language, path, and line-range provenance.
+3. **Built-in text and code intake.** Use native Vaultseer extraction for Markdown, plain text, scripts, batch files, source code, JSON, YAML, and similar readable files. Code-like sources should preserve language and path first; line-range provenance remains future work. This path is implemented for the active Obsidian file, not for an arbitrary file picker.
 
 Implementation steps:
 
 - define a `SourceExtractorPort` with explicit supported file types, dependencies, and failure modes (**implemented as a core contract only**)
+- add a built-in text/code extractor for vault-local readable files (**implemented for Markdown, plain text, scripts, source code, JSON, YAML, and similar active files through `Vaultseer: Import active text/code file as source workspace`**)
 - define normalized source records separate from Obsidian note records (**implemented in core storage types**)
 - store original source metadata: path, filename, extension, size, content hash, import time, extractor name, extractor version, and extraction options (**implemented in `SourceRecord`**)
 - store extracted Markdown separately from the final Obsidian note proposal (**implemented as source workspace data, not as a vault note**)

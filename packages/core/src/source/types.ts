@@ -29,6 +29,8 @@ export type SourceExtractionInput = {
   extension: string;
   sizeBytes: number;
   contentHash: string;
+  importedAt?: string;
+  textContent?: string;
   options: Record<string, unknown>;
 };
 
