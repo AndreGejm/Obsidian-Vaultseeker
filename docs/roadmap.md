@@ -179,7 +179,7 @@ Exit gate:
 
 ## Phase 5: Read-Only Suggestions
 
-Status: started. Read-only tag suggestions, broken-link target suggestions, narrow note sanity checks, semantic related notes, deterministic source-to-note seed proposals, persisted suggestion records, and separate current decision records are implemented in core. Source proposal suggestions are persisted from the source preview. Suggestion records and suggestion decisions survive read-only mirror rebuilds. Suggestions and diagnostics are evidence-bearing and cannot mutate notes.
+Status: started. Read-only tag suggestions, broken-link target suggestions, narrow note sanity checks, semantic related notes, deterministic source-to-note seed proposals, persisted suggestion records, and separate current decision records are implemented in core. Source proposal suggestions are persisted from the source preview. Current-note tag suggestions can now be converted into persisted `note_tag` suggestion records when the operator stages a tag review from the workbench. Suggestion records and suggestion decisions survive read-only mirror rebuilds. Suggestions and diagnostics are evidence-bearing and cannot mutate notes.
 
 Goal: produce explainable gardening suggestions without applying them.
 
@@ -190,7 +190,7 @@ Implementation steps:
 - suggest note structure, tags, links, and related notes from reviewed source intake workspaces (**implemented as deterministic read-only source preview proposals; AI-assisted proposal generation and persistence remain future work**)
 - suggest missing links from unresolved mentions and strong related-note evidence (**implemented for current-note unresolved Obsidian links using existing notes, aliases, titles, and token overlap; still read-only and not yet backed by semantic evidence**)
 - detect narrow formatting issues only: missing frontmatter field, duplicate aliases, empty title, malformed tag, broken internal link (**implemented as read-only current-note sanity checks in the workbench**)
-- store suggestion evidence and confidence separately (**implemented for source proposal suggestions, with separate latest decision records; workbench suggestion persistence and decision UI remain future work**)
+- store suggestion evidence and confidence separately (**implemented for source proposal suggestions and staged workbench tag suggestions, with separate latest decision records; inline workbench decision UI remains future work**)
 
 Exit gate:
 
@@ -200,14 +200,14 @@ Exit gate:
 
 ## Phase 6: Guarded Write Actions
 
-Status: started. Core now has guarded-write contracts for source-to-note creation and preview-only note tag updates. A source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. A note tag update can become a proposed `update_note_tags` operation with normalized frontmatter tags, preserved unrelated frontmatter fields, expected current content hash, and a preview diff, but the Obsidian adapter refuses to apply it for now. Proposed write operations, write decisions, and apply result records are persisted separately from suggestions and survive read-only mirror rebuilds. The plugin source preview stores the generated source-note operation and exposes a dry-run review modal for that proposed operation. The source-note target folder is configurable in plugin settings and defaults to `Source Notes`. The plugin also exposes `Vaultseer: Open guarded write review queue`, which lists stored proposals, records approval, deferral, or rejection, displays stored apply result state, can create a new Markdown note for an approved source-note operation through the guarded Obsidian write port, and shows tag update operations as preview-only. The apply path now fails early when the target parent folder is missing; it does not create folders. No applied tag, link, frontmatter, attachment, existing-note edit, batch apply, or automatic apply path exists yet.
+Status: started. Core now has guarded-write contracts for source-to-note creation and preview-only note tag updates. A source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. A note tag update can become a proposed `update_note_tags` operation with normalized frontmatter tags, preserved unrelated frontmatter fields, expected current content hash, and a preview diff, but the Obsidian adapter refuses to apply it for now. Proposed write operations, write decisions, and apply result records are persisted separately from suggestions and survive read-only mirror rebuilds. The plugin source preview stores the generated source-note operation and exposes a dry-run review modal for that proposed operation. The workbench can stage current-note tag suggestions into the guarded write review queue as preview-only `update_note_tags` operations. The source-note target folder is configurable in plugin settings and defaults to `Source Notes`. The plugin also exposes `Vaultseer: Open guarded write review queue`, which lists stored proposals, records approval, deferral, or rejection, displays stored apply result state, can create a new Markdown note for an approved source-note operation through the guarded Obsidian write port, and shows tag update operations as preview-only. The apply path now fails early when the target parent folder is missing; it does not create folders. No applied tag, link, frontmatter, attachment, existing-note edit, batch apply, or automatic apply path exists yet.
 
 Goal: allow explicit, safe changes after preview.
 
 Implementation steps:
 
 - add `VaultWritePort` (**implemented as a core interface and a narrow Obsidian adapter for source-note creation only**)
-- create proposed operations for tag insertion, link insertion, and frontmatter cleanup (**tag/frontmatter update planning is implemented as preview-only `planNoteTagUpdateOperation`; link insertion and cleanup are not implemented yet**)
+- create proposed operations for tag insertion, link insertion, and frontmatter cleanup (**tag/frontmatter update planning is implemented as preview-only `planNoteTagUpdateOperation`; the workbench can stage tag suggestions into the queue; link insertion and cleanup are not implemented yet**)
 - create proposed operations for source-to-note creation after source intake review (**implemented in core as `planSourceNoteCreationOperation`**)
 - generate preview diffs (**implemented for source note creation as an added-file diff and tag updates as a full-file modification diff**)
 - verify current file hash before apply (**implemented as `evaluateVaultWritePrecondition` and rechecked by the Obsidian write port before `vault.create`**)

@@ -1,12 +1,64 @@
 import { describe, expect, it } from "vitest";
 import {
+  createNoteTagSuggestionRecords,
   createSourceNoteProposalSuggestionRecords,
   mergeSuggestionRecords,
   upsertDecisionRecord
 } from "../src/index";
-import type { DecisionRecord, SourceNoteProposal, SuggestionRecord } from "../src/index";
+import type { DecisionRecord, SourceNoteProposal, SuggestionRecord, TagSuggestion } from "../src/index";
 
 describe("suggestion record helpers", () => {
+  it("converts note tag suggestions into stable evidence-bearing suggestion records", () => {
+    const records = createNoteTagSuggestionRecords(
+      {
+        targetPath: "Literature/Mimisbrunnr Retrieval.md",
+        suggestions: [
+          tagSuggestion({
+            tag: "project/vaultseer",
+            confidence: 0.72,
+            evidence: [
+              {
+                type: "linked_note_tag",
+                notePath: "Projects/Vaultseer Platform.md",
+                tag: "project/vaultseer"
+              },
+              {
+                type: "co_tag",
+                fromTag: "ai/memory",
+                count: 3
+              }
+            ]
+          })
+        ]
+      },
+      "2026-05-01T22:00:00.000Z"
+    );
+
+    expect(records).toEqual([
+      {
+        id: "suggestion:note-tag:Literature/Mimisbrunnr Retrieval.md:project/vaultseer",
+        type: "note_tag",
+        targetPath: "Literature/Mimisbrunnr Retrieval.md",
+        confidence: 0.72,
+        evidence: [
+          {
+            type: "tag_co_occurrence",
+            fromTag: "ai/memory",
+            suggestedTag: "project/vaultseer",
+            count: 3
+          },
+          {
+            type: "note_tag_evidence",
+            relation: "linked_note",
+            notePath: "Projects/Vaultseer Platform.md",
+            tag: "project/vaultseer"
+          }
+        ],
+        createdAt: "2026-05-01T22:00:00.000Z"
+      }
+    ]);
+  });
+
   it("converts a source note proposal into stable evidence-bearing suggestion records", () => {
     const records = createSourceNoteProposalSuggestionRecords(
       sourceNoteProposal({
@@ -167,6 +219,17 @@ function sourceNoteProposal(overrides: Partial<SourceNoteProposal> = {}): Source
         value: "Timer Datasheet"
       }
     ],
+    ...overrides
+  };
+}
+
+function tagSuggestion(overrides: Partial<TagSuggestion>): TagSuggestion {
+  return {
+    tag: "project/vaultseer",
+    score: 12,
+    confidence: 0.72,
+    evidence: [],
+    reason: "linked note Projects/Vaultseer Platform.md",
     ...overrides
   };
 }

@@ -26,6 +26,7 @@ import {
 } from "./semantic-index-controller";
 import { searchSemanticIndex } from "./semantic-search-controller";
 import { searchSourceSemanticIndex } from "./source-semantic-search-controller";
+import { stageNoteTagUpdateProposal } from "./tag-write-proposal-controller";
 import {
   cancelSourceExtractionQueue,
   planMarkerSourceExtractionQueue,
@@ -78,6 +79,21 @@ export default class VaultseerPlugin extends Plugin {
             "clear-index": async () => {
               await this.clearIndex();
             }
+          },
+          async (currentNote, tagSuggestions) => {
+            const file = this.app.workspace.getActiveFile();
+            if (!file || file.path !== currentNote.path) {
+              return "Open the indexed note before staging its tag suggestions.";
+            }
+
+            const summary = await stageNoteTagUpdateProposal({
+              store: this.store,
+              targetPath: currentNote.path,
+              currentContent: await this.app.vault.cachedRead(file),
+              tagSuggestions,
+              now: () => new Date().toISOString()
+            });
+            return summary.message;
           }
         )
     );

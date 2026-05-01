@@ -259,6 +259,14 @@ describe("buildWorkbenchState", () => {
       tagSuggestions: expect.arrayContaining([
         expect.objectContaining({
           tag: "project/vaultseer",
+          score: expect.any(Number),
+          evidence: expect.arrayContaining([
+            expect.objectContaining({
+              type: "linked_note_tag",
+              notePath: "Projects/Vaultseer Platform.md",
+              tag: "project/vaultseer"
+            })
+          ]),
           reason: expect.stringContaining("linked note Projects/Vaultseer Platform.md")
         })
       ])

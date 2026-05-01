@@ -3,6 +3,7 @@ import type {
   SuggestionEvidence,
   SuggestionRecord
 } from "../storage/types";
+import type { TagSuggestion, TagSuggestionEvidence } from "./tag-suggestions";
 import type {
   SourceNoteProposal,
   SourceNoteProposalEvidence,
@@ -11,6 +12,18 @@ import type {
   SourceNoteProposalRelatedNote,
   SourceNoteProposalTag
 } from "../source/source-note-proposal";
+
+export type CreateNoteTagSuggestionRecordsInput = {
+  targetPath: string;
+  suggestions: TagSuggestion[];
+};
+
+export function createNoteTagSuggestionRecords(
+  input: CreateNoteTagSuggestionRecordsInput,
+  createdAt: string
+): SuggestionRecord[] {
+  return input.suggestions.map((suggestion) => noteTagSuggestionRecord(input.targetPath, suggestion, createdAt));
+}
 
 export function createSourceNoteProposalSuggestionRecords(
   proposal: SourceNoteProposal,
@@ -46,6 +59,17 @@ export function upsertDecisionRecord(existing: DecisionRecord[], incoming: Decis
   for (const decision of existing) decisionsBySuggestionId.set(decision.suggestionId, clone(decision));
   decisionsBySuggestionId.set(incoming.suggestionId, clone(incoming));
   return [...decisionsBySuggestionId.values()].sort((left, right) => left.suggestionId.localeCompare(right.suggestionId));
+}
+
+function noteTagSuggestionRecord(targetPath: string, suggestion: TagSuggestion, createdAt: string): SuggestionRecord {
+  return {
+    id: `suggestion:note-tag:${targetPath}:${suggestion.tag}`,
+    type: "note_tag",
+    targetPath,
+    confidence: suggestion.confidence,
+    evidence: toStoredTagEvidence(suggestion.tag, suggestion.evidence),
+    createdAt
+  };
 }
 
 function outlineSuggestionRecord(
@@ -108,6 +132,48 @@ function relatedNoteSuggestionRecord(
   };
 }
 
+function toStoredTagEvidence(suggestedTag: string, evidence: TagSuggestionEvidence[]): SuggestionEvidence[] {
+  return evidence.flatMap((item): SuggestionEvidence[] => {
+    switch (item.type) {
+      case "linked_note_tag":
+        return [
+          {
+            type: "note_tag_evidence",
+            relation: "linked_note",
+            notePath: item.notePath,
+            tag: item.tag
+          }
+        ];
+      case "backlink_note_tag":
+        return [
+          {
+            type: "note_tag_evidence",
+            relation: "backlink_note",
+            notePath: item.notePath,
+            tag: item.tag
+          }
+        ];
+      case "co_tag":
+        return [
+          {
+            type: "tag_co_occurrence",
+            fromTag: item.fromTag,
+            suggestedTag,
+            count: item.count
+          }
+        ];
+      case "tag_frequency":
+        return [
+          {
+            type: "tag_frequency",
+            tag: suggestedTag,
+            noteCount: item.noteCount
+          }
+        ];
+    }
+  }).sort(compareSuggestionEvidence);
+}
+
 function toStoredEvidence(sourceId: string, evidence: SourceNoteProposalEvidence[]): SuggestionEvidence[] {
   return evidence.flatMap((item): SuggestionEvidence[] => {
     switch (item.type) {
@@ -140,6 +206,23 @@ function toStoredEvidence(sourceId: string, evidence: SourceNoteProposalEvidence
 
 function compareSuggestionRecords(left: SuggestionRecord, right: SuggestionRecord): number {
   return left.id.localeCompare(right.id);
+}
+
+function compareSuggestionEvidence(left: SuggestionEvidence, right: SuggestionEvidence): number {
+  return suggestionEvidenceKey(left).localeCompare(suggestionEvidenceKey(right));
+}
+
+function suggestionEvidenceKey(evidence: SuggestionEvidence): string {
+  switch (evidence.type) {
+    case "tag_co_occurrence":
+      return `0:${evidence.fromTag}:${evidence.suggestedTag}:${evidence.count}`;
+    case "tag_frequency":
+      return `1:${evidence.tag}:${evidence.noteCount}`;
+    case "note_tag_evidence":
+      return `2:${evidence.relation}:${evidence.notePath}:${evidence.tag}`;
+    default:
+      return `9:${JSON.stringify(evidence)}`;
+  }
 }
 
 function clone<T>(value: T): T {

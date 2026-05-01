@@ -9,6 +9,7 @@ export { detectNoteQualityIssues } from "./suggestions/note-quality";
 export { suggestLinksForNote } from "./suggestions/link-suggestions";
 export { suggestTagsForNote } from "./suggestions/tag-suggestions";
 export {
+  createNoteTagSuggestionRecords,
   createSourceNoteProposalSuggestionRecords,
   mergeSuggestionRecords,
   upsertDecisionRecord

@@ -1,6 +1,6 @@
 # Vaultseer Limited Go-Live Smoke Checklist
 
-This checklist is for a small personal vault trial. It verifies that Vaultseer can index, search, review a source-note proposal, and create one approved note without broad write access.
+This checklist is for a small personal vault trial. It verifies that Vaultseer can index, search, review a source-note proposal, stage a preview-only tag update, and create one approved source note without broad write access.
 
 ## Preconditions
 
@@ -22,19 +22,25 @@ Vaultseer does not create missing folders during source-note apply. If the confi
 3. Run `Vaultseer: Search read-only vault index`.
    - Expected: existing vault notes appear for normal search terms.
    - Verify: clicking a result opens the note and does not edit it.
-4. Open or choose a text/code source file and run one source intake command:
+4. Run `Vaultseer: Open read-only workbench` on a note that has suggested tags.
+   - Expected: the workbench shows suggested tags and a `Stage tag review` button.
+   - Verify: pressing `Stage tag review` stores a guarded tag-update proposal and reports that no note was changed.
+5. Run `Vaultseer: Open guarded write review queue`.
+   - Expected: the tag-update proposal appears as `Update note tags`.
+   - Verify: the preview diff shows the proposed frontmatter change, but the apply button says `Tag update preview only` and is disabled.
+6. Open or choose a text/code source file and run one source intake command:
    - `Vaultseer: Import active text/code file as source workspace`
    - `Vaultseer: Choose text/code file to import as source workspace`
    - Expected: a source workspace is stored.
-5. Run `Vaultseer: Search stored source workspaces`.
+7. Run `Vaultseer: Search stored source workspaces`.
    - Expected: the imported source appears in search results.
    - Verify: opening the source preview shows extracted text and a deterministic note proposal.
-6. From the source preview, review the source-note creation proposal.
+8. From the source preview, review the source-note creation proposal.
    - Expected: the preview shows the target path, source provenance, linked suggestions, and an added-file diff.
    - Verify: no Markdown note is created at this point.
-7. Run `Vaultseer: Open guarded write review queue`.
+9. Run `Vaultseer: Open guarded write review queue`.
    - Expected: the stored source-note write proposal appears.
-8. Approve the proposal, then press `Create note`.
+10. Approve the source-note proposal, then press `Create note`.
    - Expected: Vaultseer creates exactly one new Markdown note at the target path and records an applied result.
    - Verify: the note exists in Obsidian, the queue shows an applied record, and pressing create again is disabled.
 
@@ -47,7 +53,7 @@ Vaultseer does not create missing folders during source-note apply. If the confi
 
 ## Current Write Limits
 
-The limited go-live write surface can only create a new Markdown note from an approved source-note proposal. Core can plan tag/frontmatter update previews, but the plugin does not apply those previews yet. It cannot:
+The limited go-live write surface can only create a new Markdown note from an approved source-note proposal. The workbench can stage tag/frontmatter update previews, but the plugin does not apply those previews yet. It cannot:
 
 - edit existing notes;
 - apply tag insertions or tag renames;

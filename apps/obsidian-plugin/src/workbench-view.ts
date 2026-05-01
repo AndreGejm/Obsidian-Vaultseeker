@@ -22,6 +22,10 @@ type WorkbenchMirrorData = {
 };
 
 export type WorkbenchControlHandlers = Record<WorkbenchControlId, () => Promise<void>>;
+export type WorkbenchTagProposalHandler = (
+  currentNote: NonNullable<Extract<WorkbenchState, { status: "ready" }>["currentNote"]>,
+  tagSuggestions: WorkbenchTagSuggestion[]
+) => Promise<string>;
 
 export class VaultseerWorkbenchView extends ItemView {
   constructor(
@@ -29,7 +33,8 @@ export class VaultseerWorkbenchView extends ItemView {
     private readonly store: VaultseerStore,
     private readonly getActivePath: () => string | null,
     private readonly openNote: (path: string) => Promise<void>,
-    private readonly controlHandlers: WorkbenchControlHandlers
+    private readonly controlHandlers: WorkbenchControlHandlers,
+    private readonly tagProposalHandler?: WorkbenchTagProposalHandler
   ) {
     super(leaf);
   }
@@ -106,7 +111,7 @@ export class VaultseerWorkbenchView extends ItemView {
     this.renderQualityIssues(contentEl, state.qualityIssues);
     this.renderRelatedNotes(contentEl, state.relatedNotes);
     this.renderLinkSuggestions(contentEl, state.linkSuggestions);
-    this.renderTagSuggestions(contentEl, state.tagSuggestions);
+    this.renderTagSuggestions(contentEl, state.currentNote, state.tagSuggestions);
   }
 
   private renderControls(containerEl: HTMLElement, controls: WorkbenchControl[]): void {
@@ -221,13 +226,24 @@ export class VaultseerWorkbenchView extends ItemView {
     }
   }
 
-  private renderTagSuggestions(containerEl: HTMLElement, tagSuggestions: WorkbenchTagSuggestion[]): void {
+  private renderTagSuggestions(
+    containerEl: HTMLElement,
+    currentNote: NonNullable<Extract<WorkbenchState, { status: "ready" }>["currentNote"]>,
+    tagSuggestions: WorkbenchTagSuggestion[]
+  ): void {
     const section = containerEl.createDiv({ cls: "vaultseer-workbench-section" });
     section.createEl("h3", { text: "Suggested tags" });
 
     if (tagSuggestions.length === 0) {
       section.createEl("p", { text: "None" });
       return;
+    }
+
+    if (this.tagProposalHandler) {
+      const button = section.createEl("button", { text: "Stage tag review" });
+      button.addEventListener("click", async () => {
+        await this.stageTagReview(currentNote, tagSuggestions);
+      });
     }
 
     const list = section.createEl("ul");
@@ -238,6 +254,21 @@ export class VaultseerWorkbenchView extends ItemView {
         text: `${suggestion.reason} Confidence ${Math.round(suggestion.confidence * 100)}%.`,
         cls: "vaultseer-workbench-related-reason"
       });
+    }
+  }
+
+  private async stageTagReview(
+    currentNote: NonNullable<Extract<WorkbenchState, { status: "ready" }>["currentNote"]>,
+    tagSuggestions: WorkbenchTagSuggestion[]
+  ): Promise<void> {
+    if (!this.tagProposalHandler) return;
+
+    try {
+      const message = await this.tagProposalHandler(currentNote, tagSuggestions);
+      new Notice(message);
+      await this.refresh();
+    } catch (error) {
+      new Notice(`Vaultseer could not stage tag suggestions: ${getErrorMessage(error)}`);
     }
   }
 

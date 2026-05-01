@@ -99,6 +99,9 @@ export type SuggestionEvidence =
   | { type: "semantic_match"; chunkId: string; score: number }
   | { type: "unlinked_mention"; text: string }
   | { type: "link_overlap"; notePath: string; count: number }
+  | { type: "note_tag_evidence"; relation: "linked_note" | "backlink_note"; notePath: string; tag: string }
+  | { type: "tag_co_occurrence"; fromTag: string; suggestedTag: string; count: number }
+  | { type: "tag_frequency"; tag: string; noteCount: number }
   | { type: "source_field"; sourceId: string; field: "title" | "filename"; value: string }
   | { type: "source_section"; sourceId: string; chunkId: string; sectionPath: string[] }
   | { type: "source_excerpt"; sourceId: string; chunkId: string; text: string }

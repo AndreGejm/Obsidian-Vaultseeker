@@ -202,11 +202,11 @@ Semantic related-note evidence is computed from vectors already stored in the mi
 
 The sanity checks are diagnostics over the indexed mirror, not a formatter. They point out narrow issues only and do not infer a house style for headings, prose, templates, or frontmatter schemas.
 
-The view refreshes when Obsidian opens another file and after Vaultseer rebuilds or clears the index. It opens notes through Obsidian when the operator clicks a related note, resolved link, or suggested link target. It does not mutate notes.
+The view refreshes when Obsidian opens another file and after Vaultseer rebuilds or clears the index. It opens notes through Obsidian when the operator clicks a related note, resolved link, or suggested link target. It can stage suggested tags as a guarded write review proposal, but that action only stores suggestion and operation records. It does not mutate notes.
 
 The workbench toolbar exposes `Rebuild index` and `Clear index`. These actions operate only on Vaultseer's disposable mirror through the same plugin methods as the command palette commands. They do not edit Markdown notes, frontmatter, tags, links, aliases, or vault files.
 
-Current limitation: the workbench is still a read-only mirror inspector. It does not yet show guarded actions, suggestion decisions, semantic current-note results, or gardener queues.
+Current limitation: the workbench is still mostly a read-only mirror inspector. It has one guarded-action bridge for staging suggested tags into the write review queue. It does not apply tag updates, insert links, expose suggestion decisions inline, show semantic current-note results, or provide a full gardener queue.
 
 ## Source-To-Note Proposals
 
@@ -243,13 +243,13 @@ Guarded write operations now have a persistence boundary. `VaultseerStore` store
 
 Apply result records are explicit. `VaultWriteApplyResultRecord` has `applied` and `failed` variants. Failures record stage, expected hash, actual hash, message, retryability, and timestamp so apply work can fail closed and explain recovery state instead of leaving an ambiguous partial operation.
 
-Core now has a preview-only existing-note tag update operation. `packages/core/src/writes/guarded-write.ts` exposes `planNoteTagUpdateOperation`, which accepts a target note path, current Markdown content, proposed tags, suggestion IDs, and a timestamp. It normalizes frontmatter tags, preserves unrelated frontmatter fields, produces modified Markdown content, stores the expected current content hash, and creates a full-file preview diff. This operation is reviewable through the shared guarded-write queue, but it is intentionally not applyable by the Obsidian adapter yet.
+Core now has a preview-only existing-note tag update operation. `packages/core/src/writes/guarded-write.ts` exposes `planNoteTagUpdateOperation`, which accepts a target note path, current Markdown content, proposed tags, suggestion IDs, and a timestamp. It normalizes frontmatter tags, preserves unrelated frontmatter fields, produces modified Markdown content, stores the expected current content hash, and creates a full-file preview diff. `packages/core/src/suggestions/suggestion-records.ts` converts workbench tag suggestions into stable `note_tag` suggestion records with evidence for linked-note tags, backlink tags, co-tag statistics, and tag frequency. This operation is reviewable through the shared guarded-write queue, but it is intentionally not applyable by the Obsidian adapter yet.
 
 The plugin exposes this through a dry-run review surface, not through an apply surface. `apps/obsidian-plugin/src/source-note-write-review-state.ts` builds the review state from a source proposal, stored note records, persisted suggestion records, the configured source note folder, and the core guarded-write functions. `apps/obsidian-plugin/src/source-note-write-review-modal.ts` renders the proposed operation, target path, source provenance, precondition status, linked suggestion IDs, and preview diff.
 
 The source preview persists the generated source-note operation when it persists source proposal suggestions. This makes the dry-run review recoverable later, but it still does not authorize a note write.
 
-The guarded write review queue is the first control surface over persisted operations. `apps/obsidian-plugin/src/write-review-queue-state.ts` builds a queue summary and item list from stored operations, decisions, and apply results. `apps/obsidian-plugin/src/write-review-queue-controller.ts` records approval, deferral, or rejection as Vaultseer review metadata. `apps/obsidian-plugin/src/write-review-queue-modal.ts` renders the queue, linked suggestions, preview diffs, apply result state, decision buttons, and a guarded `Create note` button for approved source-note operations.
+The guarded write review queue is the first control surface over persisted operations. `apps/obsidian-plugin/src/write-review-queue-state.ts` builds a queue summary and item list from stored operations, decisions, and apply results. `apps/obsidian-plugin/src/write-review-queue-controller.ts` records approval, deferral, or rejection as Vaultseer review metadata. `apps/obsidian-plugin/src/write-review-queue-modal.ts` renders the queue, linked suggestions, preview diffs, apply result state, decision buttons, and a guarded `Create note` button for approved source-note operations. `apps/obsidian-plugin/src/tag-write-proposal-controller.ts` lets the workbench stage current-note tag suggestions into this queue without changing the note.
 
 The first real apply path is intentionally narrow:
 

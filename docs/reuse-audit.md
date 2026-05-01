@@ -47,6 +47,7 @@ The first Phase 5 foundations are read-only tag suggestions, broken-link target 
 - `mergeVaultWriteOperations` and `upsertVaultWriteDecisionRecord` keep generated operations and user decisions reviewable across sessions and mirror rebuilds without making them vault writes.
 - The source preview persists the generated guarded source-note operation when it persists proposal suggestions, so the next review surface can load pending operations instead of regenerating them as hidden state.
 - The guarded write review queue borrows the explicit review-control idea from metadata tooling without adopting direct frontmatter edits: decisions are stored as review metadata, while note mutation remains unavailable until a later `VaultWritePort` apply adapter exists.
+- Workbench tag suggestions now borrow the same explicit proposal step: pressing `Stage tag review` stores `note_tag` suggestion records and a preview-only `update_note_tags` operation with evidence and a file hash, but it still does not edit frontmatter.
 - Core now models and persists guarded write apply result records. Applied records capture before/after hashes and timestamp; failed records capture failure stage, expected hash, actual hash, retryability, and message so write work has an explicit recovery trail.
 - The first controlled apply path now exists: approved `create_note_from_source` operations flow through `write-apply-controller.ts` and `obsidian-vault-write-port.ts`, reusing the Mimir-style governed write boundary while staying smaller than Mimir. The adapter can only call Obsidian `vault.create` for a new source-derived Markdown note and verifies the written content hash before recording success.
 
@@ -59,6 +60,6 @@ This deliberately borrows the useful behavior from Tags Overview, Dataview, Meta
 - No tag merge or rename workflow.
 - No Dataview-compatible query language.
 - No MiniSearch dependency.
-- No broad Obsidian editing command yet. Source-to-note creation can be applied from the guarded write queue after approval, but tag edits, link edits, frontmatter cleanup, attachment copying, batch apply, and automatic apply remain deferred.
+- No broad Obsidian editing command yet. Source-to-note creation can be applied from the guarded write queue after approval, and tag edits can be staged for preview, but applied tag edits, link edits, frontmatter cleanup, attachment copying, batch apply, and automatic apply remain deferred.
 - No AI-authored source-to-note generation until the deterministic proposal shape has been reviewed against real sources.
 - No workbench suggestion decision buttons yet; the store can record decisions, but the UI still needs an explicit review queue/control surface.
