@@ -47,12 +47,12 @@ Vaultseer does not create missing folders during source-note apply. If the confi
 
 ## Current Write Limits
 
-The limited go-live write surface can only create a new Markdown note from an approved source-note proposal. It cannot:
+The limited go-live write surface can only create a new Markdown note from an approved source-note proposal. Core can plan tag/frontmatter update previews, but the plugin does not apply those previews yet. It cannot:
 
 - edit existing notes;
-- insert or rename tags;
+- apply tag insertions or tag renames;
 - insert links;
-- update frontmatter;
+- apply frontmatter updates;
 - copy staged images or attachments;
 - batch apply proposals;
 - apply anything automatically.

@@ -19,6 +19,7 @@ export {
   createVaultWriteDecisionRecord,
   evaluateVaultWritePrecondition,
   mergeVaultWriteOperations,
+  planNoteTagUpdateOperation,
   upsertVaultWriteApplyResultRecord,
   upsertVaultWriteDecisionRecord,
   planSourceNoteCreationOperation
@@ -166,6 +167,8 @@ export type {
 export type {
   CreateVaultWriteDecisionRecordInput,
   GuardedVaultWriteOperation,
+  NoteTagUpdateOperation,
+  PlanNoteTagUpdateOperationInput,
   PlanSourceNoteCreationOperationInput,
   SourceNoteCreationOperation,
   CreateVaultWriteApplyFailureRecordInput,

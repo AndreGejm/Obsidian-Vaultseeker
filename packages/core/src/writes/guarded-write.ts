@@ -1,10 +1,10 @@
 import { hashString } from "../chunking/text-chunking";
 import type { SourceNoteProposal } from "../source/source-note-proposal";
 
-export type VaultWriteOperationType = "create_note_from_source";
+export type VaultWriteOperationType = "create_note_from_source" | "update_note_tags";
 
 export type VaultWritePreview = {
-  kind: "create_file";
+  kind: "create_file" | "modify_file";
   targetPath: string;
   beforeHash: string | null;
   afterHash: string;
@@ -29,11 +29,36 @@ export type SourceNoteCreationOperation = {
   createdAt: string;
 };
 
-export type GuardedVaultWriteOperation = SourceNoteCreationOperation;
+export type NoteTagUpdateOperation = {
+  id: string;
+  type: "update_note_tags";
+  targetPath: string;
+  expectedCurrentHash: string;
+  content: string;
+  preview: VaultWritePreview;
+  tagUpdate: {
+    beforeTags: string[];
+    afterTags: string[];
+    addedTags: string[];
+    removedTags: string[];
+  };
+  suggestionIds: string[];
+  createdAt: string;
+};
+
+export type GuardedVaultWriteOperation = SourceNoteCreationOperation | NoteTagUpdateOperation;
 
 export type PlanSourceNoteCreationOperationInput = {
   proposal: SourceNoteProposal;
   targetPath: string;
+  suggestionIds: string[];
+  createdAt: string;
+};
+
+export type PlanNoteTagUpdateOperationInput = {
+  targetPath: string;
+  currentContent: string;
+  tagsToAdd: string[];
   suggestionIds: string[];
   createdAt: string;
 };
@@ -160,6 +185,34 @@ export function planSourceNoteCreationOperation(input: PlanSourceNoteCreationOpe
   };
 }
 
+export function planNoteTagUpdateOperation(input: PlanNoteTagUpdateOperationInput): NoteTagUpdateOperation {
+  const currentContent = normalizeWriteContent(input.currentContent);
+  const beforeHash = hashString(currentContent);
+  const beforeTags = extractFrontmatterTags(currentContent);
+  const tagsToAdd = normalizeWritableTags(input.tagsToAdd);
+  const afterTags = sortTags([...beforeTags, ...tagsToAdd]);
+  const content = writeFrontmatterTags(currentContent, afterTags);
+  const afterHash = hashString(content);
+  const operationHash = hashString([input.targetPath, beforeHash, afterHash, ...input.suggestionIds].join("\n"));
+
+  return {
+    id: `vault-write:update-note-tags:${input.targetPath}:${operationHash}`,
+    type: "update_note_tags",
+    targetPath: input.targetPath,
+    expectedCurrentHash: beforeHash,
+    content,
+    preview: modifyFilePreview(input.targetPath, currentContent, content),
+    tagUpdate: {
+      beforeTags,
+      afterTags,
+      addedTags: afterTags.filter((tag) => !beforeTags.includes(tag)),
+      removedTags: beforeTags.filter((tag) => !afterTags.includes(tag))
+    },
+    suggestionIds: [...input.suggestionIds],
+    createdAt: input.createdAt
+  };
+}
+
 export function evaluateVaultWritePrecondition(
   operation: GuardedVaultWriteOperation,
   current: VaultWriteCurrentSnapshot
@@ -275,8 +328,7 @@ export function upsertVaultWriteApplyResultRecord(
 }
 
 function createFilePreview(targetPath: string, content: string): VaultWritePreview {
-  const lines = content.split("\n");
-  if (lines[lines.length - 1] === "") lines.pop();
+  const lines = contentLines(content);
 
   return {
     kind: "create_file",
@@ -289,9 +341,165 @@ function createFilePreview(targetPath: string, content: string): VaultWritePrevi
   };
 }
 
+function modifyFilePreview(targetPath: string, beforeContent: string, afterContent: string): VaultWritePreview {
+  const beforeLines = contentLines(beforeContent);
+  const afterLines = contentLines(afterContent);
+
+  return {
+    kind: "modify_file",
+    targetPath,
+    beforeHash: hashString(beforeContent),
+    afterHash: hashString(afterContent),
+    diff: [
+      `--- a/${targetPath}`,
+      `+++ b/${targetPath}`,
+      "@@",
+      ...beforeLines.map((line) => `-${line}`),
+      ...afterLines.map((line) => `+${line}`),
+      ""
+    ].join("\n"),
+    additions: afterLines.length,
+    deletions: beforeLines.length
+  };
+}
+
+function contentLines(content: string): string[] {
+  const lines = content.split("\n");
+  if (lines[lines.length - 1] === "") lines.pop();
+  return lines;
+}
+
 function normalizeWriteContent(content: string): string {
   const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   return normalized.endsWith("\n") ? normalized : `${normalized}\n`;
+}
+
+function writeFrontmatterTags(content: string, tags: string[]): string {
+  const lines = contentLines(content);
+  const frontmatter = readFrontmatter(lines);
+  const tagLines = formatTagLines(tags);
+
+  if (!frontmatter) {
+    return joinContentLines(["---", ...tagLines, "---", "", ...lines]);
+  }
+
+  const updatedFrontmatter = replaceTagBlock(frontmatter.lines, tagLines);
+  return joinContentLines(["---", ...updatedFrontmatter, "---", ...frontmatter.bodyLines]);
+}
+
+function readFrontmatter(lines: string[]): { lines: string[]; bodyLines: string[] } | null {
+  if (lines[0] !== "---") return null;
+  const endIndex = lines.findIndex((line, index) => index > 0 && line === "---");
+  if (endIndex < 0) return null;
+  return {
+    lines: lines.slice(1, endIndex),
+    bodyLines: lines.slice(endIndex + 1)
+  };
+}
+
+function replaceTagBlock(frontmatterLines: string[], tagLines: string[]): string[] {
+  const result: string[] = [];
+  let inserted = false;
+
+  for (let index = 0; index < frontmatterLines.length;) {
+    const line = frontmatterLines[index]!;
+    if (isTagFieldLine(line)) {
+      if (!inserted) {
+        result.push(...tagLines);
+        inserted = true;
+      }
+      index = skipYamlValueBlock(frontmatterLines, index + 1);
+      continue;
+    }
+
+    result.push(line);
+    index += 1;
+  }
+
+  if (!inserted) result.push(...tagLines);
+  return result;
+}
+
+function skipYamlValueBlock(lines: string[], startIndex: number): number {
+  let index = startIndex;
+  while (index < lines.length) {
+    const line = lines[index]!;
+    if (!/^\s+/.test(line) && !line.trim().startsWith("- ")) break;
+    index += 1;
+  }
+  return index;
+}
+
+function extractFrontmatterTags(content: string): string[] {
+  const frontmatter = readFrontmatter(contentLines(content));
+  if (!frontmatter) return [];
+
+  const tags: string[] = [];
+  for (let index = 0; index < frontmatter.lines.length; index += 1) {
+    const line = frontmatter.lines[index]!;
+    if (!isTagFieldLine(line)) continue;
+
+    const inlineValue = line.slice(line.indexOf(":") + 1).trim();
+    if (inlineValue) tags.push(...parseInlineTags(inlineValue));
+
+    let nextIndex = index + 1;
+    while (nextIndex < frontmatter.lines.length && /^\s+/.test(frontmatter.lines[nextIndex]!)) {
+      const item = frontmatter.lines[nextIndex]!.trim().match(/^-\s*(.+)$/);
+      if (item?.[1]) tags.push(item[1]);
+      nextIndex += 1;
+    }
+  }
+
+  return normalizeWritableTags(tags);
+}
+
+function parseInlineTags(value: string): string[] {
+  const trimmed = trimYamlScalar(value);
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    return trimmed
+      .slice(1, -1)
+      .split(",")
+      .map(trimYamlScalar);
+  }
+  return [trimmed];
+}
+
+function formatTagLines(tags: string[]): string[] {
+  if (tags.length === 0) return ["tags: []"];
+  return ["tags:", ...tags.map((tag) => `  - ${tag}`)];
+}
+
+function isTagFieldLine(line: string): boolean {
+  return /^(tags?|Tags?)\s*:/.test(line);
+}
+
+function normalizeWritableTags(values: string[]): string[] {
+  const tags = new Set<string>();
+  for (const value of values) {
+    const tag = normalizeWritableTag(value);
+    if (tag) tags.add(tag);
+  }
+  return sortTags([...tags]);
+}
+
+function normalizeWritableTag(value: string): string | null {
+  const tag = trimYamlScalar(value)
+    .replace(/^#+/, "")
+    .replace(/^\/+|\/+$/g, "");
+  if (!tag || /\s/.test(tag) || tag.includes("//")) return null;
+  return /^[\p{L}\p{N}][\p{L}\p{N}/_-]*$/u.test(tag) ? tag : null;
+}
+
+function trimYamlScalar(value: string): string {
+  return value.trim().replace(/^["']|["']$/g, "").trim();
+}
+
+function sortTags(tags: string[]): string[] {
+  return [...new Set(tags)].sort((left, right) => left.localeCompare(right));
+}
+
+function joinContentLines(lines: string[]): string {
+  return `${lines.join("\n")}\n`;
 }
 
 function clone<T>(value: T): T {

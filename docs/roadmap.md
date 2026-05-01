@@ -200,20 +200,20 @@ Exit gate:
 
 ## Phase 6: Guarded Write Actions
 
-Status: started. Core now has the first guarded-write contract for source-to-note creation: a source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. Proposed write operations, write decisions, and apply result records are persisted separately from suggestions and survive read-only mirror rebuilds. The plugin source preview stores the generated source-note operation and exposes a dry-run review modal for that proposed operation. The source-note target folder is configurable in plugin settings and defaults to `Source Notes`. The plugin also exposes `Vaultseer: Open guarded write review queue`, which lists stored proposals, records approval, deferral, or rejection, displays stored apply result state, and can create a new Markdown note for an approved source-note operation through the guarded Obsidian write port. The apply path now fails early when the target parent folder is missing; it does not create folders. No tag, link, frontmatter, attachment, existing-note edit, batch apply, or automatic apply path exists yet.
+Status: started. Core now has guarded-write contracts for source-to-note creation and preview-only note tag updates. A source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. A note tag update can become a proposed `update_note_tags` operation with normalized frontmatter tags, preserved unrelated frontmatter fields, expected current content hash, and a preview diff, but the Obsidian adapter refuses to apply it for now. Proposed write operations, write decisions, and apply result records are persisted separately from suggestions and survive read-only mirror rebuilds. The plugin source preview stores the generated source-note operation and exposes a dry-run review modal for that proposed operation. The source-note target folder is configurable in plugin settings and defaults to `Source Notes`. The plugin also exposes `Vaultseer: Open guarded write review queue`, which lists stored proposals, records approval, deferral, or rejection, displays stored apply result state, can create a new Markdown note for an approved source-note operation through the guarded Obsidian write port, and shows tag update operations as preview-only. The apply path now fails early when the target parent folder is missing; it does not create folders. No applied tag, link, frontmatter, attachment, existing-note edit, batch apply, or automatic apply path exists yet.
 
 Goal: allow explicit, safe changes after preview.
 
 Implementation steps:
 
 - add `VaultWritePort` (**implemented as a core interface and a narrow Obsidian adapter for source-note creation only**)
-- create proposed operations for tag insertion, link insertion, and frontmatter cleanup
+- create proposed operations for tag insertion, link insertion, and frontmatter cleanup (**tag/frontmatter update planning is implemented as preview-only `planNoteTagUpdateOperation`; link insertion and cleanup are not implemented yet**)
 - create proposed operations for source-to-note creation after source intake review (**implemented in core as `planSourceNoteCreationOperation`**)
-- generate preview diffs (**implemented for source note creation as an added-file diff**)
+- generate preview diffs (**implemented for source note creation as an added-file diff and tag updates as a full-file modification diff**)
 - verify current file hash before apply (**implemented as `evaluateVaultWritePrecondition` and rechecked by the Obsidian write port before `vault.create`**)
 - record decisions and write results (**approval/defer/reject decision records are implemented, persisted, and controllable from a queue modal; apply success/failure result records are implemented, persisted, and shown in the queue**)
 - expose a dry-run review surface before any apply path (**implemented from the source preview as a read-only operation/diff/safety modal**)
-- expose a queue for persisted write proposals and decision state (**implemented as a modal command with a guarded create-note button for approved source-note operations**)
+- expose a queue for persisted write proposals and decision state (**implemented as a modal command with a guarded create-note button for approved source-note operations; tag updates are visible but not applyable**)
 - expose stored apply result state in the queue (**implemented for not-applied, failed, and applied result states**)
 - reject stale operations when the file changed since analysis (**implemented for source-note creation by requiring the target path to still be absent before create**)
 

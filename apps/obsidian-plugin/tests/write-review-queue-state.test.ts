@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GuardedVaultWriteOperation, VaultWriteApplyResultRecord, VaultWriteDecisionRecord } from "@vaultseer/core";
+import { planNoteTagUpdateOperation } from "@vaultseer/core";
 import { buildWriteReviewQueueState } from "../src/write-review-queue-state";
 
 describe("buildWriteReviewQueueState", () => {
@@ -208,6 +209,30 @@ describe("buildWriteReviewQueueState", () => {
       [applied.id, false]
     ]);
   });
+
+  it("shows note tag updates as preview-only operations until the write port supports them", () => {
+    const operation = tagUpdateOperation();
+
+    const state = buildWriteReviewQueueState({
+      operations: [operation],
+      decisions: [writeDecision({ operationId: operation.id, targetPath: operation.targetPath, decision: "approved" })],
+      applyResults: []
+    });
+
+    expect(state.items).toEqual([
+      expect.objectContaining({
+        operationId: operation.id,
+        operationType: "update_note_tags",
+        operationTypeLabel: "Update note tags",
+        targetPath: "Electronics/Precision Timer.md",
+        sourcePath: null,
+        sourceContentHash: null,
+        decisionState: "approved",
+        canApply: false,
+        previewDiff: expect.stringContaining("+++ b/Electronics/Precision Timer.md")
+      })
+    ]);
+  });
 });
 
 function writeOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): GuardedVaultWriteOperation {
@@ -274,4 +299,14 @@ function applyResult(overrides: Partial<VaultWriteApplyResultRecord>): VaultWrit
     appliedAt: "2026-05-01T18:00:00.000Z",
     ...overrides
   };
+}
+
+function tagUpdateOperation(): GuardedVaultWriteOperation {
+  return planNoteTagUpdateOperation({
+    targetPath: "Electronics/Precision Timer.md",
+    currentContent: "# Precision Timer\n",
+    tagsToAdd: ["electronics/timing"],
+    suggestionIds: ["suggestion:note-tag:Electronics/Precision Timer.md:electronics/timing"],
+    createdAt: "2026-05-01T21:00:00.000Z"
+  });
 }

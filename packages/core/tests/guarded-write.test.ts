@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   createVaultWriteDecisionRecord,
   evaluateVaultWritePrecondition,
+  hashString,
+  planNoteTagUpdateOperation,
   planSourceNoteCreationOperation
 } from "../src/index";
 import type { SourceNoteProposal } from "../src/index";
@@ -126,6 +128,98 @@ describe("guarded write operations", () => {
       suggestionIds: ["suggestion:source-note:source:ragnarok:draft"],
       decidedAt: "2026-05-01T14:10:00.000Z"
     });
+  });
+
+  it("plans a preview-only frontmatter tag update with a stale-file guard", () => {
+    const currentContent = "# Precision Timer\n\nReset and trigger timing circuit notes.\n";
+    const operation = planNoteTagUpdateOperation({
+      targetPath: "Electronics/Precision Timer.md",
+      currentContent,
+      tagsToAdd: ["electronics/timing", "#datasheet", "electronics/timing"],
+      suggestionIds: ["suggestion:note-tag:Electronics/Precision Timer.md:electronics/timing"],
+      createdAt: "2026-05-01T21:00:00.000Z"
+    });
+
+    expect(operation).toMatchObject({
+      type: "update_note_tags",
+      targetPath: "Electronics/Precision Timer.md",
+      expectedCurrentHash: hashString(currentContent),
+      tagUpdate: {
+        beforeTags: [],
+        afterTags: ["datasheet", "electronics/timing"],
+        addedTags: ["datasheet", "electronics/timing"],
+        removedTags: []
+      },
+      suggestionIds: ["suggestion:note-tag:Electronics/Precision Timer.md:electronics/timing"],
+      createdAt: "2026-05-01T21:00:00.000Z"
+    });
+    expect(operation.id).toMatch(/^vault-write:update-note-tags:Electronics\/Precision Timer\.md:/);
+    expect(operation.content).toBe(
+      [
+        "---",
+        "tags:",
+        "  - datasheet",
+        "  - electronics/timing",
+        "---",
+        "",
+        "# Precision Timer",
+        "",
+        "Reset and trigger timing circuit notes.",
+        ""
+      ].join("\n")
+    );
+    expect(operation.preview).toMatchObject({
+      kind: "modify_file",
+      targetPath: "Electronics/Precision Timer.md",
+      beforeHash: hashString(currentContent),
+      afterHash: hashString(operation.content)
+    });
+    expect(operation.preview.diff).toContain("--- a/Electronics/Precision Timer.md");
+    expect(operation.preview.diff).toContain("+++ b/Electronics/Precision Timer.md");
+    expect(
+      evaluateVaultWritePrecondition(operation, {
+        path: "Electronics/Precision Timer.md",
+        currentHash: hashString(currentContent)
+      })
+    ).toEqual({ ok: true });
+  });
+
+  it("preserves existing frontmatter fields when planning tag updates", () => {
+    const currentContent = [
+      "---",
+      "title: Precision Timer",
+      "tags: electronics",
+      "aliases:",
+      "  - 555 timer",
+      "---",
+      "",
+      "# Precision Timer",
+      ""
+    ].join("\n");
+
+    const operation = planNoteTagUpdateOperation({
+      targetPath: "Electronics/Precision Timer.md",
+      currentContent,
+      tagsToAdd: ["electronics/timing"],
+      suggestionIds: [],
+      createdAt: "2026-05-01T21:00:00.000Z"
+    });
+
+    expect(operation.content).toBe(
+      [
+        "---",
+        "title: Precision Timer",
+        "tags:",
+        "  - electronics",
+        "  - electronics/timing",
+        "aliases:",
+        "  - 555 timer",
+        "---",
+        "",
+        "# Precision Timer",
+        ""
+      ].join("\n")
+    );
   });
 });
 

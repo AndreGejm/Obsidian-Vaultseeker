@@ -55,6 +55,8 @@ export class ObsidianVaultWritePort implements VaultWritePort {
     switch (operation.type) {
       case "create_note_from_source":
         return this.createNoteFromSource(operation, approval);
+      case "update_note_tags":
+        throw new VaultWriteVerificationError("update_note_tags apply is not supported yet");
     }
   }
 

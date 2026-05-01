@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GuardedVaultWriteOperation, SourceNoteProposal } from "@vaultseer/core";
-import { hashString, planSourceNoteCreationOperation } from "@vaultseer/core";
+import { hashString, planNoteTagUpdateOperation, planSourceNoteCreationOperation } from "@vaultseer/core";
 import { ObsidianVaultWritePort, VaultWriteVerificationError } from "../src/obsidian-vault-write-port";
 
 describe("ObsidianVaultWritePort", () => {
@@ -95,6 +95,28 @@ describe("ObsidianVaultWritePort", () => {
       })
     ).rejects.toThrow(VaultWriteVerificationError);
   });
+
+  it("supports dry run but refuses to apply preview-only tag update operations", async () => {
+    const currentContent = "# Precision Timer\n";
+    const operation = tagUpdateOperation(currentContent);
+    const vault = new FakeVault([[operation.targetPath, currentContent]], ["Electronics"]);
+    const port = new ObsidianVaultWritePort(vault);
+
+    await expect(port.dryRun(operation)).resolves.toMatchObject({
+      precondition: { ok: true },
+      preview: operation.preview
+    });
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-01T21:00:00.000Z"
+      })
+    ).rejects.toThrow("update_note_tags apply is not supported yet");
+    expect(vault.files.get(operation.targetPath)).toBe(currentContent);
+  });
 });
 
 class FakeVault {
@@ -156,4 +178,14 @@ function sourceNoteProposal(overrides: Partial<SourceNoteProposal> = {}): Source
     evidence: [{ type: "source_filename", value: "ragnarok-paper.pdf" }],
     ...overrides
   };
+}
+
+function tagUpdateOperation(currentContent: string): GuardedVaultWriteOperation {
+  return planNoteTagUpdateOperation({
+    targetPath: "Electronics/Precision Timer.md",
+    currentContent,
+    tagsToAdd: ["electronics/timing"],
+    suggestionIds: ["suggestion:note-tag:Electronics/Precision Timer.md:electronics/timing"],
+    createdAt: "2026-05-01T21:00:00.000Z"
+  });
 }

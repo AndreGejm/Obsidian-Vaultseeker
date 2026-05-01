@@ -243,6 +243,8 @@ Guarded write operations now have a persistence boundary. `VaultseerStore` store
 
 Apply result records are explicit. `VaultWriteApplyResultRecord` has `applied` and `failed` variants. Failures record stage, expected hash, actual hash, message, retryability, and timestamp so apply work can fail closed and explain recovery state instead of leaving an ambiguous partial operation.
 
+Core now has a preview-only existing-note tag update operation. `packages/core/src/writes/guarded-write.ts` exposes `planNoteTagUpdateOperation`, which accepts a target note path, current Markdown content, proposed tags, suggestion IDs, and a timestamp. It normalizes frontmatter tags, preserves unrelated frontmatter fields, produces modified Markdown content, stores the expected current content hash, and creates a full-file preview diff. This operation is reviewable through the shared guarded-write queue, but it is intentionally not applyable by the Obsidian adapter yet.
+
 The plugin exposes this through a dry-run review surface, not through an apply surface. `apps/obsidian-plugin/src/source-note-write-review-state.ts` builds the review state from a source proposal, stored note records, persisted suggestion records, the configured source note folder, and the core guarded-write functions. `apps/obsidian-plugin/src/source-note-write-review-modal.ts` renders the proposed operation, target path, source provenance, precondition status, linked suggestion IDs, and preview diff.
 
 The source preview persists the generated source-note operation when it persists source proposal suggestions. This makes the dry-run review recoverable later, but it still does not authorize a note write.
@@ -253,9 +255,10 @@ The first real apply path is intentionally narrow:
 
 - `apps/obsidian-plugin/src/write-apply-controller.ts` refuses anything except an approved operation, runs a dry-run precondition check, calls the write port, and stores either an applied record or a failed record.
 - `apps/obsidian-plugin/src/obsidian-vault-write-port.ts` implements `VaultWritePort` for Obsidian using `vault.create` only for `create_note_from_source`.
+- `update_note_tags` dry-runs through the same precondition mechanism but `apply` throws `update_note_tags apply is not supported yet`.
 - The adapter validates the approval payload against the operation, rechecks the target path before writing, verifies that the target parent folder already exists, creates the file, reads it back, verifies the final content hash, and returns the applied hash record.
 
-This is a write feature, but only for creating a new note from an approved source proposal into the configured source note folder. The default folder is `Source Notes`; `apps/obsidian-plugin/src/settings-model.ts` owns the default and folder-path normalization. It does not create folders, modify existing notes, update frontmatter, insert tags, insert links, copy attachments, batch-apply operations, or run automatically.
+This is a write feature, but only for creating a new note from an approved source proposal into the configured source note folder. The default folder is `Source Notes`; `apps/obsidian-plugin/src/settings-model.ts` owns the default and folder-path normalization. Existing-note tag updates can be planned and reviewed as preview-only operations, but they cannot be applied. Vaultseer does not create folders, modify existing notes, insert links, copy attachments, batch-apply operations, or run automatically.
 
 ## Semantic Queue Foundation
 

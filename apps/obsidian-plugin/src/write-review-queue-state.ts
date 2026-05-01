@@ -76,8 +76,8 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
       targetPath: operation.targetPath,
       createdAt: operation.createdAt,
       expectedCurrentHash: operation.expectedCurrentHash,
-      sourcePath: operation.source.sourcePath,
-      sourceContentHash: operation.source.sourceContentHash,
+      sourcePath: getOperationSourcePath(operation),
+      sourceContentHash: getOperationSourceContentHash(operation),
       suggestionIds: [...operation.suggestionIds].sort((left, right) => left.localeCompare(right)),
       decision,
       decisionState,
@@ -86,7 +86,7 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
       applyResult,
       applyState,
       applyLabel: formatApplyState(applyResult),
-      canApply: canApplyOperation(decisionState, applyResult),
+      canApply: canApplyOperation(operation, decisionState, applyResult),
       previewDiff: operation.preview.diff
     };
   });
@@ -170,9 +170,11 @@ function formatApplyState(result: VaultWriteApplyResultRecord | null): string {
 }
 
 function canApplyOperation(
+  operation: GuardedVaultWriteOperation,
   decisionState: WriteReviewQueueDecisionState,
   applyResult: VaultWriteApplyResultRecord | null
 ): boolean {
+  if (operation.type !== "create_note_from_source") return false;
   if (decisionState !== "approved") return false;
   if (!applyResult) return true;
   return applyResult.status === "failed" && applyResult.retryable;
@@ -186,7 +188,17 @@ function formatOperationType(type: GuardedVaultWriteOperation["type"]): string {
   switch (type) {
     case "create_note_from_source":
       return "Create note from source";
+    case "update_note_tags":
+      return "Update note tags";
   }
+}
+
+function getOperationSourcePath(operation: GuardedVaultWriteOperation): string | null {
+  return operation.type === "create_note_from_source" ? operation.source.sourcePath : null;
+}
+
+function getOperationSourceContentHash(operation: GuardedVaultWriteOperation): string | null {
+  return operation.type === "create_note_from_source" ? operation.source.sourceContentHash : null;
 }
 
 function formatDecisionState(decisionState: WriteReviewQueueDecisionState): string {
