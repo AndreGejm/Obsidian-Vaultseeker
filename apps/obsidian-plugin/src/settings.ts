@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type VaultseerPlugin from "./main";
-import { DEFAULT_SETTINGS, type VaultseerSettings } from "./settings-model";
+import { DEFAULT_SETTINGS, normalizeVaultFolderPath, type VaultseerSettings } from "./settings-model";
 export { DEFAULT_SETTINGS, type VaultseerSettings } from "./settings-model";
 
 export class VaultseerSettingTab extends PluginSettingTab {
@@ -26,6 +26,19 @@ export class VaultseerSettingTab extends PluginSettingTab {
               .split(",")
               .map((part) => part.trim())
               .filter(Boolean);
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Source note folder")
+      .setDesc("Vault folder used for approved source-note creation. Vaultseer will not create the folder automatically.")
+      .addText((text) =>
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.sourceNoteFolder)
+          .setValue(this.plugin.settings.sourceNoteFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.sourceNoteFolder = normalizeVaultFolderPath(value, DEFAULT_SETTINGS.sourceNoteFolder);
             await this.plugin.saveSettings();
           })
       );

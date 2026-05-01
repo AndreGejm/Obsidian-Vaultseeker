@@ -5,15 +5,17 @@ This checklist is for a small personal vault trial. It verifies that Vaultseer c
 ## Preconditions
 
 - Obsidian can load the local Vaultseer plugin build.
-- The vault has a folder named `Source Notes` if you want to use the default source-note target path.
+- The vault has the configured source note folder. The default folder is `Source Notes`.
 - The vault contains at least one ordinary Markdown note.
 - Optional semantic features can stay disabled for this smoke test.
 
-Vaultseer does not create missing folders during source-note apply. If the target path is `Source Notes/Ragnarok.md`, create the `Source Notes` folder in Obsidian before pressing `Create note`.
+Vaultseer does not create missing folders during source-note apply. If the configured source note folder is `Literature/Source Inbox`, create that folder in Obsidian before pressing `Create note`.
 
 ## Smoke Path
 
 1. Open Obsidian with the test vault.
+   - Expected: Vaultseer settings show a source note folder, defaulting to `Source Notes`.
+   - Verify: change it only if you want approved source notes to land somewhere else, then create that folder manually.
 2. Run `Vaultseer: Rebuild read-only vault index`.
    - Expected: a notice reports the number of indexed notes.
    - Verify: run `Vaultseer: Check read-only vault index health`; the mirror should be ready or explain why it is stale/degraded.

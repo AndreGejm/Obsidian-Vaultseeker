@@ -1,5 +1,5 @@
 import type { StoredVaultIndex, VaultseerStorageBackend } from "@vaultseer/core";
-import { DEFAULT_SETTINGS, type VaultseerSettings } from "./settings-model";
+import { DEFAULT_SETTINGS, normalizeVaultFolderPath, type VaultseerSettings } from "./settings-model";
 
 export type VaultseerPluginData = {
   settings: VaultseerSettings;
@@ -78,7 +78,8 @@ function normalizeSettings(raw: unknown): VaultseerSettings {
     embeddingProviderId: normalizeNonEmptyString(raw.embeddingProviderId, DEFAULT_SETTINGS.embeddingProviderId),
     embeddingModelId: normalizeNonEmptyString(raw.embeddingModelId, DEFAULT_SETTINGS.embeddingModelId),
     embeddingDimensions: normalizePositiveInteger(raw.embeddingDimensions, DEFAULT_SETTINGS.embeddingDimensions),
-    embeddingBatchSize: normalizeBoundedInteger(raw.embeddingBatchSize, DEFAULT_SETTINGS.embeddingBatchSize, 1, 32)
+    embeddingBatchSize: normalizeBoundedInteger(raw.embeddingBatchSize, DEFAULT_SETTINGS.embeddingBatchSize, 1, 32),
+    sourceNoteFolder: normalizeVaultFolderPath(raw.sourceNoteFolder, DEFAULT_SETTINGS.sourceNoteFolder)
   };
 }
 

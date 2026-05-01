@@ -13,6 +13,8 @@ Markdown notes remain the source of truth. Generated indexes are disposable and 
 
 The current write scope is deliberately small: Vaultseer can create a new Markdown note from an approved source-note proposal through the guarded write review queue. It does not yet edit existing notes, tags, links, frontmatter, aliases, or attachments.
 
+Approved source notes are created in the configured source note folder. The default is `Source Notes`, and Vaultseer expects that folder to already exist before an approved write is applied.
+
 ## Current Plugin Commands
 
 - `Vaultseer: Rebuild read-only vault index`

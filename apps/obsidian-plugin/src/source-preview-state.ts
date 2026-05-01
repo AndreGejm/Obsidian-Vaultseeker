@@ -76,6 +76,7 @@ export type BuildSourcePreviewStateInput = {
   chunks: SourceChunkRecord[];
   notes?: NoteRecord[];
   createdAt?: string;
+  sourceNoteFolder?: string;
 };
 
 export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): SourcePreviewState {
@@ -129,7 +130,8 @@ export function buildSourcePreviewState(input: BuildSourcePreviewStateInput): So
             proposal: noteProposal,
             notes: input.notes,
             suggestionRecords,
-            createdAt: input.createdAt ?? source.importedAt
+            createdAt: input.createdAt ?? source.importedAt,
+            ...(input.sourceNoteFolder ? { sourceNoteFolder: input.sourceNoteFolder } : {})
           })
         : null,
     chunkGroups:

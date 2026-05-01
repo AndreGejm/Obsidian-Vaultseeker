@@ -11,7 +11,8 @@ const defaultSettings = {
   embeddingProviderId: "ollama",
   embeddingModelId: "nomic-embed-text",
   embeddingDimensions: 768,
-  embeddingBatchSize: 8
+  embeddingBatchSize: 8,
+  sourceNoteFolder: "Source Notes"
 };
 
 const storedIndex: StoredVaultIndex = {
@@ -106,6 +107,31 @@ describe("VaultseerPluginDataStore", () => {
       embeddingDimensions: 768,
       embeddingBatchSize: 32
     });
+  });
+
+  it("normalizes the configured source note folder", async () => {
+    const { store } = createHarness({
+      settings: {
+        sourceNoteFolder: " /Literature//Sources\\Inbox/ "
+      },
+      index: null
+    });
+
+    await expect(store.loadSettings()).resolves.toEqual({
+      ...defaultSettings,
+      sourceNoteFolder: "Literature/Sources/Inbox"
+    });
+  });
+
+  it("falls back to the default source note folder for blank persisted values", async () => {
+    const { store } = createHarness({
+      settings: {
+        sourceNoteFolder: "   "
+      },
+      index: null
+    });
+
+    await expect(store.loadSettings()).resolves.toEqual(defaultSettings);
   });
 
   it("saves settings without dropping the persisted index", async () => {

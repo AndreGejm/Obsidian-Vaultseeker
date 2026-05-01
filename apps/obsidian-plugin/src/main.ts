@@ -306,7 +306,7 @@ export default class VaultseerPlugin extends Plugin {
   }
 
   async showSourcePreview(sourceId: string): Promise<void> {
-    new VaultseerSourcePreviewModal(this.app, this.store, sourceId).open();
+    new VaultseerSourcePreviewModal(this.app, this.store, sourceId, this.settings.sourceNoteFolder).open();
   }
 
   async showWriteReviewQueue(): Promise<void> {

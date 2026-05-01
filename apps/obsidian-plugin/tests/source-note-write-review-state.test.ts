@@ -38,6 +38,20 @@ describe("buildSourceNoteWriteReviewState", () => {
     expect(state.diff).toContain("+title: Ragnarok in Icelandic Literature");
   });
 
+  it("uses the configured source note folder when deriving the target path", () => {
+    const state = buildSourceNoteWriteReviewState({
+      proposal: sourceNoteProposal(),
+      notes: [],
+      suggestionRecords: [],
+      createdAt: "2026-05-01T15:00:00.000Z",
+      sourceNoteFolder: "Literature/Source Inbox"
+    });
+
+    expect(state.targetPath).toBe("Literature/Source Inbox/Ragnarok in Icelandic Literature.md");
+    expect(state.operation?.targetPath).toBe("Literature/Source Inbox/Ragnarok in Icelandic Literature.md");
+    expect(state.diff).toContain("+++ b/Literature/Source Inbox/Ragnarok in Icelandic Literature.md");
+  });
+
   it("blocks the dry-run when the proposed target already exists", () => {
     const state = buildSourceNoteWriteReviewState({
       proposal: sourceNoteProposal(),
@@ -97,6 +111,18 @@ describe("deriveSourceNoteTargetPath", () => {
         })
       )
     ).toBe("Source Notes/AC DC Timer Reset Trigger.md");
+  });
+
+  it("normalizes configured source note folders before composing the target path", () => {
+    expect(deriveSourceNoteTargetPath(sourceNoteProposal(), " /Literature//Sources\\Inbox/ ")).toBe(
+      "Literature/Sources/Inbox/Ragnarok in Icelandic Literature.md"
+    );
+  });
+
+  it("falls back to the default source note folder when the configured folder is blank", () => {
+    expect(deriveSourceNoteTargetPath(sourceNoteProposal(), "   ")).toBe(
+      "Source Notes/Ragnarok in Icelandic Literature.md"
+    );
   });
 });
 

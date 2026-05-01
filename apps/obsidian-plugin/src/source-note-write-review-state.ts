@@ -9,6 +9,7 @@ import {
   evaluateVaultWritePrecondition,
   planSourceNoteCreationOperation
 } from "@vaultseer/core";
+import { DEFAULT_SOURCE_NOTE_FOLDER, normalizeVaultFolderPath } from "./settings-model";
 
 export type SourceNoteWriteReviewStatus = "ready" | "blocked" | "unavailable";
 
@@ -37,9 +38,8 @@ export type BuildSourceNoteWriteReviewStateInput = {
   suggestionRecords: SuggestionRecord[];
   createdAt: string;
   targetPath?: string;
+  sourceNoteFolder?: string;
 };
-
-const DEFAULT_SOURCE_NOTE_FOLDER = "Source Notes";
 
 export function buildSourceNoteWriteReviewState(
   input: BuildSourceNoteWriteReviewStateInput
@@ -59,7 +59,7 @@ export function buildSourceNoteWriteReviewState(
     };
   }
 
-  const targetPath = input.targetPath ?? deriveSourceNoteTargetPath(input.proposal);
+  const targetPath = input.targetPath ?? deriveSourceNoteTargetPath(input.proposal, input.sourceNoteFolder);
   const suggestionIds = sourceProposalSuggestionIds(input.proposal, input.suggestionRecords);
   const operation = planSourceNoteCreationOperation({
     proposal: input.proposal,
@@ -93,9 +93,12 @@ export function buildSourceNoteWriteReviewState(
   };
 }
 
-export function deriveSourceNoteTargetPath(proposal: SourceNoteProposal): string {
+export function deriveSourceNoteTargetPath(
+  proposal: SourceNoteProposal,
+  sourceNoteFolder = DEFAULT_SOURCE_NOTE_FOLDER
+): string {
   const filename = sanitizeFilename(proposal.title) || "Source Note";
-  return `${DEFAULT_SOURCE_NOTE_FOLDER}/${filename}.md`;
+  return `${normalizeVaultFolderPath(sourceNoteFolder, DEFAULT_SOURCE_NOTE_FOLDER)}/${filename}.md`;
 }
 
 function sourceProposalSuggestionIds(proposal: SourceNoteProposal, suggestions: SuggestionRecord[]): string[] {

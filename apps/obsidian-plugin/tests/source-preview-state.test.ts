@@ -262,6 +262,27 @@ describe("buildSourcePreviewState", () => {
       }
     });
   });
+
+  it("passes the configured source note folder into note write review state", () => {
+    const state = buildSourcePreviewState({
+      sourceId: "source:timer",
+      sources: [
+        sourceRecord({
+          id: "source:timer",
+          filename: "timer-datasheet.pdf",
+          extractedMarkdown: "# Precision Timer\n\nReset pins and timing circuits."
+        })
+      ],
+      chunks: [sourceChunk({ sourceId: "source:timer", text: "Reset pins and timing circuits." })],
+      notes: [],
+      sourceNoteFolder: "Literature/Source Inbox"
+    });
+
+    expect(state.noteWriteReview).toMatchObject({
+      status: "ready",
+      targetPath: "Literature/Source Inbox/Precision Timer.md"
+    });
+  });
 });
 
 function sourceRecord(overrides: Partial<SourceRecord>): SourceRecord {

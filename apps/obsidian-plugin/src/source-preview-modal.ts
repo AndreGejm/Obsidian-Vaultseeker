@@ -22,7 +22,8 @@ export class VaultseerSourcePreviewModal extends Modal {
   constructor(
     app: App,
     private readonly store: VaultseerStore,
-    private readonly sourceId: string
+    private readonly sourceId: string,
+    private readonly sourceNoteFolder: string
   ) {
     super(app);
   }
@@ -54,7 +55,8 @@ export class VaultseerSourcePreviewModal extends Modal {
         sources,
         chunks,
         notes,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        sourceNoteFolder: this.sourceNoteFolder
       });
       if (state.suggestionRecords.length > 0) {
         await this.store.replaceSuggestionRecords(mergeSuggestionRecords(suggestions, state.suggestionRecords));
