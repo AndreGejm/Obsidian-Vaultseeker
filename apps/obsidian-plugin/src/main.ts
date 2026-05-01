@@ -23,12 +23,20 @@ import {
 } from "./semantic-index-controller";
 import { searchSemanticIndex } from "./semantic-search-controller";
 import { searchSourceSemanticIndex } from "./source-semantic-search-controller";
+import {
+  cancelSourceExtractionQueue,
+  planMarkerSourceExtractionQueue,
+  recoverSourceExtractionQueue,
+  summarizeSourceExtractionQueue,
+  type SourceExtractionQueueStatusSummary
+} from "./source-extraction-controller";
 import type { SearchModalSemanticSearch } from "./search-modal-query";
 import type { SourceSearchModalSemanticSearch } from "./source-search-modal-query";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
+const SOURCE_EXTRACTION_PLAN_LIMIT = 8;
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
@@ -40,8 +48,8 @@ export default class VaultseerPlugin extends Plugin {
     this.settings = await this.dataStore.loadSettings();
     this.store = await PersistentVaultseerStore.create(this.dataStore.createIndexBackend());
     this.health = await this.store.getHealth();
-    await this.recoverSemanticQueueOnStartup().catch(() => {
-      new Notice("Vaultseer could not recover interrupted semantic jobs.");
+    await this.recoverInterruptedQueuesOnStartup().catch(() => {
+      new Notice("Vaultseer could not recover interrupted jobs.");
     });
 
     this.addSettingTab(new VaultseerSettingTab(this.app, this));
@@ -119,6 +127,38 @@ export default class VaultseerPlugin extends Plugin {
       name: "Choose text/code file to import as source workspace",
       callback: async () => {
         await this.chooseTextSourceFile();
+      }
+    });
+
+    this.addCommand({
+      id: "plan-source-extraction-queue",
+      name: "Plan PDF source extraction queue",
+      callback: async () => {
+        await this.planSourceExtractionQueue();
+      }
+    });
+
+    this.addCommand({
+      id: "show-source-extraction-queue-status",
+      name: "Show source extraction queue status",
+      callback: async () => {
+        await this.showSourceExtractionQueueStatus();
+      }
+    });
+
+    this.addCommand({
+      id: "recover-source-extraction-queue",
+      name: "Recover interrupted source extraction jobs",
+      callback: async () => {
+        await this.recoverSourceExtractionQueue();
+      }
+    });
+
+    this.addCommand({
+      id: "cancel-source-extraction-queue",
+      name: "Cancel active source extraction jobs",
+      callback: async () => {
+        await this.cancelSourceExtractionQueue();
       }
     });
 
@@ -273,6 +313,61 @@ export default class VaultseerPlugin extends Plugin {
       this.settings.excludedFolders,
       () => new Date().toISOString()
     ).open();
+  }
+
+  async planSourceExtractionQueue(): Promise<void> {
+    const summary = await planMarkerSourceExtractionQueue({
+      store: this.store,
+      files: this.app.vault.getFiles(),
+      excludedFolders: this.settings.excludedFolders,
+      now: new Date().toISOString(),
+      maxJobs: SOURCE_EXTRACTION_PLAN_LIMIT
+    });
+
+    new Notice(
+      `Vaultseer planned ${summary.plannedJobCount} PDF extraction job${summary.plannedJobCount === 1 ? "" : "s"}; ${summary.reusableSourceCount} already current, ${summary.skippedByLimitCount} skipped by limit.`
+    );
+    await this.refreshWorkbenchViews();
+  }
+
+  async showSourceExtractionQueueStatus(): Promise<void> {
+    const summary = await summarizeSourceExtractionQueue({
+      store: this.store
+    });
+
+    new Notice(`Vaultseer source extraction queue: ${formatSourceExtractionQueueStatus(summary)}.`);
+  }
+
+  async recoverSourceExtractionQueue(): Promise<void> {
+    const summary = await recoverSourceExtractionQueue({
+      store: this.store,
+      now: new Date().toISOString()
+    });
+
+    if (summary.recoveredJobCount === 0) {
+      new Notice("Vaultseer found no interrupted source extraction jobs to recover.");
+    } else {
+      new Notice(
+        `Vaultseer recovered ${summary.recoveredJobCount} source extraction job${summary.recoveredJobCount === 1 ? "" : "s"}.`
+      );
+    }
+    await this.refreshWorkbenchViews();
+  }
+
+  async cancelSourceExtractionQueue(): Promise<void> {
+    const summary = await cancelSourceExtractionQueue({
+      store: this.store,
+      now: new Date().toISOString()
+    });
+
+    if (summary.newlyCancelledJobCount === 0) {
+      new Notice("Vaultseer found no active source extraction jobs to cancel.");
+    } else {
+      new Notice(
+        `Vaultseer cancelled ${summary.newlyCancelledJobCount} source extraction job${summary.newlyCancelledJobCount === 1 ? "" : "s"}.`
+      );
+    }
+    await this.refreshWorkbenchViews();
   }
 
   async openWorkbench(): Promise<void> {
@@ -434,7 +529,7 @@ export default class VaultseerPlugin extends Plugin {
     await this.refreshWorkbenchViews();
   }
 
-  private async recoverSemanticQueueOnStartup(): Promise<void> {
+  private async recoverInterruptedQueuesOnStartup(): Promise<void> {
     const now = new Date().toISOString();
     const summary = await recoverSemanticIndexQueue({
       store: this.store,
@@ -444,11 +539,16 @@ export default class VaultseerPlugin extends Plugin {
       store: this.store,
       now
     });
-    const recoveredJobCount = summary.recoveredJobCount + sourceSummary.recoveredJobCount;
+    const extractionSummary = await recoverSourceExtractionQueue({
+      store: this.store,
+      now
+    });
+    const recoveredJobCount =
+      summary.recoveredJobCount + sourceSummary.recoveredJobCount + extractionSummary.recoveredJobCount;
 
     if (recoveredJobCount > 0) {
       new Notice(
-        `Vaultseer recovered ${recoveredJobCount} interrupted semantic job${recoveredJobCount === 1 ? "" : "s"}.`
+        `Vaultseer recovered ${recoveredJobCount} interrupted job${recoveredJobCount === 1 ? "" : "s"}.`
       );
     }
   }
@@ -541,4 +641,15 @@ function getFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
   if (lastDot <= 0 || lastDot === filename.length - 1) return "";
   return filename.slice(lastDot);
+}
+
+function formatSourceExtractionQueueStatus(summary: SourceExtractionQueueStatusSummary): string {
+  return [
+    `${summary.totalJobCount} total`,
+    `${summary.queuedJobCount} queued`,
+    `${summary.runningJobCount} running`,
+    `${summary.completedJobCount} completed`,
+    `${summary.failedJobCount} failed`,
+    `${summary.cancelledJobCount} cancelled`
+  ].join(", ");
 }

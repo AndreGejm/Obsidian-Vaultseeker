@@ -79,6 +79,10 @@ The plugin currently exposes these operator commands:
 - `Vaultseer: Search stored source workspaces`
 - `Vaultseer: Import active text/code file as source workspace`
 - `Vaultseer: Choose text/code file to import as source workspace`
+- `Vaultseer: Plan PDF source extraction queue`
+- `Vaultseer: Show source extraction queue status`
+- `Vaultseer: Recover interrupted source extraction jobs`
+- `Vaultseer: Cancel active source extraction jobs`
 - `Vaultseer: Plan source semantic indexing queue`
 - `Vaultseer: Run one source semantic indexing batch`
 - `Vaultseer: Cancel active source semantic indexing jobs`
@@ -255,8 +259,12 @@ The plugin now exposes explicit source semantic controls. `Vaultseer: Plan sourc
 
 `Vaultseer: Choose text/code file to import as source workspace` opens a vault-local file picker over the same built-in readable text/code extractor. The picker lists only supported file extensions from Obsidian's vault file list and honors Vaultseer's excluded-folder settings, so `.obsidian`, `research`, and operator-configured excluded folders are not offered as source imports. Choosing a file reads it through `app.vault.cachedRead`, replaces any previous stored source workspace for that vault path, and still does not create or modify Obsidian notes.
 
+`Vaultseer: Plan PDF source extraction queue` is the first plugin control for future high-fidelity source extraction. It scans Obsidian's vault file list for PDF files, honors Vaultseer's excluded-folder settings, and stores a bounded batch of Marker extraction jobs for PDFs that do not already have a current extracted source workspace. The candidate fingerprint is based on the vault file size and mtime until the Marker worker can compute stronger extracted-content hashes. Planning does not read PDF bytes, run Marker, call an embedding provider, or create Obsidian notes.
+
+`Vaultseer: Show source extraction queue status`, `Vaultseer: Recover interrupted source extraction jobs`, and `Vaultseer: Cancel active source extraction jobs` expose the persisted source extraction queue without running extraction. Recovery requeues jobs that were left in `running` state by an interrupted plugin session. Cancellation marks only queued or running source extraction jobs as cancelled and preserves completed jobs for diagnostics.
+
 `Vaultseer: Search stored source workspaces` opens a read-only modal over stored source records and source chunks. The modal builds a source lexical index once from stored source data when it opens, uses that cached modal-session index for live lexical searches, and only calls the semantic provider when the operator explicitly runs semantic search. Semantic evidence is blended with lexical evidence through an explicit source-ranking policy, and provider failures degrade to lexical-only results without mutating source workspaces or notes. Search results can open a read-only source preview modal for the selected stored source workspace.
 
 The source preview modal reads stored source records and source chunks, then displays source metadata, extraction diagnostics, staged attachment metadata, extracted Markdown, and chunk groups. It does not run extractors, render staged attachments, copy images or tables into the vault, or create Obsidian notes.
 
-Current limitations: no Marker adapter, MarkItDown adapter, source extraction worker, plugin command for planning/running source extraction jobs, attachment staging directory, rendered image/table preview, or source-to-note proposal path exists yet. The current source picker is intentionally limited to built-in text/code files and does not run PDF, Word, PowerPoint, Excel, or image extraction.
+Current limitations: no Marker adapter, MarkItDown adapter, source extraction worker execution, attachment staging directory, rendered image/table preview, or source-to-note proposal path exists yet. The current source picker is intentionally limited to built-in text/code files and does not run PDF, Word, PowerPoint, Excel, or image extraction.

@@ -188,7 +188,20 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Source extraction job transitions are explicit and testable: claim due jobs, complete jobs, cancel jobs, fail with retry/backoff, and recover interrupted running jobs.
 - Source extraction jobs are persisted through `VaultseerStore` and survive vault note mirror rebuilds.
 - Clearing Vaultseer's local state clears source extraction jobs.
-- This queue foundation does not yet provide a worker, background scheduler, plugin command, Marker adapter, MarkItDown adapter, attachment staging, or note writes.
+- This queue foundation does not yet provide a worker, background scheduler, Marker adapter, MarkItDown adapter, attachment staging, or note writes.
+
+## Phase 4.5 Source Extraction Plugin Control Guarantees
+
+- `Vaultseer: Plan PDF source extraction queue` scans Obsidian's vault file list and plans Marker jobs only for PDF files.
+- The plugin planner honors Vaultseer's excluded-folder settings before creating candidates.
+- The plugin planner creates a bounded batch of up to 8 new jobs per invocation so large vaults do not enqueue every PDF at once.
+- The plugin planner uses a temporary vault-file fingerprint of `vault-file:<size>:<mtime>` until a Marker worker can produce stronger extracted-content hashes.
+- The planned Marker options preserve images and tables so PDF intake starts from the high-fidelity path required for papers, datasheets, and technical literature.
+- Planning stores jobs through `VaultseerStore` and does not read PDF bytes, run Marker, call MarkItDown, call an embedding provider, or write Obsidian notes.
+- `Vaultseer: Show source extraction queue status` reports persisted source extraction job counts by status.
+- `Vaultseer: Recover interrupted source extraction jobs` requeues only source extraction jobs left in `running` state and records a recovery diagnostic.
+- `Vaultseer: Cancel active source extraction jobs` cancels only queued or running source extraction jobs and preserves completed jobs for diagnostics.
+- Plugin startup also recovers interrupted source extraction jobs so stale `running` state does not block later explicit execution.
 
 ## Phase 4.5 Built-In Text/Code Source Intake Guarantees
 
@@ -301,7 +314,7 @@ These guarantees apply only to queue planning. Core also exposes pure queue tran
 - Marker PDF extraction.
 - MarkItDown broad file extraction.
 - Source extraction worker execution.
-- Plugin command surfaces for planning, running, cancelling, or recovering source extraction jobs.
+- Plugin command surface for running source extraction jobs.
 - Source file picker support for PDF, Word, PowerPoint, Excel, image, or other external-extractor formats.
 - Rendered image/table source preview.
 - Staged attachment persistence outside the stored metadata shape.
