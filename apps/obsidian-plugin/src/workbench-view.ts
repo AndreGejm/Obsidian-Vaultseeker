@@ -4,6 +4,7 @@ import {
   buildWorkbenchState,
   type WorkbenchControl,
   type WorkbenchControlId,
+  type WorkbenchLinkSuggestion,
   type WorkbenchRelatedNote,
   type WorkbenchTagSuggestion,
   type WorkbenchState
@@ -100,6 +101,7 @@ export class VaultseerWorkbenchView extends ItemView {
     this.renderLinks(contentEl, "Backlinks", state.backlinks.map((path) => ({ path, text: path })));
     this.renderTextList(contentEl, "Unresolved", state.unresolvedLinks.map((link) => link.raw));
     this.renderRelatedNotes(contentEl, state.relatedNotes);
+    this.renderLinkSuggestions(contentEl, state.linkSuggestions);
     this.renderTagSuggestions(contentEl, state.tagSuggestions);
   }
 
@@ -211,6 +213,31 @@ export class VaultseerWorkbenchView extends ItemView {
     for (const suggestion of tagSuggestions) {
       const item = list.createEl("li");
       item.createEl("strong", { text: suggestion.tag });
+      item.createEl("div", {
+        text: `${suggestion.reason} Confidence ${Math.round(suggestion.confidence * 100)}%.`,
+        cls: "vaultseer-workbench-related-reason"
+      });
+    }
+  }
+
+  private renderLinkSuggestions(containerEl: HTMLElement, linkSuggestions: WorkbenchLinkSuggestion[]): void {
+    const section = containerEl.createDiv({ cls: "vaultseer-workbench-section" });
+    section.createEl("h3", { text: "Suggested links" });
+
+    if (linkSuggestions.length === 0) {
+      section.createEl("p", { text: "None" });
+      return;
+    }
+
+    const list = section.createEl("ul");
+    for (const suggestion of linkSuggestions) {
+      const item = list.createEl("li");
+      const button = item.createEl("button", {
+        text: `${suggestion.unresolvedTarget} -> ${suggestion.suggestedTitle}`
+      });
+      button.addEventListener("click", async () => {
+        await this.openNote(suggestion.suggestedPath);
+      });
       item.createEl("div", {
         text: `${suggestion.reason} Confidence ${Math.round(suggestion.confidence * 100)}%.`,
         cls: "vaultseer-workbench-related-reason"

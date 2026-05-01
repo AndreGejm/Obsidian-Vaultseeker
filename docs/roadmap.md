@@ -179,7 +179,7 @@ Exit gate:
 
 ## Phase 5: Read-Only Suggestions
 
-Status: started. The first read-only tag suggestion scorer and workbench display are implemented. Suggestions are evidence-bearing and cannot mutate notes.
+Status: started. Read-only tag suggestions and broken-link target suggestions are implemented in core and displayed in the workbench. Suggestions are evidence-bearing and cannot mutate notes.
 
 Goal: produce explainable gardening suggestions without applying them.
 
@@ -188,7 +188,7 @@ Implementation steps:
 - suggest tags from existing vault vocabulary (**implemented for the current workbench note using linked notes, backlinks, co-tags, tag frequency, and existing tag vocabulary only**)
 - suggest related notes from links, tags, lexical search, and semantic search
 - suggest note structure, tags, links, and related notes from reviewed source intake workspaces
-- suggest missing links from unresolved mentions and strong related-note evidence
+- suggest missing links from unresolved mentions and strong related-note evidence (**implemented for current-note unresolved Obsidian links using existing notes, aliases, titles, and token overlap; still read-only and not yet backed by semantic evidence**)
 - detect narrow formatting issues only: missing frontmatter field, duplicate aliases, empty title, malformed tag, broken internal link
 - store suggestion evidence and confidence separately
 

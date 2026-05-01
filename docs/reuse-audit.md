@@ -17,9 +17,9 @@ Last refreshed: 2026-05-01. The local research clones were fetched and each chec
 | `research/obsidian-agent-client` and `research/codex-acp` | Existing chat/control surface for agent interaction. | Do not duplicate chat. Vaultseer should expose searchable context, suggestions, and safe note operations that can complement the user's existing chat plugin. |
 | `F:/Dev/scripts/Mimir/mimir` | Stable chunking, vector namespace, source-workspace separation, queues, degraded fallback, and governed write boundaries. | Already adapted for chunk IDs, semantic/source queues, source workspaces, and the analysis-before-write rule. |
 
-## Implemented From This Pass
+## Implemented From Phase 5
 
-The first Phase 5 foundation is read-only tag suggestions:
+The first Phase 5 foundations are read-only tag suggestions and broken-link target suggestions:
 
 - Core owns `suggestTagsForNote`.
 - The scorer uses the existing relationship graph and tag statistics instead of a new parser.
@@ -27,8 +27,11 @@ The first Phase 5 foundation is read-only tag suggestions:
 - Suggestions exclude tags already present on the current note.
 - Every suggestion includes evidence and a readable reason.
 - The Obsidian workbench displays suggestions but does not apply them.
+- Core also owns `suggestLinksForNote`.
+- Link suggestions use unresolved links from the existing relationship graph and compare them to existing note aliases, titles, basenames, and path tokens.
+- Suggested link targets are displayed as navigation-only buttons in the workbench; they do not rewrite Markdown links.
 
-This deliberately borrows the useful behavior from Tags Overview and Dataview while preserving Vaultseer's core/plugin boundary and write-safety ladder.
+This deliberately borrows the useful behavior from Tags Overview, Dataview, Metadata Extractor, and Omnisearch while preserving Vaultseer's core/plugin boundary and write-safety ladder.
 
 ## Deferred
 

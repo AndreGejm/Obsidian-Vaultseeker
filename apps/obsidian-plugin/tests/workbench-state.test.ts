@@ -81,6 +81,22 @@ const noteInputs: NoteRecordInput[] = [
       links: [],
       headings: [{ level: 1, heading: "Loose Idea", position: { line: 0, column: 1 } }]
     }
+  },
+  {
+    path: "Literature/Actually Missing Note.md",
+    basename: "Actually Missing Note",
+    content: "# Actually Missing Note\n\nThis note is aliased to the unresolved target.",
+    stat: { ctime: 7, mtime: 8, size: 76 },
+    metadata: {
+      frontmatter: {
+        aliases: ["Missing Note"],
+        tags: ["reference"]
+      },
+      tags: ["#reference"],
+      aliases: ["Missing Note"],
+      links: [],
+      headings: [{ level: 1, heading: "Actually Missing Note", position: { line: 0, column: 1 } }]
+    }
   }
 ];
 
@@ -201,6 +217,27 @@ describe("buildWorkbenchState", () => {
           reason: expect.stringContaining("linked note Projects/Vaultseer Platform.md")
         })
       ])
+    });
+  });
+
+  it("shows read-only link suggestions for unresolved links", () => {
+    const state = buildWorkbenchState({
+      activePath: "Projects/Vaultseer Platform.md",
+      health: health({ status: "ready" }),
+      notes: snapshot.notes,
+      chunks,
+      lexicalIndex
+    });
+
+    expect(state).toMatchObject({
+      status: "ready",
+      linkSuggestions: [
+        expect.objectContaining({
+          unresolvedTarget: "Missing Note",
+          suggestedPath: "Literature/Actually Missing Note.md",
+          reason: expect.stringContaining("alias Missing Note")
+        })
+      ]
     });
   });
 

@@ -1,9 +1,11 @@
 import {
   buildRelationshipGraph,
   searchLexicalIndex,
+  suggestLinksForNote,
   suggestTagsForNote,
   type ChunkRecord,
   type IndexHealth,
+  type LinkSuggestion,
   type LexicalIndexRecord,
   type NoteRecord,
   type ResolvedLink,
@@ -32,6 +34,15 @@ export type WorkbenchTagSuggestion = {
   reason: string;
 };
 
+export type WorkbenchLinkSuggestion = {
+  unresolvedTarget: string;
+  rawLink: string;
+  suggestedPath: string;
+  suggestedTitle: string;
+  confidence: number;
+  reason: string;
+};
+
 export type WorkbenchControlId = "rebuild-index" | "clear-index";
 
 export type WorkbenchControl = {
@@ -53,6 +64,7 @@ export type WorkbenchState =
       unresolvedLinks: [];
       backlinks: [];
       relatedNotes: [];
+      linkSuggestions: [];
       tagSuggestions: [];
       warnings: [];
     }
@@ -66,6 +78,7 @@ export type WorkbenchState =
       unresolvedLinks: LinkInput[];
       backlinks: string[];
       relatedNotes: WorkbenchRelatedNote[];
+      linkSuggestions: WorkbenchLinkSuggestion[];
       tagSuggestions: WorkbenchTagSuggestion[];
       warnings: string[];
     };
@@ -102,6 +115,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       unresolvedLinks: [],
       backlinks: [],
       relatedNotes: [],
+      linkSuggestions: [],
       tagSuggestions: [],
       warnings: []
     };
@@ -118,6 +132,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       unresolvedLinks: [],
       backlinks: [],
       relatedNotes: [],
+      linkSuggestions: [],
       tagSuggestions: [],
       warnings: statusWarnings(input.health)
     };
@@ -137,6 +152,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       unresolvedLinks: [],
       backlinks: [],
       relatedNotes: [],
+      linkSuggestions: [],
       tagSuggestions: [],
       warnings: statusWarnings(input.health)
     };
@@ -170,6 +186,12 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       backlinks,
       limit: input.relatedLimit ?? 6
     }),
+    linkSuggestions: suggestLinksForNote({
+      currentNote,
+      notes: input.notes,
+      graph,
+      limit: 6
+    }).map(toWorkbenchLinkSuggestion),
     tagSuggestions: suggestTagsForNote({
       currentNote,
       notes: input.notes,
@@ -261,6 +283,17 @@ function relationshipWarnings(path: string, unresolvedLinks: LinkInput[], weakly
 function toWorkbenchTagSuggestion(suggestion: TagSuggestion): WorkbenchTagSuggestion {
   return {
     tag: suggestion.tag,
+    confidence: suggestion.confidence,
+    reason: suggestion.reason
+  };
+}
+
+function toWorkbenchLinkSuggestion(suggestion: LinkSuggestion): WorkbenchLinkSuggestion {
+  return {
+    unresolvedTarget: suggestion.unresolvedTarget,
+    rawLink: suggestion.rawLink,
+    suggestedPath: suggestion.suggestedPath,
+    suggestedTitle: suggestion.suggestedTitle,
     confidence: suggestion.confidence,
     reason: suggestion.reason
   };
