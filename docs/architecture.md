@@ -190,9 +190,11 @@ For the active note, the view shows:
 - unresolved links;
 - relationship warnings such as weak connection or unresolved links;
 - read-only sanity checks for missing tags frontmatter, duplicate aliases, empty titles, malformed tags, and unresolved internal links;
-- related notes from linked notes, backlinks, shared tags, and lexical matches.
+- related notes from linked notes, backlinks, shared tags, lexical matches, and stored semantic vectors when current note vectors are already available.
 - read-only suggested tags from linked notes, backlinks, co-tag statistics, and tag frequency.
 - read-only suggested link targets for unresolved links, using existing note aliases, titles, basenames, and token overlap.
+
+Semantic related-note evidence is computed from vectors already stored in the mirror. The workbench does not call an embedding provider or schedule indexing while rendering related notes.
 
 The sanity checks are diagnostics over the indexed mirror, not a formatter. They point out narrow issues only and do not infer a house style for headings, prose, templates, or frontmatter schemas.
 

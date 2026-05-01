@@ -2,6 +2,7 @@ import {
   buildRelationshipGraph,
   detectNoteQualityIssues,
   searchLexicalIndex,
+  searchSemanticVectors,
   suggestLinksForNote,
   suggestTagsForNote,
   type ChunkRecord,
@@ -14,7 +15,7 @@ import {
   type TagSuggestion,
   type VaultSnapshot
 } from "@vaultseer/core";
-import type { LinkInput } from "@vaultseer/core";
+import type { LinkInput, SemanticSearchResult, VectorRecord } from "@vaultseer/core";
 
 export type WorkbenchNoteSummary = {
   path: string;
@@ -100,6 +101,7 @@ export type BuildWorkbenchStateInput = {
   notes: NoteRecord[];
   chunks: ChunkRecord[];
   lexicalIndex: LexicalIndexRecord[];
+  vectors?: VectorRecord[];
   relatedLimit?: number;
 };
 
@@ -196,6 +198,7 @@ export function buildWorkbenchState(input: BuildWorkbenchStateInput): WorkbenchS
       notes: input.notes,
       chunks: input.chunks,
       lexicalIndex: input.lexicalIndex,
+      vectors: input.vectors ?? [],
       outgoingLinks,
       backlinks,
       limit: input.relatedLimit ?? 6
@@ -331,6 +334,7 @@ function buildRelatedNotes(input: {
   notes: NoteRecord[];
   chunks: ChunkRecord[];
   lexicalIndex: LexicalIndexRecord[];
+  vectors: VectorRecord[];
   outgoingLinks: ResolvedLink[];
   backlinks: string[];
   limit: number;
@@ -368,6 +372,16 @@ function buildRelatedNotes(input: {
     }
   }
 
+  addSemanticRelatedNotes({
+    currentNote: input.currentNote,
+    notes: input.notes,
+    chunks: input.chunks,
+    vectors: input.vectors,
+    related,
+    noteByPath,
+    limit: input.limit
+  });
+
   return [...related.values()]
     .map((candidate) => ({
       notePath: candidate.notePath,
@@ -377,6 +391,55 @@ function buildRelatedNotes(input: {
     }))
     .sort((left, right) => right.score - left.score || left.notePath.localeCompare(right.notePath))
     .slice(0, input.limit);
+}
+
+function addSemanticRelatedNotes(input: {
+  currentNote: NoteRecord;
+  notes: NoteRecord[];
+  chunks: ChunkRecord[];
+  vectors: VectorRecord[];
+  related: Map<string, RelatedAccumulator>;
+  noteByPath: Map<string, NoteRecord>;
+  limit: number;
+}): void {
+  const currentChunks = input.chunks.filter((chunk) => chunk.notePath === input.currentNote.path);
+  if (currentChunks.length === 0 || input.vectors.length === 0) return;
+
+  const currentChunkById = new Map(currentChunks.map((chunk) => [chunk.id, chunk]));
+  const queryVectors = input.vectors.filter((vector) => {
+    const chunk = currentChunkById.get(vector.chunkId);
+    return Boolean(chunk && vector.contentHash === chunk.normalizedTextHash);
+  });
+
+  for (const queryVector of queryVectors) {
+    const results = searchSemanticVectors({
+      queryVector: queryVector.vector,
+      modelNamespace: queryVector.model,
+      notes: input.notes,
+      chunks: input.chunks,
+      vectors: input.vectors,
+      limit: input.limit + 5,
+      minScore: 0.75,
+      maxChunksPerNote: 1
+    });
+
+    for (const result of results) {
+      if (result.notePath === input.currentNote.path) continue;
+      addRelated(input.related, input.noteByPath, result.notePath, semanticRelatedScore(result), formatSemanticRelatedReason(result));
+    }
+  }
+}
+
+function semanticRelatedScore(result: SemanticSearchResult): number {
+  return Math.max(1, result.score * 30);
+}
+
+function formatSemanticRelatedReason(result: SemanticSearchResult): string {
+  const bestChunk = result.matchedChunks[0];
+  const score = result.score.toFixed(2);
+  if (!bestChunk) return `semantic match ${score}`;
+  const location = bestChunk.headingPath.length > 0 ? bestChunk.headingPath.join(" > ") : result.title;
+  return `semantic match ${score} in ${location}`;
 }
 
 function addRelated(

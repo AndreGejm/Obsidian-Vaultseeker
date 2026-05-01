@@ -33,6 +33,7 @@ The first Phase 5 foundations are read-only tag suggestions, broken-link target 
 - Core owns `detectNoteQualityIssues`.
 - Sanity checks reuse normalized note metadata and the existing relationship graph; they do not parse Markdown or apply formatting.
 - The first diagnostics are intentionally narrow: missing frontmatter tags, duplicate aliases, empty title, malformed tags, and unresolved internal links.
+- The workbench now reuses core `searchSemanticVectors` for related-note evidence when stored note vectors already exist. It does not call an embedding provider from the workbench.
 
 This deliberately borrows the useful behavior from Tags Overview, Dataview, Metadata Extractor, Omnisearch, and Mimir's explainable-evidence style while preserving Vaultseer's core/plugin boundary and write-safety ladder.
 

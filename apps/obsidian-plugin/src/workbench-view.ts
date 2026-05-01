@@ -1,5 +1,5 @@
 import { ItemView, Notice, type App, type WorkspaceLeaf } from "obsidian";
-import type { ChunkRecord, IndexHealth, LexicalIndexRecord, NoteRecord, VaultseerStore } from "@vaultseer/core";
+import type { ChunkRecord, IndexHealth, LexicalIndexRecord, NoteRecord, VaultseerStore, VectorRecord } from "@vaultseer/core";
 import {
   buildWorkbenchState,
   type WorkbenchControl,
@@ -18,6 +18,7 @@ type WorkbenchMirrorData = {
   notes: NoteRecord[];
   chunks: ChunkRecord[];
   lexicalIndex: LexicalIndexRecord[];
+  vectors: VectorRecord[];
 };
 
 export type WorkbenchControlHandlers = Record<WorkbenchControlId, () => Promise<void>>;
@@ -76,14 +77,15 @@ export class VaultseerWorkbenchView extends ItemView {
   }
 
   private async loadWorkbenchMirrorData(): Promise<WorkbenchMirrorData> {
-    const [health, notes, chunks, lexicalIndex] = await Promise.all([
+    const [health, notes, chunks, lexicalIndex, vectors] = await Promise.all([
       this.store.getHealth(),
       this.store.getNoteRecords(),
       this.store.getChunkRecords(),
-      this.store.getLexicalIndexRecords()
+      this.store.getLexicalIndexRecords(),
+      this.store.getVectorRecords()
     ]);
 
-    return { health, notes, chunks, lexicalIndex };
+    return { health, notes, chunks, lexicalIndex, vectors };
   }
 
   private renderState(state: WorkbenchState): void {

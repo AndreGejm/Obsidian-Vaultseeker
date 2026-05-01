@@ -5,7 +5,8 @@ import {
   buildVaultSnapshot,
   chunkVaultInputs,
   type IndexHealth,
-  type NoteRecordInput
+  type NoteRecordInput,
+  type VectorRecord
 } from "@vaultseer/core";
 
 function health(overrides: Partial<IndexHealth>): IndexHealth {
@@ -96,6 +97,20 @@ const noteInputs: NoteRecordInput[] = [
       aliases: ["Missing Note"],
       links: [],
       headings: [{ level: 1, heading: "Actually Missing Note", position: { line: 0, column: 1 } }]
+    }
+  },
+  {
+    path: "Research/Semantic Neighbor.md",
+    basename: "Semantic Neighbor",
+    content: "# Semantic Neighbor\n\nA nearby idea about explainable personal memory retrieval.",
+    stat: { ctime: 9, mtime: 10, size: 74 },
+    metadata: {
+      frontmatter: {
+        tags: ["research/semantic"]
+      },
+      tags: ["#research/semantic"],
+      links: [],
+      headings: [{ level: 1, heading: "Semantic Neighbor", position: { line: 0, column: 1 } }]
     }
   }
 ];
@@ -195,6 +210,36 @@ describe("buildWorkbenchState", () => {
         expect.objectContaining({
           notePath: "Garden/Loose Idea.md",
           reason: expect.stringContaining("shared tag ai/memory")
+        })
+      ])
+    );
+  });
+
+  it("adds semantic related notes from stored vectors without requiring a provider call", () => {
+    const currentChunk = chunks.find(
+      (chunk) => chunk.notePath === "Projects/Vaultseer Platform.md" && chunk.text.includes("Memory retrieval")
+    )!;
+    const semanticChunk = chunks.find((chunk) => chunk.notePath === "Research/Semantic Neighbor.md")!;
+    const vectors: VectorRecord[] = [
+      vectorForChunk(currentChunk.id, currentChunk.normalizedTextHash, [1, 0, 0]),
+      vectorForChunk(semanticChunk.id, semanticChunk.normalizedTextHash, [0.95, 0.05, 0])
+    ];
+
+    const state = buildWorkbenchState({
+      activePath: "Projects/Vaultseer Platform.md",
+      health: health({ status: "ready", vectorCount: vectors.length }),
+      notes: snapshot.notes,
+      chunks,
+      lexicalIndex,
+      vectors,
+      relatedLimit: 10
+    });
+
+    expect(state.relatedNotes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          notePath: "Research/Semantic Neighbor.md",
+          reason: expect.stringContaining("semantic match")
         })
       ])
     );
@@ -318,3 +363,14 @@ describe("buildWorkbenchState", () => {
     ]);
   });
 });
+
+function vectorForChunk(chunkId: string, contentHash: string, vector: number[]): VectorRecord {
+  return {
+    chunkId,
+    model: "ollama/nomic-embed-text:3",
+    dimensions: 3,
+    contentHash,
+    vector,
+    embeddedAt: "2026-05-01T08:00:00.000Z"
+  };
+}
