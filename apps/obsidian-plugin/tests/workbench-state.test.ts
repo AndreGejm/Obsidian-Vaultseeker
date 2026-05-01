@@ -184,6 +184,26 @@ describe("buildWorkbenchState", () => {
     );
   });
 
+  it("shows read-only tag suggestions with explainable evidence", () => {
+    const state = buildWorkbenchState({
+      activePath: "Literature/Mimisbrunnr Retrieval.md",
+      health: health({ status: "ready" }),
+      notes: snapshot.notes,
+      chunks,
+      lexicalIndex
+    });
+
+    expect(state).toMatchObject({
+      status: "ready",
+      tagSuggestions: expect.arrayContaining([
+        expect.objectContaining({
+          tag: "project/vaultseer",
+          reason: expect.stringContaining("linked note Projects/Vaultseer Platform.md")
+        })
+      ])
+    });
+  });
+
   it("warns for stale mirrors and weakly connected notes", () => {
     const state = buildWorkbenchState({
       activePath: "Garden/Loose Idea.md",

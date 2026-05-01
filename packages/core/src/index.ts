@@ -5,6 +5,7 @@ export { PersistentVaultseerStore } from "./storage/persistent-store";
 export { INDEX_SCHEMA_VERSION } from "./storage/types";
 export { compareFileVersions } from "./storage/file-version-diff";
 export { buildRelationshipGraph } from "./relationships/graph";
+export { suggestTagsForNote } from "./suggestions/tag-suggestions";
 export { chunkNoteInput, chunkVaultInputs } from "./chunking/chunk-note";
 export { buildLexicalIndex, searchLexicalIndex } from "./search/lexical-search";
 export { buildSourceLexicalIndex, searchSourceLexicalIndex } from "./source/source-lexical-search";
@@ -65,6 +66,7 @@ export type {
 } from "./storage/types";
 export type { FileVersionDiff } from "./storage/file-version-diff";
 export type { RelationshipGraph, ResolvedLink, TagCoOccurrence, TagStat } from "./relationships/types";
+export type { SuggestTagsForNoteInput, TagSuggestion, TagSuggestionEvidence } from "./suggestions/tag-suggestions";
 export type { ChunkingOptions } from "./chunking/chunk-note";
 export type { SourceChunkingOptions } from "./source/chunk-source";
 export type { LexicalMatchedChunk, LexicalMatchedField, LexicalSearchInput, LexicalSearchResult } from "./search/lexical-search";

@@ -5,6 +5,7 @@ import {
   type WorkbenchControl,
   type WorkbenchControlId,
   type WorkbenchRelatedNote,
+  type WorkbenchTagSuggestion,
   type WorkbenchState
 } from "./workbench-state";
 
@@ -99,6 +100,7 @@ export class VaultseerWorkbenchView extends ItemView {
     this.renderLinks(contentEl, "Backlinks", state.backlinks.map((path) => ({ path, text: path })));
     this.renderTextList(contentEl, "Unresolved", state.unresolvedLinks.map((link) => link.raw));
     this.renderRelatedNotes(contentEl, state.relatedNotes);
+    this.renderTagSuggestions(contentEl, state.tagSuggestions);
   }
 
   private renderControls(containerEl: HTMLElement, controls: WorkbenchControl[]): void {
@@ -193,6 +195,26 @@ export class VaultseerWorkbenchView extends ItemView {
         await this.openNote(related.notePath);
       });
       item.createEl("div", { text: related.reason, cls: "vaultseer-workbench-related-reason" });
+    }
+  }
+
+  private renderTagSuggestions(containerEl: HTMLElement, tagSuggestions: WorkbenchTagSuggestion[]): void {
+    const section = containerEl.createDiv({ cls: "vaultseer-workbench-section" });
+    section.createEl("h3", { text: "Suggested tags" });
+
+    if (tagSuggestions.length === 0) {
+      section.createEl("p", { text: "None" });
+      return;
+    }
+
+    const list = section.createEl("ul");
+    for (const suggestion of tagSuggestions) {
+      const item = list.createEl("li");
+      item.createEl("strong", { text: suggestion.tag });
+      item.createEl("div", {
+        text: `${suggestion.reason} Confidence ${Math.round(suggestion.confidence * 100)}%.`,
+        cls: "vaultseer-workbench-related-reason"
+      });
     }
   }
 }

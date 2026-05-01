@@ -190,6 +190,7 @@ For the active note, the view shows:
 - unresolved links;
 - relationship warnings such as weak connection or unresolved links;
 - related notes from linked notes, backlinks, shared tags, and lexical matches.
+- read-only suggested tags from linked notes, backlinks, co-tag statistics, and tag frequency.
 
 The view refreshes when Obsidian opens another file and after Vaultseer rebuilds or clears the index. It opens notes through Obsidian when the operator clicks a related note or link. It does not mutate notes.
 
