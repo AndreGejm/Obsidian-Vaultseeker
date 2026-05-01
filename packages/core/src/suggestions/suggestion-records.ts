@@ -3,6 +3,7 @@ import type {
   SuggestionEvidence,
   SuggestionRecord
 } from "../storage/types";
+import type { LinkSuggestion, LinkSuggestionEvidence } from "./link-suggestions";
 import type { TagSuggestion, TagSuggestionEvidence } from "./tag-suggestions";
 import type {
   SourceNoteProposal,
@@ -17,6 +18,18 @@ export type CreateNoteTagSuggestionRecordsInput = {
   targetPath: string;
   suggestions: TagSuggestion[];
 };
+
+export type CreateNoteLinkSuggestionRecordsInput = {
+  targetPath: string;
+  suggestions: LinkSuggestion[];
+};
+
+export function createNoteLinkSuggestionRecords(
+  input: CreateNoteLinkSuggestionRecordsInput,
+  createdAt: string
+): SuggestionRecord[] {
+  return input.suggestions.map((suggestion) => noteLinkSuggestionRecord(input.targetPath, suggestion, createdAt));
+}
 
 export function createNoteTagSuggestionRecords(
   input: CreateNoteTagSuggestionRecordsInput,
@@ -68,6 +81,17 @@ function noteTagSuggestionRecord(targetPath: string, suggestion: TagSuggestion, 
     targetPath,
     confidence: suggestion.confidence,
     evidence: toStoredTagEvidence(suggestion.tag, suggestion.evidence),
+    createdAt
+  };
+}
+
+function noteLinkSuggestionRecord(targetPath: string, suggestion: LinkSuggestion, createdAt: string): SuggestionRecord {
+  return {
+    id: `suggestion:note-link:${targetPath}:${suggestion.unresolvedTarget}:${suggestion.suggestedPath}`,
+    type: "note_link",
+    targetPath,
+    confidence: suggestion.confidence,
+    evidence: toStoredLinkEvidence(suggestion, suggestion.evidence),
     createdAt
   };
 }
@@ -174,6 +198,41 @@ function toStoredTagEvidence(suggestedTag: string, evidence: TagSuggestionEviden
   }).sort(compareSuggestionEvidence);
 }
 
+function toStoredLinkEvidence(suggestion: LinkSuggestion, evidence: LinkSuggestionEvidence[]): SuggestionEvidence[] {
+  return evidence.flatMap((item): SuggestionEvidence[] => {
+    switch (item.type) {
+      case "unresolved_link":
+        return [{ type: "unlinked_mention", text: item.raw }];
+      case "alias_match":
+        return [
+          {
+            type: "note_match",
+            notePath: suggestion.suggestedPath,
+            matchedText: item.alias,
+            matchKind: "alias"
+          }
+        ];
+      case "title_match":
+        return [
+          {
+            type: "note_match",
+            notePath: suggestion.suggestedPath,
+            matchedText: item.title,
+            matchKind: "title"
+          }
+        ];
+      case "token_overlap":
+        return [
+          {
+            type: "link_suggestion_token_overlap",
+            notePath: suggestion.suggestedPath,
+            tokens: item.tokens
+          }
+        ];
+    }
+  }).sort(compareSuggestionEvidence);
+}
+
 function toStoredEvidence(sourceId: string, evidence: SourceNoteProposalEvidence[]): SuggestionEvidence[] {
   return evidence.flatMap((item): SuggestionEvidence[] => {
     switch (item.type) {
@@ -220,6 +279,12 @@ function suggestionEvidenceKey(evidence: SuggestionEvidence): string {
       return `1:${evidence.tag}:${evidence.noteCount}`;
     case "note_tag_evidence":
       return `2:${evidence.relation}:${evidence.notePath}:${evidence.tag}`;
+    case "note_match":
+      return `3:${evidence.notePath}:${evidence.matchKind}:${evidence.matchedText}`;
+    case "unlinked_mention":
+      return `4:${evidence.text}`;
+    case "link_suggestion_token_overlap":
+      return `5:${evidence.notePath}:${evidence.tokens.join(" ")}`;
     default:
       return `9:${JSON.stringify(evidence)}`;
   }

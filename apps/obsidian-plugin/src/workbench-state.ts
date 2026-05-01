@@ -16,6 +16,7 @@ import {
   type VaultSnapshot
 } from "@vaultseer/core";
 import type { LinkInput, SemanticSearchResult, VectorRecord } from "@vaultseer/core";
+import type { LinkSuggestionEvidence } from "@vaultseer/core";
 import type { TagSuggestionEvidence } from "@vaultseer/core";
 
 export type WorkbenchNoteSummary = {
@@ -45,7 +46,9 @@ export type WorkbenchLinkSuggestion = {
   rawLink: string;
   suggestedPath: string;
   suggestedTitle: string;
+  score: number;
   confidence: number;
+  evidence: LinkSuggestionEvidence[];
   reason: string;
 };
 
@@ -320,7 +323,9 @@ function toWorkbenchLinkSuggestion(suggestion: LinkSuggestion): WorkbenchLinkSug
     rawLink: suggestion.rawLink,
     suggestedPath: suggestion.suggestedPath,
     suggestedTitle: suggestion.suggestedTitle,
+    score: suggestion.score,
     confidence: suggestion.confidence,
+    evidence: suggestion.evidence,
     reason: suggestion.reason
   };
 }

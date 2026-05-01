@@ -26,6 +26,7 @@ import {
 } from "./semantic-index-controller";
 import { searchSemanticIndex } from "./semantic-search-controller";
 import { searchSourceSemanticIndex } from "./source-semantic-search-controller";
+import { stageNoteLinkUpdateProposal } from "./link-write-proposal-controller";
 import { stageNoteTagUpdateProposal } from "./tag-write-proposal-controller";
 import {
   cancelSourceExtractionQueue,
@@ -91,6 +92,21 @@ export default class VaultseerPlugin extends Plugin {
               targetPath: currentNote.path,
               currentContent: await this.app.vault.cachedRead(file),
               tagSuggestions,
+              now: () => new Date().toISOString()
+            });
+            return summary.message;
+          },
+          async (currentNote, linkSuggestions) => {
+            const file = this.app.workspace.getActiveFile();
+            if (!file || file.path !== currentNote.path) {
+              return "Open the indexed note before staging its link suggestions.";
+            }
+
+            const summary = await stageNoteLinkUpdateProposal({
+              store: this.store,
+              targetPath: currentNote.path,
+              currentContent: await this.app.vault.cachedRead(file),
+              linkSuggestions,
               now: () => new Date().toISOString()
             });
             return summary.message;

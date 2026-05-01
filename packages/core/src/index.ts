@@ -9,6 +9,7 @@ export { detectNoteQualityIssues } from "./suggestions/note-quality";
 export { suggestLinksForNote } from "./suggestions/link-suggestions";
 export { suggestTagsForNote } from "./suggestions/tag-suggestions";
 export {
+  createNoteLinkSuggestionRecords,
   createNoteTagSuggestionRecords,
   createSourceNoteProposalSuggestionRecords,
   mergeSuggestionRecords,
@@ -20,6 +21,7 @@ export {
   createVaultWriteDecisionRecord,
   evaluateVaultWritePrecondition,
   mergeVaultWriteOperations,
+  planNoteLinkUpdateOperation,
   planNoteTagUpdateOperation,
   upsertVaultWriteApplyResultRecord,
   upsertVaultWriteDecisionRecord,
@@ -94,6 +96,7 @@ export type {
   NoteQualityIssueSeverity
 } from "./suggestions/note-quality";
 export type { LinkSuggestion, LinkSuggestionEvidence, SuggestLinksForNoteInput } from "./suggestions/link-suggestions";
+export type { CreateNoteLinkSuggestionRecordsInput } from "./suggestions/suggestion-records";
 export type { SuggestTagsForNoteInput, TagSuggestion, TagSuggestionEvidence } from "./suggestions/tag-suggestions";
 export type { ChunkingOptions } from "./chunking/chunk-note";
 export type { SourceChunkingOptions } from "./source/chunk-source";
@@ -168,7 +171,11 @@ export type {
 export type {
   CreateVaultWriteDecisionRecordInput,
   GuardedVaultWriteOperation,
+  NoteLinkUpdateOperation,
+  NoteLinkUpdateReplacement,
+  NoteLinkUpdateReplacementInput,
   NoteTagUpdateOperation,
+  PlanNoteLinkUpdateOperationInput,
   PlanNoteTagUpdateOperationInput,
   PlanSourceNoteCreationOperationInput,
   SourceNoteCreationOperation,

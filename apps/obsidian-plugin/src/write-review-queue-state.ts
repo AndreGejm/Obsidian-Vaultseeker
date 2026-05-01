@@ -178,6 +178,8 @@ function canApplyOperation(
     case "create_note_from_source":
     case "update_note_tags":
       break;
+    case "update_note_links":
+      return false;
   }
   if (decisionState !== "approved") return false;
   if (!applyResult) return true;
@@ -194,6 +196,8 @@ function formatOperationType(type: GuardedVaultWriteOperation["type"]): string {
       return "Create note from source";
     case "update_note_tags":
       return "Update note tags";
+    case "update_note_links":
+      return "Update note links";
   }
 }
 

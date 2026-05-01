@@ -1,7 +1,7 @@
 import { hashString } from "../chunking/text-chunking";
 import type { SourceNoteProposal } from "../source/source-note-proposal";
 
-export type VaultWriteOperationType = "create_note_from_source" | "update_note_tags";
+export type VaultWriteOperationType = "create_note_from_source" | "update_note_tags" | "update_note_links";
 
 export type VaultWritePreview = {
   kind: "create_file" | "modify_file";
@@ -46,7 +46,31 @@ export type NoteTagUpdateOperation = {
   createdAt: string;
 };
 
-export type GuardedVaultWriteOperation = SourceNoteCreationOperation | NoteTagUpdateOperation;
+export type NoteLinkUpdateReplacementInput = {
+  rawLink: string;
+  unresolvedTarget: string;
+  suggestedPath: string;
+};
+
+export type NoteLinkUpdateReplacement = NoteLinkUpdateReplacementInput & {
+  replacement: string;
+};
+
+export type NoteLinkUpdateOperation = {
+  id: string;
+  type: "update_note_links";
+  targetPath: string;
+  expectedCurrentHash: string;
+  content: string;
+  preview: VaultWritePreview;
+  linkUpdate: {
+    replacements: NoteLinkUpdateReplacement[];
+  };
+  suggestionIds: string[];
+  createdAt: string;
+};
+
+export type GuardedVaultWriteOperation = SourceNoteCreationOperation | NoteTagUpdateOperation | NoteLinkUpdateOperation;
 
 export type PlanSourceNoteCreationOperationInput = {
   proposal: SourceNoteProposal;
@@ -59,6 +83,14 @@ export type PlanNoteTagUpdateOperationInput = {
   targetPath: string;
   currentContent: string;
   tagsToAdd: string[];
+  suggestionIds: string[];
+  createdAt: string;
+};
+
+export type PlanNoteLinkUpdateOperationInput = {
+  targetPath: string;
+  currentContent: string;
+  replacements: NoteLinkUpdateReplacementInput[];
   suggestionIds: string[];
   createdAt: string;
 };
@@ -207,6 +239,55 @@ export function planNoteTagUpdateOperation(input: PlanNoteTagUpdateOperationInpu
       afterTags,
       addedTags: afterTags.filter((tag) => !beforeTags.includes(tag)),
       removedTags: beforeTags.filter((tag) => !afterTags.includes(tag))
+    },
+    suggestionIds: [...input.suggestionIds],
+    createdAt: input.createdAt
+  };
+}
+
+export function planNoteLinkUpdateOperation(input: PlanNoteLinkUpdateOperationInput): NoteLinkUpdateOperation {
+  const currentContent = normalizeWriteContent(input.currentContent);
+  const beforeHash = hashString(currentContent);
+  let content = currentContent;
+  const appliedReplacements: NoteLinkUpdateReplacement[] = [];
+  const seenRawLinks = new Set<string>();
+
+  for (const item of input.replacements) {
+    const rawLink = item.rawLink.trim();
+    if (!rawLink || seenRawLinks.has(rawLink) || !content.includes(rawLink)) continue;
+
+    const displayText = readWikiLinkDisplayText(rawLink, item.unresolvedTarget);
+    const replacement = formatWikiLinkReplacement(item.suggestedPath, displayText);
+    if (replacement === rawLink) continue;
+
+    content = content.split(rawLink).join(replacement);
+    seenRawLinks.add(rawLink);
+    appliedReplacements.push({
+      rawLink,
+      unresolvedTarget: item.unresolvedTarget,
+      suggestedPath: item.suggestedPath,
+      replacement
+    });
+  }
+
+  const afterHash = hashString(content);
+  const operationHash = hashString([
+    input.targetPath,
+    beforeHash,
+    afterHash,
+    ...appliedReplacements.map((item) => `${item.rawLink}->${item.replacement}`),
+    ...input.suggestionIds
+  ].join("\n"));
+
+  return {
+    id: `vault-write:update-note-links:${input.targetPath}:${operationHash}`,
+    type: "update_note_links",
+    targetPath: input.targetPath,
+    expectedCurrentHash: beforeHash,
+    content,
+    preview: modifyFilePreview(input.targetPath, currentContent, content),
+    linkUpdate: {
+      replacements: appliedReplacements
     },
     suggestionIds: [...input.suggestionIds],
     createdAt: input.createdAt
@@ -500,6 +581,27 @@ function sortTags(tags: string[]): string[] {
 
 function joinContentLines(lines: string[]): string {
   return `${lines.join("\n")}\n`;
+}
+
+function readWikiLinkDisplayText(rawLink: string, fallback: string): string {
+  const match = rawLink.match(/^\[\[([^\]]+)\]\]$/);
+  const inner = match?.[1]?.trim();
+  if (!inner) return fallback.trim();
+
+  const pipeIndex = inner.indexOf("|");
+  if (pipeIndex < 0) return fallback.trim();
+
+  return inner.slice(pipeIndex + 1).trim() || fallback.trim();
+}
+
+function formatWikiLinkReplacement(suggestedPath: string, displayText: string): string {
+  const linkTarget = stripMarkdownExtension(suggestedPath.trim());
+  const display = displayText.trim() || linkTarget.split("/").at(-1) || linkTarget;
+  return `[[${linkTarget}|${display}]]`;
+}
+
+function stripMarkdownExtension(path: string): string {
+  return path.replace(/\.md$/i, "");
 }
 
 function clone<T>(value: T): T {

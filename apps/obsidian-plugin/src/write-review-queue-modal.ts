@@ -173,6 +173,9 @@ function applyButtonLabel(item: WriteReviewQueueItem): string {
     if (item.applyState === "failed" && item.canApply) return "Retry tag update";
     return "Apply tag update";
   }
+  if (item.operationType === "update_note_links") {
+    return "Link update preview only";
+  }
   if (item.applyState === "applied") return "Already created";
   if (item.applyState === "failed" && item.canApply) return "Retry create note";
   return "Create note";

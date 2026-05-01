@@ -99,6 +99,7 @@ export type SuggestionEvidence =
   | { type: "semantic_match"; chunkId: string; score: number }
   | { type: "unlinked_mention"; text: string }
   | { type: "link_overlap"; notePath: string; count: number }
+  | { type: "link_suggestion_token_overlap"; notePath: string; tokens: string[] }
   | { type: "note_tag_evidence"; relation: "linked_note" | "backlink_note"; notePath: string; tag: string }
   | { type: "tag_co_occurrence"; fromTag: string; suggestedTag: string; count: number }
   | { type: "tag_frequency"; tag: string; noteCount: number }

@@ -3,6 +3,7 @@ import {
   createVaultWriteDecisionRecord,
   evaluateVaultWritePrecondition,
   hashString,
+  planNoteLinkUpdateOperation,
   planNoteTagUpdateOperation,
   planSourceNoteCreationOperation
 } from "../src/index";
@@ -220,6 +221,79 @@ describe("guarded write operations", () => {
         ""
       ].join("\n")
     );
+  });
+
+  it("plans a preview-only note link update with stable display text and a stale-file guard", () => {
+    const currentContent = [
+      "# Vaultseer Platform",
+      "",
+      "Connects to [[Missing Note]] and [[Ragnarok|the end myth]].",
+      ""
+    ].join("\n");
+
+    const operation = planNoteLinkUpdateOperation({
+      targetPath: "Projects/Vaultseer Platform.md",
+      currentContent,
+      replacements: [
+        {
+          rawLink: "[[Missing Note]]",
+          unresolvedTarget: "Missing Note",
+          suggestedPath: "Literature/Actually Missing Note.md"
+        },
+        {
+          rawLink: "[[Ragnarok|the end myth]]",
+          unresolvedTarget: "Ragnarok",
+          suggestedPath: "Literature/Ragnarok in Icelandic Literature.md"
+        }
+      ],
+      suggestionIds: [
+        "suggestion:note-link:Projects/Vaultseer Platform.md:Missing Note:Literature/Actually Missing Note.md",
+        "suggestion:note-link:Projects/Vaultseer Platform.md:Ragnarok:Literature/Ragnarok in Icelandic Literature.md"
+      ],
+      createdAt: "2026-05-01T23:00:00.000Z"
+    });
+
+    expect(operation).toMatchObject({
+      type: "update_note_links",
+      targetPath: "Projects/Vaultseer Platform.md",
+      expectedCurrentHash: hashString(currentContent),
+      linkUpdate: {
+        replacements: [
+          {
+            rawLink: "[[Missing Note]]",
+            unresolvedTarget: "Missing Note",
+            suggestedPath: "Literature/Actually Missing Note.md",
+            replacement: "[[Literature/Actually Missing Note|Missing Note]]"
+          },
+          {
+            rawLink: "[[Ragnarok|the end myth]]",
+            unresolvedTarget: "Ragnarok",
+            suggestedPath: "Literature/Ragnarok in Icelandic Literature.md",
+            replacement: "[[Literature/Ragnarok in Icelandic Literature|the end myth]]"
+          }
+        ]
+      },
+      suggestionIds: [
+        "suggestion:note-link:Projects/Vaultseer Platform.md:Missing Note:Literature/Actually Missing Note.md",
+        "suggestion:note-link:Projects/Vaultseer Platform.md:Ragnarok:Literature/Ragnarok in Icelandic Literature.md"
+      ],
+      createdAt: "2026-05-01T23:00:00.000Z"
+    });
+    expect(operation.id).toMatch(/^vault-write:update-note-links:Projects\/Vaultseer Platform\.md:/);
+    expect(operation.content).toContain("[[Literature/Actually Missing Note|Missing Note]]");
+    expect(operation.content).toContain("[[Literature/Ragnarok in Icelandic Literature|the end myth]]");
+    expect(operation.preview).toMatchObject({
+      kind: "modify_file",
+      targetPath: "Projects/Vaultseer Platform.md",
+      beforeHash: hashString(currentContent),
+      afterHash: hashString(operation.content)
+    });
+    expect(
+      evaluateVaultWritePrecondition(operation, {
+        path: "Projects/Vaultseer Platform.md",
+        currentHash: hashString(currentContent)
+      })
+    ).toEqual({ ok: true });
   });
 });
 

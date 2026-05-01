@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  createNoteLinkSuggestionRecords,
   createNoteTagSuggestionRecords,
   createSourceNoteProposalSuggestionRecords,
   mergeSuggestionRecords,
   upsertDecisionRecord
 } from "../src/index";
-import type { DecisionRecord, SourceNoteProposal, SuggestionRecord, TagSuggestion } from "../src/index";
+import type { DecisionRecord, LinkSuggestion, SourceNoteProposal, SuggestionRecord, TagSuggestion } from "../src/index";
 
 describe("suggestion record helpers", () => {
   it("converts note tag suggestions into stable evidence-bearing suggestion records", () => {
@@ -55,6 +56,56 @@ describe("suggestion record helpers", () => {
           }
         ],
         createdAt: "2026-05-01T22:00:00.000Z"
+      }
+    ]);
+  });
+
+  it("converts note link suggestions into stable evidence-bearing suggestion records", () => {
+    const records = createNoteLinkSuggestionRecords(
+      {
+        targetPath: "Projects/Vaultseer Platform.md",
+        suggestions: [
+          linkSuggestion({
+            unresolvedTarget: "Missing Note",
+            rawLink: "[[Missing Note]]",
+            suggestedPath: "Literature/Actually Missing Note.md",
+            suggestedTitle: "Actually Missing Note",
+            confidence: 0.78,
+            evidence: [
+              { type: "unresolved_link", raw: "[[Missing Note]]", target: "Missing Note" },
+              { type: "alias_match", alias: "Missing Note" },
+              { type: "token_overlap", tokens: ["missing", "note"] }
+            ]
+          })
+        ]
+      },
+      "2026-05-01T23:00:00.000Z"
+    );
+
+    expect(records).toEqual([
+      {
+        id: "suggestion:note-link:Projects/Vaultseer Platform.md:Missing Note:Literature/Actually Missing Note.md",
+        type: "note_link",
+        targetPath: "Projects/Vaultseer Platform.md",
+        confidence: 0.78,
+        evidence: [
+          {
+            type: "note_match",
+            notePath: "Literature/Actually Missing Note.md",
+            matchedText: "Missing Note",
+            matchKind: "alias"
+          },
+          {
+            type: "unlinked_mention",
+            text: "[[Missing Note]]"
+          },
+          {
+            type: "link_suggestion_token_overlap",
+            notePath: "Literature/Actually Missing Note.md",
+            tokens: ["missing", "note"]
+          }
+        ],
+        createdAt: "2026-05-01T23:00:00.000Z"
       }
     ]);
   });
@@ -230,6 +281,20 @@ function tagSuggestion(overrides: Partial<TagSuggestion>): TagSuggestion {
     confidence: 0.72,
     evidence: [],
     reason: "linked note Projects/Vaultseer Platform.md",
+    ...overrides
+  };
+}
+
+function linkSuggestion(overrides: Partial<LinkSuggestion>): LinkSuggestion {
+  return {
+    unresolvedTarget: "Missing Note",
+    rawLink: "[[Missing Note]]",
+    suggestedPath: "Literature/Actually Missing Note.md",
+    suggestedTitle: "Actually Missing Note",
+    score: 58,
+    confidence: 0.78,
+    evidence: [],
+    reason: "alias Missing Note",
     ...overrides
   };
 }

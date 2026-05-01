@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GuardedVaultWriteOperation, VaultWriteApplyResultRecord, VaultWriteDecisionRecord } from "@vaultseer/core";
-import { planNoteTagUpdateOperation } from "@vaultseer/core";
+import { planNoteLinkUpdateOperation, planNoteTagUpdateOperation } from "@vaultseer/core";
 import { buildWriteReviewQueueState } from "../src/write-review-queue-state";
 
 describe("buildWriteReviewQueueState", () => {
@@ -259,6 +259,30 @@ describe("buildWriteReviewQueueState", () => {
       })
     ]);
   });
+
+  it("shows note link updates as reviewable but not applyable yet", () => {
+    const operation = linkUpdateOperation();
+
+    const state = buildWriteReviewQueueState({
+      operations: [operation],
+      decisions: [writeDecision({ operationId: operation.id, targetPath: operation.targetPath, decision: "approved" })],
+      applyResults: []
+    });
+
+    expect(state.items).toEqual([
+      expect.objectContaining({
+        operationId: operation.id,
+        operationType: "update_note_links",
+        operationTypeLabel: "Update note links",
+        targetPath: "Projects/Vaultseer Platform.md",
+        sourcePath: null,
+        sourceContentHash: null,
+        decisionState: "approved",
+        canApply: false,
+        previewDiff: expect.stringContaining("+++ b/Projects/Vaultseer Platform.md")
+      })
+    ]);
+  });
 });
 
 function writeOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): GuardedVaultWriteOperation {
@@ -334,5 +358,21 @@ function tagUpdateOperation(): GuardedVaultWriteOperation {
     tagsToAdd: ["electronics/timing"],
     suggestionIds: ["suggestion:note-tag:Electronics/Precision Timer.md:electronics/timing"],
     createdAt: "2026-05-01T21:00:00.000Z"
+  });
+}
+
+function linkUpdateOperation(): GuardedVaultWriteOperation {
+  return planNoteLinkUpdateOperation({
+    targetPath: "Projects/Vaultseer Platform.md",
+    currentContent: "# Vaultseer Platform\n\nConnects to [[Missing Note]].\n",
+    replacements: [
+      {
+        rawLink: "[[Missing Note]]",
+        unresolvedTarget: "Missing Note",
+        suggestedPath: "Literature/Actually Missing Note.md"
+      }
+    ],
+    suggestionIds: ["suggestion:note-link:Projects/Vaultseer Platform.md:Missing Note:Literature/Actually Missing Note.md"],
+    createdAt: "2026-05-01T23:00:00.000Z"
   });
 }

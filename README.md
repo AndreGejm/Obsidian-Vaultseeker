@@ -11,7 +11,7 @@ The project is intentionally split into:
 
 Markdown notes remain the source of truth. Generated indexes are disposable and must be rebuildable from the vault.
 
-The current write scope is deliberately small: Vaultseer can create a new Markdown note from an approved source-note proposal through the guarded write review queue. The workbench can also stage current-note tag suggestions as guarded tag/frontmatter update proposals in the same queue; approved tag updates re-check the current file hash before editing the note. It does not yet insert links, rename tags, clean arbitrary frontmatter, edit aliases, copy attachments, batch apply proposals, or apply anything automatically.
+The current write scope is deliberately small: Vaultseer can create a new Markdown note from an approved source-note proposal through the guarded write review queue. The workbench can also stage current-note tag suggestions as guarded tag/frontmatter update proposals in the same queue; approved tag updates re-check the current file hash before editing the note. Link suggestions can be staged as preview-only guarded link-update proposals, but they are not applyable yet. Vaultseer does not yet insert links, rename tags, clean arbitrary frontmatter, edit aliases, copy attachments, batch apply proposals, or apply anything automatically.
 
 Approved source notes are created in the configured source note folder. The default is `Source Notes`, and Vaultseer expects that folder to already exist before an approved write is applied.
 

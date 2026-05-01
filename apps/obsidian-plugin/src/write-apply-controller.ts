@@ -112,6 +112,8 @@ function successMessage(operation: GuardedVaultWriteOperation): string {
       return `Created ${operation.targetPath}.`;
     case "update_note_tags":
       return `Applied tag update to ${operation.targetPath}.`;
+    case "update_note_links":
+      return `Applied link update to ${operation.targetPath}.`;
   }
 }
 
@@ -121,6 +123,8 @@ function failureMessagePrefix(operation: GuardedVaultWriteOperation): string {
       return `Could not create ${operation.targetPath}`;
     case "update_note_tags":
       return `Could not apply tag update to ${operation.targetPath}`;
+    case "update_note_links":
+      return `Could not apply link update to ${operation.targetPath}`;
   }
 }
 

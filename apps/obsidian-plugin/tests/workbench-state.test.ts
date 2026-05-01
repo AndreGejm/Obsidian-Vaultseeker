@@ -288,6 +288,13 @@ describe("buildWorkbenchState", () => {
         expect.objectContaining({
           unresolvedTarget: "Missing Note",
           suggestedPath: "Literature/Actually Missing Note.md",
+          score: expect.any(Number),
+          evidence: expect.arrayContaining([
+            expect.objectContaining({
+              type: "alias_match",
+              alias: "Missing Note"
+            })
+          ]),
           reason: expect.stringContaining("alias Missing Note")
         })
       ]

@@ -26,6 +26,10 @@ export type WorkbenchTagProposalHandler = (
   currentNote: NonNullable<Extract<WorkbenchState, { status: "ready" }>["currentNote"]>,
   tagSuggestions: WorkbenchTagSuggestion[]
 ) => Promise<string>;
+export type WorkbenchLinkProposalHandler = (
+  currentNote: NonNullable<Extract<WorkbenchState, { status: "ready" }>["currentNote"]>,
+  linkSuggestions: WorkbenchLinkSuggestion[]
+) => Promise<string>;
 
 export class VaultseerWorkbenchView extends ItemView {
   constructor(
@@ -34,7 +38,8 @@ export class VaultseerWorkbenchView extends ItemView {
     private readonly getActivePath: () => string | null,
     private readonly openNote: (path: string) => Promise<void>,
     private readonly controlHandlers: WorkbenchControlHandlers,
-    private readonly tagProposalHandler?: WorkbenchTagProposalHandler
+    private readonly tagProposalHandler?: WorkbenchTagProposalHandler,
+    private readonly linkProposalHandler?: WorkbenchLinkProposalHandler
   ) {
     super(leaf);
   }
@@ -110,7 +115,7 @@ export class VaultseerWorkbenchView extends ItemView {
     this.renderTextList(contentEl, "Unresolved", state.unresolvedLinks.map((link) => link.raw));
     this.renderQualityIssues(contentEl, state.qualityIssues);
     this.renderRelatedNotes(contentEl, state.relatedNotes);
-    this.renderLinkSuggestions(contentEl, state.linkSuggestions);
+    this.renderLinkSuggestions(contentEl, state.currentNote, state.linkSuggestions);
     this.renderTagSuggestions(contentEl, state.currentNote, state.tagSuggestions);
   }
 
@@ -272,13 +277,24 @@ export class VaultseerWorkbenchView extends ItemView {
     }
   }
 
-  private renderLinkSuggestions(containerEl: HTMLElement, linkSuggestions: WorkbenchLinkSuggestion[]): void {
+  private renderLinkSuggestions(
+    containerEl: HTMLElement,
+    currentNote: NonNullable<Extract<WorkbenchState, { status: "ready" }>["currentNote"]>,
+    linkSuggestions: WorkbenchLinkSuggestion[]
+  ): void {
     const section = containerEl.createDiv({ cls: "vaultseer-workbench-section" });
     section.createEl("h3", { text: "Suggested links" });
 
     if (linkSuggestions.length === 0) {
       section.createEl("p", { text: "None" });
       return;
+    }
+
+    if (this.linkProposalHandler) {
+      const button = section.createEl("button", { text: "Stage link review" });
+      button.addEventListener("click", async () => {
+        await this.stageLinkReview(currentNote, linkSuggestions);
+      });
     }
 
     const list = section.createEl("ul");
@@ -294,6 +310,21 @@ export class VaultseerWorkbenchView extends ItemView {
         text: `${suggestion.reason} Confidence ${Math.round(suggestion.confidence * 100)}%.`,
         cls: "vaultseer-workbench-related-reason"
       });
+    }
+  }
+
+  private async stageLinkReview(
+    currentNote: NonNullable<Extract<WorkbenchState, { status: "ready" }>["currentNote"]>,
+    linkSuggestions: WorkbenchLinkSuggestion[]
+  ): Promise<void> {
+    if (!this.linkProposalHandler) return;
+
+    try {
+      const message = await this.linkProposalHandler(currentNote, linkSuggestions);
+      new Notice(message);
+      await this.refresh();
+    } catch (error) {
+      new Notice(`Vaultseer could not stage link suggestions: ${getErrorMessage(error)}`);
     }
   }
 }
