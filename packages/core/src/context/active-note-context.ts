@@ -59,5 +59,8 @@ function blocked(message: string): ActiveNoteContextPacket {
 }
 
 function truncate(value: string, maxCharacters: number): string {
-  return value.length <= maxCharacters ? value : `${value.slice(0, maxCharacters).trimEnd()}...`;
+  if (maxCharacters <= 0) return "";
+  if (value.length <= maxCharacters) return value;
+  if (maxCharacters <= 3) return ".".repeat(maxCharacters);
+  return `${value.slice(0, maxCharacters - 3).trimEnd()}...`;
 }
