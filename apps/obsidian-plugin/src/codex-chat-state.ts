@@ -12,8 +12,8 @@ export type CodexChatState = {
 };
 
 export type CodexChatEvent =
-  | { type: "user_message"; content: string; createdAt?: string }
-  | { type: "assistant_message"; content: string; createdAt?: string }
+  | { type: "user_message"; content: string; createdAt: string }
+  | { type: "assistant_message"; content: string; createdAt: string }
   | { type: "error"; message: string }
   | { type: "active_note_changed"; activePath: string | null }
   | { type: "clear" };
@@ -50,7 +50,7 @@ function appendMessage(
   state: CodexChatState,
   role: CodexChatMessage["role"],
   content: string,
-  createdAt?: string
+  createdAt: string
 ): CodexChatState {
   return {
     ...state,
@@ -59,7 +59,7 @@ function appendMessage(
       {
         role,
         content,
-        createdAt: createdAt ?? new Date().toISOString()
+        createdAt
       }
     ],
     error: null
