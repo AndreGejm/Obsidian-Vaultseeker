@@ -1,11 +1,17 @@
 export type CodexReadOnlyTool = "inspect_current_note" | "search_notes" | "search_sources";
+export type CodexCommandTool = "run_vaultseer_command";
 export type CodexProposalTool = "stage_suggestion";
-export type AllowedCodexTool = CodexReadOnlyTool | CodexProposalTool;
-export type CodexToolRequestClass = "read-only" | "proposal";
+export type AllowedCodexTool = CodexReadOnlyTool | CodexCommandTool | CodexProposalTool;
+export type CodexToolRequestClass = "read-only" | "command" | "proposal";
 
 const READ_ONLY_CODEX_TOOLS = new Set<string>(["inspect_current_note", "search_notes", "search_sources"]);
+const COMMAND_CODEX_TOOLS = new Set<string>(["run_vaultseer_command"]);
 const PROPOSAL_CODEX_TOOLS = new Set<string>(["stage_suggestion"]);
-const ALLOWED_CODEX_TOOLS = new Set<string>([...READ_ONLY_CODEX_TOOLS, ...PROPOSAL_CODEX_TOOLS]);
+const ALLOWED_CODEX_TOOLS = new Set<string>([
+  ...READ_ONLY_CODEX_TOOLS,
+  ...COMMAND_CODEX_TOOLS,
+  ...PROPOSAL_CODEX_TOOLS
+]);
 
 export type CodexToolRequest = {
   tool: string;
@@ -24,6 +30,7 @@ export type CodexToolImplementations = {
   inspectCurrentNote(): Promise<unknown>;
   searchNotes(input: unknown): Promise<unknown>;
   searchSources(input: unknown): Promise<unknown>;
+  runVaultseerCommand?(input: unknown): Promise<unknown>;
   stageSuggestion(input: unknown, context?: CodexProposalToolExecutionContext): Promise<unknown>;
 };
 
@@ -39,9 +46,17 @@ export function isProposalCodexTool(tool: string): tool is CodexProposalTool {
   return PROPOSAL_CODEX_TOOLS.has(tool);
 }
 
+export function isCommandCodexTool(tool: string): tool is CodexCommandTool {
+  return COMMAND_CODEX_TOOLS.has(tool);
+}
+
 export function getCodexToolRequestClass(tool: string): CodexToolRequestClass | null {
   if (isReadOnlyCodexTool(tool)) {
     return "read-only";
+  }
+
+  if (isCommandCodexTool(tool)) {
+    return "command";
   }
 
   if (isProposalCodexTool(tool)) {
@@ -76,6 +91,19 @@ export async function dispatchCodexToolRequest(input: {
       return runAllowedCodexTool("search_notes", () => input.tools.searchNotes(input.request.input));
     case "search_sources":
       return runAllowedCodexTool("search_sources", () => input.tools.searchSources(input.request.input));
+    case "run_vaultseer_command":
+      {
+        const runVaultseerCommand = input.tools.runVaultseerCommand;
+        if (runVaultseerCommand === undefined) {
+          return {
+            ok: false,
+            tool: input.request.tool,
+            message: "Codex tool 'run_vaultseer_command' is not available in this Vaultseer session."
+          };
+        }
+
+        return runAllowedCodexTool("run_vaultseer_command", () => runVaultseerCommand(input.request.input));
+      }
     case "stage_suggestion":
       if (input.allowProposalTools !== true) {
         return {

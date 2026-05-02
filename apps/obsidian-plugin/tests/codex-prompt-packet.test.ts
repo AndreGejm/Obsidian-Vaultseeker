@@ -25,6 +25,15 @@ describe("buildCodexPromptPacket", () => {
     expect(packet.agentContent).toContain("Vaultseer Codex Prompt Packet");
     expect(packet.agentContent).toContain("Obsidian is the source of truth.");
     expect(packet.agentContent).toContain("must not write files directly");
+    expect(packet.agentContent).toContain("Vaultseer Control Surface");
+    expect(packet.agentContent).toContain("inspect_current_note");
+    expect(packet.agentContent).toContain("search_notes");
+    expect(packet.agentContent).toContain("search_sources");
+    expect(packet.agentContent).toContain("run_vaultseer_command");
+    expect(packet.agentContent).toContain("stage_suggestion");
+    expect(packet.agentContent).toContain("Vaultseer Studio commands");
+    expect(packet.agentContent).toContain("rebuild-index");
+    expect(packet.agentContent).toContain("run-source-extraction-batch");
     expect(packet.agentContent).toContain('"path": "Notes/VHDL.md"');
     expect(packet.agentContent).toContain('"title": "VHDL"');
     expect(packet.agentContent).toContain('"#vhdl"');

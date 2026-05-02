@@ -3,7 +3,7 @@ import type { CodexChatToolRequest } from "./codex-chat-state";
 import type { CodexAcpSessionUpdate } from "./codex-acp-session-update-normalizer";
 import { normalizeCodexAcpSessionUpdate } from "./codex-acp-session-update-normalizer";
 import type { CodexPromptPacket } from "./codex-prompt-packet";
-import { isProposalCodexTool, isReadOnlyCodexTool } from "./codex-tool-dispatcher";
+import { isCommandCodexTool, isProposalCodexTool, isReadOnlyCodexTool } from "./codex-tool-dispatcher";
 import type { CodexSessionState, CodexSessionToolCall } from "./codex-session-state";
 import { applyCodexSessionUpdate, createCodexSessionState } from "./codex-session-state";
 
@@ -132,6 +132,7 @@ function requiresVaultseerExecution(
 
   return (
     isReadOnlyCodexTool(toolCall.toolName) ||
+    isCommandCodexTool(toolCall.toolName) ||
     (options.includeProposalTools === true && isProposalCodexTool(toolCall.toolName))
   );
 }

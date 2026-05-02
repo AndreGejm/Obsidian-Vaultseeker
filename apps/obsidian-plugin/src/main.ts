@@ -183,7 +183,8 @@ export default class VaultseerPlugin extends Plugin {
               return this.app.vault.cachedRead(file);
             },
             searchNotesSemanticSearch: this.createSearchModalSemanticSearch(),
-            searchSourcesSemanticSearch: this.createSourceSearchModalSemanticSearch()
+            searchSourcesSemanticSearch: this.createSourceSearchModalSemanticSearch(),
+            runVaultseerCommand: async (input) => this.runVaultseerStudioCommandRequest(input)
           })
         )
     );
@@ -868,6 +869,20 @@ export default class VaultseerPlugin extends Plugin {
     });
   }
 
+  private async runVaultseerStudioCommandRequest(input: unknown): Promise<{ commandId: string; message: string }> {
+    const commandId = parseVaultseerCommandId(input);
+    const command = this.createVaultseerStudioCommands().find((candidate) => candidate.id === commandId);
+    if (command === undefined) {
+      throw new Error(`Vaultseer command '${commandId}' is not available.`);
+    }
+
+    await command.run();
+    return {
+      commandId,
+      message: `Vaultseer command '${command.name}' completed.`
+    };
+  }
+
   private createSearchModalSemanticSearch(): SearchModalSemanticSearch | undefined {
     if (!this.settings.semanticSearchEnabled) return undefined;
 
@@ -935,6 +950,21 @@ export default class VaultseerPlugin extends Plugin {
         maxChunksPerSource: 3
       });
   }
+}
+
+function parseVaultseerCommandId(input: unknown): string {
+  if (typeof input === "string" && input.trim().length > 0) {
+    return input.trim();
+  }
+
+  if (typeof input === "object" && input !== null && !Array.isArray(input)) {
+    const commandId = (input as Record<string, unknown>)["commandId"];
+    if (typeof commandId === "string" && commandId.trim().length > 0) {
+      return commandId.trim();
+    }
+  }
+
+  throw new Error("Vaultseer command requests must include a nonblank commandId.");
 }
 
 function getFileExtension(filename: string): string {

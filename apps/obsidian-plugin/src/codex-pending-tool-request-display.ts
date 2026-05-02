@@ -2,7 +2,7 @@ import {
   formatCodexToolRequestInputPreview,
   type CodexPendingToolRequest
 } from "./codex-chat-state";
-import { isProposalCodexTool, isReadOnlyCodexTool } from "./codex-tool-dispatcher";
+import { isCommandCodexTool, isProposalCodexTool, isReadOnlyCodexTool } from "./codex-tool-dispatcher";
 
 export type CodexPendingToolRequestDisplayControl =
   | {
@@ -34,7 +34,7 @@ export function buildCodexPendingToolRequestDisplayItems(
 ): CodexPendingToolRequestDisplayItem[] {
   return requests.map((request) => {
     const controls: CodexPendingToolRequestDisplayControl[] = [];
-    if (isReadOnlyCodexTool(request.tool) && request.executionStatus === undefined) {
+    if ((isReadOnlyCodexTool(request.tool) || isCommandCodexTool(request.tool)) && request.executionStatus === undefined) {
       controls.push({
         type: "run",
         label: "Run",

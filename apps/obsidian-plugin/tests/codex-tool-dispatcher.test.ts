@@ -12,6 +12,7 @@ describe("dispatchCodexToolRequest", () => {
     expect(isAllowedCodexTool("inspect_current_note")).toBe(true);
     expect(isAllowedCodexTool("search_notes")).toBe(true);
     expect(isAllowedCodexTool("search_sources")).toBe(true);
+    expect(isAllowedCodexTool("run_vaultseer_command")).toBe(true);
     expect(isAllowedCodexTool("stage_suggestion")).toBe(true);
     expect(isAllowedCodexTool("write_file")).toBe(false);
   });
@@ -20,14 +21,38 @@ describe("dispatchCodexToolRequest", () => {
     expect(isReadOnlyCodexTool("inspect_current_note")).toBe(true);
     expect(isReadOnlyCodexTool("search_notes")).toBe(true);
     expect(isReadOnlyCodexTool("search_sources")).toBe(true);
+    expect(isReadOnlyCodexTool("run_vaultseer_command")).toBe(false);
     expect(isReadOnlyCodexTool("stage_suggestion")).toBe(false);
     expect(isReadOnlyCodexTool("write_file")).toBe(false);
 
     expect(isProposalCodexTool("stage_suggestion")).toBe(true);
     expect(isProposalCodexTool("search_notes")).toBe(false);
     expect(getCodexToolRequestClass("search_notes")).toBe("read-only");
+    expect(getCodexToolRequestClass("run_vaultseer_command")).toBe("command");
     expect(getCodexToolRequestClass("stage_suggestion")).toBe("proposal");
     expect(getCodexToolRequestClass("write_file")).toBeNull();
+  });
+
+  it("delegates approved Vaultseer command requests", async () => {
+    const runVaultseerCommand = vi.fn(async () => ({ message: "Ran command." }));
+
+    const result = await dispatchCodexToolRequest({
+      request: { tool: "run_vaultseer_command", input: { commandId: "search-index" } },
+      tools: {
+        inspectCurrentNote: async () => ({ status: "ready" }),
+        searchNotes: async () => [],
+        searchSources: async () => [],
+        runVaultseerCommand,
+        stageSuggestion: async () => ({ staged: true })
+      }
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      tool: "run_vaultseer_command",
+      output: { message: "Ran command." }
+    });
+    expect(runVaultseerCommand).toHaveBeenCalledWith({ commandId: "search-index" });
   });
 
   it.each([

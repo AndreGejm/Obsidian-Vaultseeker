@@ -24,6 +24,7 @@ export type CreateCodexReadOnlyToolImplementationsInput = {
   now?: () => string;
   searchNotesSemanticSearch?: SearchModalSemanticSearch | undefined;
   searchSourcesSemanticSearch?: SourceSearchModalSemanticSearch | undefined;
+  runVaultseerCommand?: (input: unknown) => Promise<unknown>;
 };
 
 type ParsedCodexStageSuggestionInput =
@@ -104,6 +105,7 @@ export function createCodexReadOnlyToolImplementations(
           : queryInput
       );
     },
+    ...(input.runVaultseerCommand === undefined ? {} : { runVaultseerCommand: input.runVaultseerCommand }),
     stageSuggestion: async (toolInput, context?: CodexProposalToolExecutionContext) => {
       const activePath = input.getActivePath();
       if (!activePath) {
