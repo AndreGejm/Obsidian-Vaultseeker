@@ -302,6 +302,51 @@ describe("buildActiveNoteContextPacket", () => {
     expect(packet.sourceExcerpts).toHaveLength(0);
   });
 
+  it("caps chunk heading path segments and segment text", () => {
+    const packet = buildActiveNoteContextPacket({
+      activePath: "Notes/VHDL.md",
+      notes: [note],
+      chunks: [
+        {
+          id: "chunk-1",
+          notePath: "Notes/VHDL.md",
+          headingPath: Array.from({ length: 12 }, (_, index) => `Heading ${index} ${"x".repeat(40)}`),
+          normalizedTextHash: "hash",
+          ordinal: 0,
+          text: "Chunk text"
+        }
+      ],
+      relatedNotes: [],
+      sourceExcerpts: [],
+      maxFieldCharacters: 12
+    });
+
+    expect(packet.noteChunks[0]?.headingPath).toHaveLength(8);
+    expect(packet.noteChunks[0]?.headingPath.every((segment) => segment.length <= 12)).toBe(true);
+  });
+
+  it("normalizes chunk heading path segment caps", () => {
+    const packet = buildActiveNoteContextPacket({
+      activePath: "Notes/VHDL.md",
+      notes: [note],
+      chunks: [
+        {
+          id: "chunk-1",
+          notePath: "Notes/VHDL.md",
+          headingPath: ["one", "two", "three"],
+          normalizedTextHash: "hash",
+          ordinal: 0,
+          text: "Chunk text"
+        }
+      ],
+      relatedNotes: [],
+      sourceExcerpts: [],
+      maxHeadingPathSegments: 1.5
+    });
+
+    expect(packet.noteChunks[0]?.headingPath).toHaveLength(1);
+  });
+
   it("keeps truncated note chunks and source excerpts within the requested character bound", () => {
     const maxChunkCharacters = 10;
     const packet = buildActiveNoteContextPacket({

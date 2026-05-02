@@ -8,6 +8,7 @@ const DEFAULT_MAX_RELATED_NOTES = 8;
 const DEFAULT_MAX_SOURCE_EXCERPTS = 8;
 const DEFAULT_MAX_CHUNK_CHARACTERS = 1200;
 const DEFAULT_MAX_FIELD_CHARACTERS = 240;
+const DEFAULT_MAX_HEADING_PATH_SEGMENTS = 8;
 
 export type BuildActiveNoteContextPacketInput = {
   activePath: string | null;
@@ -21,6 +22,7 @@ export type BuildActiveNoteContextPacketInput = {
   maxRelatedNotes?: number;
   maxSourceExcerpts?: number;
   maxFieldCharacters?: number;
+  maxHeadingPathSegments?: number;
 };
 
 export function buildActiveNoteContextPacket(input: BuildActiveNoteContextPacketInput): ActiveNoteContextPacket {
@@ -39,6 +41,7 @@ export function buildActiveNoteContextPacket(input: BuildActiveNoteContextPacket
   const maxRelatedNotes = normalizeLimit(input.maxRelatedNotes, DEFAULT_MAX_RELATED_NOTES);
   const maxSourceExcerpts = normalizeLimit(input.maxSourceExcerpts, DEFAULT_MAX_SOURCE_EXCERPTS);
   const maxFieldCharacters = normalizeLimit(input.maxFieldCharacters, DEFAULT_MAX_FIELD_CHARACTERS);
+  const maxHeadingPathSegments = normalizeLimit(input.maxHeadingPathSegments, DEFAULT_MAX_HEADING_PATH_SEGMENTS);
 
   return {
     status: "ready",
@@ -56,7 +59,9 @@ export function buildActiveNoteContextPacket(input: BuildActiveNoteContextPacket
       .slice(0, maxNoteChunks)
       .map((chunk) => ({
         chunkId: truncate(chunk.id, maxFieldCharacters),
-        headingPath: chunk.headingPath.map((segment) => truncate(segment, maxFieldCharacters)),
+        headingPath: chunk.headingPath
+          .slice(0, maxHeadingPathSegments)
+          .map((segment) => truncate(segment, maxFieldCharacters)),
         text: truncate(chunk.text, maxChunkCharacters)
       })),
     relatedNotes: input.relatedNotes.slice(0, maxRelatedNotes).map((relatedNote) => ({
