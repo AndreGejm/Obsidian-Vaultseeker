@@ -42,8 +42,9 @@ import type { SourceSearchModalSemanticSearch } from "./source-search-modal-quer
 import { activateVaultseerStudio, VAULTSEER_STUDIO_VIEW_TYPE, VaultseerStudioView } from "./studio-view";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 import { buildActiveNoteContextFromStore } from "./active-note-context-controller";
-import { NotConfiguredCodexChatAdapter } from "./codex-chat-adapter";
 import { createCodexReadOnlyToolImplementations } from "./codex-read-only-tool-implementations";
+import { NativeCodexAcpSessionClient } from "./native-codex-acp-session-client";
+import { createNativeStudioCodexChatAdapter } from "./studio-codex-chat-composition";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
@@ -64,6 +65,10 @@ export default class VaultseerPlugin extends Plugin {
     this.health = await this.store.getHealth();
     await this.recoverInterruptedQueuesOnStartup().catch(() => {
       new Notice("Vaultseer could not recover interrupted jobs.");
+    });
+    const nativeCodexClient = new NativeCodexAcpSessionClient({
+      getSettings: () => this.settings,
+      getVaultBasePath: () => getVaultBasePath(this.app)
     });
 
     this.addSettingTab(new VaultseerSettingTab(this.app, this));
@@ -124,13 +129,13 @@ export default class VaultseerPlugin extends Plugin {
           leaf,
           this.store,
           () => this.app.workspace.getActiveFile()?.path ?? null,
-          () => "stopped",
+          () => nativeCodexClient.getState().status,
           async () =>
             buildActiveNoteContextFromStore({
               store: this.store,
               activePath: this.app.workspace.getActiveFile()?.path ?? null
             }),
-          new NotConfiguredCodexChatAdapter(),
+          createNativeStudioCodexChatAdapter(nativeCodexClient),
           createCodexReadOnlyToolImplementations({
             store: this.store,
             getActivePath: () => this.app.workspace.getActiveFile()?.path ?? null,

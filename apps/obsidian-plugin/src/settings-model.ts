@@ -32,7 +32,7 @@ export const DEFAULT_SETTINGS: VaultseerSettings = {
   embeddingBatchSize: 8,
   sourceNoteFolder: DEFAULT_SOURCE_NOTE_FOLDER,
   nativeCodexEnabled: false,
-  codexCommand: "codex",
+  codexCommand: "codex-acp",
   codexWorkingDirectory: "",
   managedSourceFolder: DEFAULT_MANAGED_SOURCE_FOLDER,
   planFolder: DEFAULT_PLAN_FOLDER,

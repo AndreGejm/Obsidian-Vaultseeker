@@ -14,7 +14,7 @@ const defaultSettings = {
   embeddingBatchSize: 8,
   sourceNoteFolder: "Source Notes",
   nativeCodexEnabled: false,
-  codexCommand: "codex",
+  codexCommand: "codex-acp",
   codexWorkingDirectory: "",
   managedSourceFolder: "Sources",
   planFolder: "Plans",
