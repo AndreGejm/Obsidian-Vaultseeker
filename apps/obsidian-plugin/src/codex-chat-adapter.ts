@@ -1,4 +1,5 @@
 import type { ActiveNoteContextPacket } from "@vaultseer/core";
+import type { CodexChatToolRequest } from "./codex-chat-state";
 import { buildCodexPromptPacket, type CodexPromptPacket } from "./codex-prompt-packet";
 
 export type CodexChatAdapterRequest = {
@@ -8,7 +9,7 @@ export type CodexChatAdapterRequest = {
 
 export type CodexChatAdapterResponse = {
   content: string;
-  toolRequests: Array<{ tool: string; input: unknown }>;
+  toolRequests: CodexChatToolRequest[];
 };
 
 export interface CodexChatAdapter {

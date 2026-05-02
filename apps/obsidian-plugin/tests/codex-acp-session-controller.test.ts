@@ -190,8 +190,49 @@ describe("CodexAcpSessionController", () => {
     const response = await controller.send(promptPacket());
 
     expect(response.toolRequests).toEqual([
-      { tool: "search_notes", input: { query: "vhdl" } },
-      { tool: "inspect_current_note", input: null }
+      {
+        tool: "search_notes",
+        input: { query: "vhdl" },
+        toolCallId: "allowed-search",
+        sessionId: "session-a",
+        status: "pending"
+      },
+      {
+        tool: "inspect_current_note",
+        input: null,
+        toolCallId: "allowed-null",
+        sessionId: "session-a",
+        status: "requested"
+      }
+    ]);
+  });
+
+  it("threads pending tool call provenance into chat adapter responses", async () => {
+    const client = clientWithUpdates([
+      {
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "tool-read-1",
+        toolName: "search_notes",
+        status: "requested",
+        kind: "read",
+        rawInput: { query: "timing" }
+      }
+    ]);
+    const controller = new CodexAcpSessionController(client);
+
+    const response = await controller.send(promptPacket());
+
+    expect(response.toolRequests).toEqual([
+      {
+        tool: "search_notes",
+        input: { query: "timing" },
+        toolCallId: "tool-read-1",
+        sessionId: "session-a",
+        status: "requested",
+        kind: "read",
+        requestClass: "read"
+      }
     ]);
   });
 
@@ -216,7 +257,15 @@ describe("CodexAcpSessionController", () => {
       new CodexAcpSessionController(clientWithUpdates(updates), { includeProposalTools: true }).send(promptPacket())
     ).resolves.toEqual({
       content: "Codex did not return visible assistant text.",
-      toolRequests: [{ tool: "stage_suggestion", input: { kind: "tag", value: "vhdl" } }]
+      toolRequests: [
+        {
+          tool: "stage_suggestion",
+          input: { kind: "tag", value: "vhdl" },
+          toolCallId: "stage-1",
+          sessionId: "session-a",
+          status: "pending"
+        }
+      ]
     });
   });
 

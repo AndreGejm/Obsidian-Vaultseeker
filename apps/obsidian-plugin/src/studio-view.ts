@@ -10,11 +10,14 @@ import type {
 } from "@vaultseer/core";
 import {
   applyChatEvent,
+  createCodexChatSendScope,
   createEmptyChatState,
-  formatCodexToolRequestInputPreview,
+  isCurrentCodexChatSend,
+  type CodexChatSendScope,
   type CodexChatState
 } from "./codex-chat-state";
 import type { CodexChatAdapter } from "./codex-chat-adapter";
+import { buildCodexPendingToolRequestDisplayItems } from "./codex-pending-tool-request-display";
 import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 
@@ -218,6 +221,7 @@ export class VaultseerStudioView extends ItemView {
         type: "active_note_changed",
         activePath
       });
+      const sendScope = createCodexChatSendScope(this.chatState, sendId, activePath);
       this.chatState = applyChatEvent(this.chatState, {
         type: "user_message",
         content: message,
@@ -228,7 +232,7 @@ export class VaultseerStudioView extends ItemView {
       try {
         const context = await this.buildActiveNoteContext();
         const response = await this.chatAdapter.send({ message, context });
-        if (this.isCurrentChatSend(sendId, activePath)) {
+        if (this.isCurrentChatSend(sendScope)) {
           this.chatState = applyChatEvent(this.chatState, {
             type: "assistant_message",
             content: response.content,
@@ -237,7 +241,7 @@ export class VaultseerStudioView extends ItemView {
           });
         }
       } catch (error) {
-        if (this.isCurrentChatSend(sendId, activePath)) {
+        if (this.isCurrentChatSend(sendScope)) {
           this.chatState = applyChatEvent(this.chatState, {
             type: "error",
             message: getErrorMessage(error)
@@ -260,31 +264,33 @@ export class VaultseerStudioView extends ItemView {
     const pendingEl = containerEl.createDiv({ cls: "vaultseer-studio-chat-tool-requests" });
     pendingEl.createEl("h4", { text: "Requested actions" });
 
-    for (const request of this.chatState.pendingToolRequests) {
+    for (const request of buildCodexPendingToolRequestDisplayItems(this.chatState.pendingToolRequests)) {
       const requestEl = pendingEl.createDiv({ cls: "vaultseer-studio-chat-tool-request" });
       requestEl.createEl("strong", { text: request.tool });
       requestEl.createSpan({
-        text: ` - Pending review - ${formatCodexToolRequestInputPreview(request.input)}`
+        text: ` - ${request.statusLabel} - ${request.inputPreview}`
       });
 
-      const dismissButton = requestEl.createEl("button", {
-        text: "Dismiss",
-        attr: {
-          type: "button"
-        }
-      });
-      dismissButton.addEventListener("click", async () => {
-        this.chatState = applyChatEvent(this.chatState, {
-          type: "dismiss_tool_request",
-          id: request.id
+      for (const control of request.controls) {
+        const dismissButton = requestEl.createEl("button", {
+          text: control.label,
+          attr: {
+            type: "button"
+          }
         });
-        await this.refresh();
-      });
+        dismissButton.addEventListener("click", async () => {
+          this.chatState = applyChatEvent(this.chatState, {
+            type: "dismiss_tool_request",
+            displayId: control.displayId
+          });
+          await this.refresh();
+        });
+      }
     }
   }
 
-  private isCurrentChatSend(sendId: number, activePath: string | null): boolean {
-    return this.chatSendId === sendId && this.chatState.activePath === activePath && this.getActivePath() === activePath;
+  private isCurrentChatSend(scope: CodexChatSendScope): boolean {
+    return isCurrentCodexChatSend(this.chatState, this.getActivePath(), scope, this.chatSendId);
   }
 }
 

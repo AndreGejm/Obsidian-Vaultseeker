@@ -1,4 +1,5 @@
 import type { AcpCodexChatTransport, CodexChatAdapterResponse } from "./codex-chat-adapter";
+import type { CodexChatToolRequest } from "./codex-chat-state";
 import type { CodexAcpSessionUpdate } from "./codex-acp-session-update-normalizer";
 import { normalizeCodexAcpSessionUpdate } from "./codex-acp-session-update-normalizer";
 import type { CodexPromptPacket } from "./codex-prompt-packet";
@@ -78,14 +79,25 @@ function buildResponse(
           return [];
         }
 
-        return [
-          {
-            tool: toolCall.toolName,
-            input: toolCall.input
-          }
-        ];
+        return [chatToolRequestFromSessionToolCall(toolCall, state.sessionId)];
       })
   };
+}
+
+function chatToolRequestFromSessionToolCall(
+  toolCall: CodexSessionToolCall & { toolName: string },
+  sessionId: string | null
+): CodexChatToolRequest {
+  const request: CodexChatToolRequest = {
+    tool: toolCall.toolName,
+    input: toolCall.input
+  };
+  assignOptional(request, "toolCallId", toolCall.toolCallId);
+  assignOptional(request, "sessionId", sessionId ?? undefined);
+  assignOptional(request, "status", toolCall.status);
+  assignOptional(request, "kind", toolCall.kind);
+  assignOptional(request, "requestClass", toolCall.kind);
+  return request;
 }
 
 function visibleAssistantContent(state: CodexSessionState): string {
@@ -154,4 +166,10 @@ function safeStringifyProcessError(error: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assignOptional<T extends object, K extends keyof T>(target: T, key: K, value: T[K] | undefined): void {
+  if (value !== undefined) {
+    target[key] = value;
+  }
 }

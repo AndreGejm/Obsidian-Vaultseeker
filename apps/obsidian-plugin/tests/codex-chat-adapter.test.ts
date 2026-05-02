@@ -7,7 +7,17 @@ describe("AcpCodexChatAdapter", () => {
     const transport = {
       send: vi.fn(async () => ({
         content: "Try a vhdl/timing tag.",
-        toolRequests: [{ tool: "stage_suggestion", input: { kind: "tag", value: "vhdl/timing" } }]
+        toolRequests: [
+          {
+            tool: "stage_suggestion",
+            input: { kind: "tag", value: "vhdl/timing" },
+            toolCallId: "tool-call-1",
+            sessionId: "session-a",
+            status: "requested",
+            kind: "proposal",
+            requestClass: "proposal"
+          }
+        ]
       }))
     };
     const adapter = new AcpCodexChatAdapter(transport);
@@ -34,7 +44,17 @@ describe("AcpCodexChatAdapter", () => {
     expect(transport.send.mock.calls[0]?.[0].agentContent).toContain('"path": "Notes/VHDL.md"');
     expect(response).toEqual({
       content: "Try a vhdl/timing tag.",
-      toolRequests: [{ tool: "stage_suggestion", input: { kind: "tag", value: "vhdl/timing" } }]
+      toolRequests: [
+        {
+          tool: "stage_suggestion",
+          input: { kind: "tag", value: "vhdl/timing" },
+          toolCallId: "tool-call-1",
+          sessionId: "session-a",
+          status: "requested",
+          kind: "proposal",
+          requestClass: "proposal"
+        }
+      ]
     });
   });
 

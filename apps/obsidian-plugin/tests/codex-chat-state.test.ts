@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { applyChatEvent, createEmptyChatState, formatCodexToolRequestInputPreview } from "../src/codex-chat-state";
+import {
+  applyChatEvent,
+  createCodexChatSendScope,
+  createEmptyChatState,
+  formatCodexToolRequestInputPreview,
+  isCurrentCodexChatSend
+} from "../src/codex-chat-state";
 
 describe("codex chat state", () => {
   it("keeps chat messages ephemeral and active-note scoped", () => {
@@ -91,18 +97,52 @@ describe("codex chat state", () => {
 
     expect(state.pendingToolRequests).toEqual([
       {
-        id: "codex-tool-request-1-1",
+        displayId: "codex-tool-request-1-1",
         tool: "inspect_current_note",
         input: null,
         createdAt: "2026-05-02T12:00:01.000Z",
-        status: "pending_review"
+        reviewStatus: "pending_review"
       },
       {
-        id: "codex-tool-request-1-2",
+        displayId: "codex-tool-request-1-2",
         tool: "search_notes",
         input: { query: "timing", limit: 3 },
         createdAt: "2026-05-02T12:00:01.000Z",
-        status: "pending_review"
+        reviewStatus: "pending_review"
+      }
+    ]);
+  });
+
+  it("preserves external tool request provenance separately from the local display id", () => {
+    const state = applyChatEvent(createEmptyChatState("Notes/VHDL.md"), {
+      type: "assistant_message",
+      content: "I can inspect the current note.",
+      createdAt: "2026-05-02T12:00:01.000Z",
+      toolRequests: [
+        {
+          tool: "inspect_current_note",
+          input: null,
+          toolCallId: "tool-call-1",
+          sessionId: "session-a",
+          status: "requested",
+          kind: "read",
+          requestClass: "read"
+        }
+      ]
+    });
+
+    expect(state.pendingToolRequests).toEqual([
+      {
+        displayId: "codex-tool-request-1-1",
+        toolCallId: "tool-call-1",
+        sessionId: "session-a",
+        status: "requested",
+        kind: "read",
+        requestClass: "read",
+        tool: "inspect_current_note",
+        input: null,
+        createdAt: "2026-05-02T12:00:01.000Z",
+        reviewStatus: "pending_review"
       }
     ]);
   });
@@ -135,16 +175,16 @@ describe("codex chat state", () => {
 
     state = applyChatEvent(state, {
       type: "dismiss_tool_request",
-      id: "codex-tool-request-1-1"
+      displayId: "codex-tool-request-1-1"
     });
 
     expect(state.pendingToolRequests).toEqual([
       {
-        id: "codex-tool-request-1-2",
+        displayId: "codex-tool-request-1-2",
         tool: "search_notes",
         input: { query: "timing" },
         createdAt: "2026-05-02T12:00:01.000Z",
-        status: "pending_review"
+        reviewStatus: "pending_review"
       }
     ]);
   });
@@ -181,5 +221,16 @@ describe("codex chat state", () => {
       '{"query":"timing","limit":3}'
     );
     expect(formatCodexToolRequestInputPreview("x".repeat(120))).toBe(`${"x".repeat(77)}...`);
+  });
+
+  it("invalidates an in-flight send scope when the active note changes away and back", () => {
+    let state = createEmptyChatState("Notes/VHDL.md");
+    const sendScope = createCodexChatSendScope(state, 1, "Notes/VHDL.md");
+
+    state = applyChatEvent(state, { type: "active_note_changed", activePath: "Notes/C++.md" });
+    state = applyChatEvent(state, { type: "active_note_changed", activePath: "Notes/VHDL.md" });
+
+    expect(state.activePath).toBe("Notes/VHDL.md");
+    expect(isCurrentCodexChatSend(state, "Notes/VHDL.md", sendScope)).toBe(false);
   });
 });

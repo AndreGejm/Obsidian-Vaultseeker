@@ -7,22 +7,39 @@ export type CodexChatMessage = {
 export type CodexChatToolRequest = {
   tool: string;
   input: unknown;
+  toolCallId?: string;
+  sessionId?: string;
+  status?: string;
+  requestClass?: string;
+  kind?: string;
 };
 
 export type CodexPendingToolRequest = {
-  id: string;
+  displayId: string;
   tool: string;
   input: unknown;
   createdAt: string | undefined;
-  status: "pending_review";
+  reviewStatus: "pending_review";
+  toolCallId?: string;
+  sessionId?: string;
+  status?: string;
+  requestClass?: string;
+  kind?: string;
 };
 
 export type CodexChatState = {
   activePath: string | null;
+  chatScopeId: number;
   messages: CodexChatMessage[];
   pendingToolRequests: CodexPendingToolRequest[];
   persistToVault: false;
   error: string | null;
+};
+
+export type CodexChatSendScope = {
+  sendId: number;
+  activePath: string | null;
+  chatScopeId: number;
 };
 
 export type CodexChatEvent =
@@ -30,17 +47,44 @@ export type CodexChatEvent =
   | { type: "assistant_message"; content: string; createdAt: string; toolRequests?: CodexChatToolRequest[] }
   | { type: "error"; message: string }
   | { type: "active_note_changed"; activePath: string | null }
-  | { type: "dismiss_tool_request"; id: string }
+  | { type: "dismiss_tool_request"; displayId: string }
   | { type: "clear" };
 
-export function createEmptyChatState(activePath: string | null): CodexChatState {
+export function createEmptyChatState(activePath: string | null, chatScopeId = 0): CodexChatState {
   return {
     activePath,
+    chatScopeId,
     messages: [],
     pendingToolRequests: [],
     persistToVault: false,
     error: null
   };
+}
+
+export function createCodexChatSendScope(
+  state: CodexChatState,
+  sendId: number,
+  activePath: string | null
+): CodexChatSendScope {
+  return {
+    sendId,
+    activePath,
+    chatScopeId: state.chatScopeId
+  };
+}
+
+export function isCurrentCodexChatSend(
+  state: CodexChatState,
+  currentActivePath: string | null,
+  scope: CodexChatSendScope,
+  currentSendId = scope.sendId
+): boolean {
+  return (
+    currentSendId === scope.sendId &&
+    state.chatScopeId === scope.chatScopeId &&
+    state.activePath === scope.activePath &&
+    currentActivePath === scope.activePath
+  );
 }
 
 export function applyChatEvent(state: CodexChatState, event: CodexChatEvent): CodexChatState {
@@ -60,13 +104,13 @@ export function applyChatEvent(state: CodexChatState, event: CodexChatEvent): Co
         return state;
       }
 
-      return createEmptyChatState(event.activePath);
+      return createEmptyChatState(event.activePath, state.chatScopeId + 1);
     case "dismiss_tool_request": {
-      const pendingToolRequests = state.pendingToolRequests.filter((request) => request.id !== event.id);
+      const pendingToolRequests = state.pendingToolRequests.filter((request) => request.displayId !== event.displayId);
       return pendingToolRequests.length === state.pendingToolRequests.length ? state : { ...state, pendingToolRequests };
     }
     case "clear":
-      return createEmptyChatState(state.activePath);
+      return createEmptyChatState(state.activePath, state.chatScopeId + 1);
   }
 }
 
@@ -104,15 +148,30 @@ function appendPendingToolRequests(
     ...state,
     pendingToolRequests: [
       ...state.pendingToolRequests,
-      ...toolRequests.map((request, index) => ({
-        id: `codex-tool-request-${messageOrdinal}-${index + 1}`,
-        tool: request.tool,
-        input: request.input,
-        createdAt,
-        status: "pending_review" as const
-      }))
+      ...toolRequests.map((request, index) => pendingToolRequestFromChatRequest(request, createdAt, messageOrdinal, index))
     ]
   };
+}
+
+function pendingToolRequestFromChatRequest(
+  request: CodexChatToolRequest,
+  createdAt: string | undefined,
+  messageOrdinal: number,
+  index: number
+): CodexPendingToolRequest {
+  const pendingRequest: CodexPendingToolRequest = {
+    displayId: `codex-tool-request-${messageOrdinal}-${index + 1}`,
+    tool: request.tool,
+    input: request.input,
+    createdAt,
+    reviewStatus: "pending_review"
+  };
+  assignOptional(pendingRequest, "toolCallId", request.toolCallId);
+  assignOptional(pendingRequest, "sessionId", request.sessionId);
+  assignOptional(pendingRequest, "status", request.status);
+  assignOptional(pendingRequest, "requestClass", request.requestClass);
+  assignOptional(pendingRequest, "kind", request.kind);
+  return pendingRequest;
 }
 
 export function formatCodexToolRequestInputPreview(input: unknown): string {
@@ -143,5 +202,11 @@ function stringifyToolRequestInput(input: unknown): string {
     return JSON.stringify(input) ?? String(input);
   } catch {
     return String(input);
+  }
+}
+
+function assignOptional<T extends object, K extends keyof T>(target: T, key: K, value: T[K] | undefined): void {
+  if (value !== undefined) {
+    target[key] = value;
   }
 }
