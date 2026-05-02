@@ -25,47 +25,52 @@ Vaultseer does not create missing folders during source-note apply. If the confi
 4. Run `Vaultseer: Open native Studio`.
    - Expected: Studio opens in a side pane and shows the current note label.
    - Verify: switch between Obsidian notes; Studio should follow the active note without writing files.
-5. In Studio, open Chat mode.
+5. Run `Vaultseer: Check native Codex setup`.
+   - Expected: if native Codex is enabled and available, the notice says Vaultseer native Codex is ready and shows the command plus working folder.
+   - Verify: the reported working folder is the vault folder or the folder configured in Vaultseer settings.
+   - Recovery: enable native Codex in Vaultseer settings, set the Codex command to `codex-acp` or the full local command path, and leave the working directory blank to use the vault folder as the default.
+   - Limit: this check does not start Codex or prove the ACP handshake; the first Studio chat message is still the live startup test.
+6. In Studio, open Chat mode.
    - Expected: chat accepts a message when native Codex is enabled and `codex-acp` can start from the configured working directory. If Codex is stopped, the first sent message starts the native session. If Codex is disabled, starting, stopping, or failed, Chat mode explains that state.
    - Verify: no Markdown file changes occur, Codex tool requests appear as explicit requested actions, and chat history clears when the active note changes.
    - Recovery: enable native Codex in Vaultseer settings, set the Codex command to `codex-acp` or the full local command path, and leave the working directory blank to use the vault folder as the default.
-6. In Studio, open Note mode before staging any proposal.
+7. In Studio, open Note mode before staging any proposal.
    - Expected: it says there are no current-note proposals to review.
    - Verify: it does not claim an inline-reviewable change exists until a proposal is actually staged.
-7. Run `Vaultseer: Open read-only workbench` on a note that has suggested tags.
+8. Run `Vaultseer: Open read-only workbench` on a note that has suggested tags.
    - Expected: the workbench shows suggested tags and a `Stage tag review` button.
    - Verify: pressing `Stage tag review` stores a guarded tag-update proposal and reports that no note was changed.
-8. Open Studio Note mode on that same note.
+9. Open Studio Note mode on that same note.
    - Expected: the staged tag proposal is labeled as current-note inline-reviewable guidance.
    - Verify: approval and apply still happen through the guarded write review queue.
-9. Run `Vaultseer: Open guarded write review queue`.
+10. Run `Vaultseer: Open guarded write review queue`.
    - Expected: the tag-update proposal appears as `Update note tags`.
    - Verify: the preview diff shows the proposed frontmatter change.
-10. Approve the tag-update proposal, then press `Apply tag update`.
+11. Approve the tag-update proposal, then press `Apply tag update`.
    - Expected: Vaultseer updates the note tags and records an applied result.
    - Verify: the note frontmatter contains the added tag, the queue shows an applied record, and pressing apply again is disabled.
-11. Open a note that has an unresolved link matching an existing note title or alias, then run `Vaultseer: Open read-only workbench`.
+12. Open a note that has an unresolved link matching an existing note title or alias, then run `Vaultseer: Open read-only workbench`.
    - Expected: the workbench shows suggested links and a `Stage link review` button.
    - Verify: pressing `Stage link review` stores a guarded link-update proposal and reports that no note was changed.
-12. Open Studio Note mode on that same note.
+13. Open Studio Note mode on that same note.
    - Expected: the staged link proposal is routed to the guarded review queue, not labeled inline-safe.
    - Verify: no inline link apply control appears.
-13. Run `Vaultseer: Open guarded write review queue`.
+14. Run `Vaultseer: Open guarded write review queue`.
    - Expected: the link-update proposal appears as `Update note links`.
    - Verify: the preview diff shows the proposed wiki-link replacement, but apply is not available for this operation yet.
-14. Open or choose a text/code source file and run one source intake command:
+15. Open or choose a text/code source file and run one source intake command:
    - `Vaultseer: Import active text/code file as source workspace`
    - `Vaultseer: Choose text/code file to import as source workspace`
    - Expected: a source workspace is stored.
-15. Run `Vaultseer: Search stored source workspaces`.
+16. Run `Vaultseer: Search stored source workspaces`.
    - Expected: the imported source appears in search results.
    - Verify: opening the source preview shows extracted text and a deterministic note proposal.
-16. From the source preview, review the source-note creation proposal.
+17. From the source preview, review the source-note creation proposal.
    - Expected: the preview shows the target path, source provenance, linked suggestions, and an added-file diff.
    - Verify: no Markdown note is created at this point.
-17. Run `Vaultseer: Open guarded write review queue`.
+18. Run `Vaultseer: Open guarded write review queue`.
    - Expected: the stored source-note write proposal appears.
-18. Approve the source-note proposal, then press `Create note`.
+19. Approve the source-note proposal, then press `Create note`.
    - Expected: Vaultseer creates exactly one new Markdown note at the target path and records an applied result.
    - Verify: the note exists in Obsidian, the queue shows an applied record, and pressing create again is disabled.
 

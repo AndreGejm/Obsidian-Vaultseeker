@@ -44,6 +44,12 @@ import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWor
 import { buildActiveNoteContextFromStore } from "./active-note-context-controller";
 import { createCodexReadOnlyToolImplementations } from "./codex-read-only-tool-implementations";
 import { NativeCodexAcpSessionClient } from "./native-codex-acp-session-client";
+import {
+  buildNativeCodexSetupSummary,
+  formatNativeCodexSetupNotice,
+  nativeCodexCommandExists,
+  nativeCodexPathExists
+} from "./native-codex-setup-check";
 import { createNativeStudioCodexChatAdapter } from "./studio-codex-chat-composition";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
@@ -270,6 +276,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Open native Studio",
       callback: async () => {
         await this.openStudio();
+      }
+    });
+
+    this.addCommand({
+      id: "check-native-codex-setup",
+      name: "Check native Codex setup",
+      callback: async () => {
+        await this.showNativeCodexSetupCheck();
       }
     });
 
@@ -533,6 +547,17 @@ export default class VaultseerPlugin extends Plugin {
     if (!leaf) {
       new Notice("Vaultseer could not open Studio.");
     }
+  }
+
+  async showNativeCodexSetupCheck(): Promise<void> {
+    const summary = await buildNativeCodexSetupSummary({
+      settings: this.settings,
+      vaultBasePath: getVaultBasePath(this.app),
+      commandExists: nativeCodexCommandExists,
+      pathExists: nativeCodexPathExists
+    });
+
+    new Notice(formatNativeCodexSetupNotice(summary), 10_000);
   }
 
   async planSemanticIndex(): Promise<void> {

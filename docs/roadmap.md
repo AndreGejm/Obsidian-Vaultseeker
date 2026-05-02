@@ -228,13 +228,14 @@ Exit gate:
 
 ## Phase 6.5: Native Studio Codex Chat
 
-Status: implemented for limited local use. Vaultseer Studio opens as a current-note-first Obsidian view, has ephemeral active-note-scoped chat state, a controlled Codex tool dispatcher, native Codex settings, and a native `codex-acp` stdio/session client. The chat adapter sends the user message plus the active-note context packet only when context is ready, returns a visible blocked-context message when context is not ready, and hides raw transport error details from assistant-visible chat content. The native ACP client starts lazily on first chat send, uses the vault folder as the working-directory fallback, creates one reusable ACP session, disables ACP filesystem and terminal client capabilities, and rejects ACP permission requests by default.
+Status: implemented for limited local use. Vaultseer Studio opens as a current-note-first Obsidian view, has ephemeral active-note-scoped chat state, a controlled Codex tool dispatcher, native Codex settings, a native setup-check command, and a native `codex-acp` stdio/session client. The chat adapter sends the user message plus the active-note context packet only when context is ready, returns a visible blocked-context message when context is not ready, and hides raw transport error details from assistant-visible chat content. The setup check verifies whether native Codex is enabled, whether the configured command can be found, and whether the configured or fallback working folder exists without starting Codex or proving the ACP handshake. The native ACP client starts lazily on first chat send, uses the vault folder as the working-directory fallback, creates one reusable ACP session, disables ACP filesystem and terminal client capabilities, and rejects ACP permission requests by default.
 
 Goal: let Vaultseer become the native place to ask Codex about the active note while preserving Obsidian as the editor and keeping all durable output behind proposals.
 
 Implementation steps:
 
 - model native Codex runtime states and settings (**implemented**)
+- add native Codex setup diagnostics before live chat startup (**implemented as a command-palette command and settings button that check command and working folder without starting Codex**)
 - keep chat history ephemeral and scoped to the active note (**implemented**)
 - define a controlled tool dispatcher for current-note inspection, note search, source search, and suggestion staging (**implemented as an allowlist with explicit Run/Stage/Dismiss controls**)
 - study Obsidian Agent Client and Codex ACP before wiring real transport (**implemented in `docs/reuse/native-codex-acp-adaptation.md`**)

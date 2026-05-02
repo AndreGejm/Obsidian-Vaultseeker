@@ -80,6 +80,15 @@ export class VaultseerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Native Codex setup")
+      .setDesc("Checks the command and working folder without starting Codex.")
+      .addButton((button) =>
+        button.setButtonText("Check setup").onClick(async () => {
+          await this.plugin.showNativeCodexSetupCheck();
+        })
+      );
+
+    new Setting(containerEl)
       .setName("Managed source folder")
       .setDesc(
         "Vault folder for managed sources in experimental Windows native Studio workflows. Writes still require approval."
