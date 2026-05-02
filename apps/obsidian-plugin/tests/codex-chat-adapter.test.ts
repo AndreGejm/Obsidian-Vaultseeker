@@ -16,10 +16,21 @@ describe("AcpCodexChatAdapter", () => {
     const response = await adapter.send({ message: "Suggest a tag", context });
 
     expect(transport.send).toHaveBeenCalledTimes(1);
-    expect(transport.send).toHaveBeenCalledWith({
-      message: "Suggest a tag",
-      context
-    });
+    expect(transport.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        displayContent: "Suggest a tag",
+        contextSummary: expect.objectContaining({
+          notePath: "Notes/VHDL.md",
+          noteTitle: "VHDL",
+          noteChunkCount: 1,
+          relatedNoteCount: 1,
+          sourceExcerptCount: 1
+        })
+      })
+    );
+    expect(transport.send.mock.calls[0]?.[0].agentContent).toContain("User Message");
+    expect(transport.send.mock.calls[0]?.[0].agentContent).toContain("Suggest a tag");
+    expect(transport.send.mock.calls[0]?.[0].agentContent).toContain("Path: Notes/VHDL.md");
     expect(response).toEqual({
       content: "Try a vhdl/timing tag.",
       toolRequests: [{ tool: "stage_suggestion", input: { kind: "tag", value: "vhdl/timing" } }]

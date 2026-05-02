@@ -1,4 +1,5 @@
 import type { ActiveNoteContextPacket } from "@vaultseer/core";
+import { buildCodexPromptPacket, type CodexPromptPacket } from "./codex-prompt-packet";
 
 export type CodexChatAdapterRequest = {
   message: string;
@@ -15,7 +16,7 @@ export interface CodexChatAdapter {
 }
 
 export interface AcpCodexChatTransport {
-  send(request: CodexChatAdapterRequest): Promise<CodexChatAdapterResponse>;
+  send(request: CodexPromptPacket): Promise<CodexChatAdapterResponse>;
 }
 
 export class AcpCodexChatAdapter implements CodexChatAdapter {
@@ -30,10 +31,7 @@ export class AcpCodexChatAdapter implements CodexChatAdapter {
     }
 
     try {
-      return await this.transport.send({
-        message: request.message,
-        context: request.context
-      });
+      return await this.transport.send(buildCodexPromptPacket(request));
     } catch {
       return {
         content: "Codex chat could not respond. Check the native Codex connection, then retry.",
