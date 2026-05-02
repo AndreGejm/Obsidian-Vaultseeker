@@ -59,6 +59,7 @@ export {
 } from "./semantic/embedding-queue";
 export { runEmbeddingWorkerBatch, runSourceEmbeddingWorkerBatch } from "./semantic/embedding-worker";
 export { searchSemanticVectors } from "./semantic/semantic-search";
+export { buildStudioState } from "./studio/studio-state";
 export type {
   AdapterMetadata,
   HeadingInput,
@@ -212,3 +213,12 @@ export type {
   RunSourceExtractionWorkerBatchInput,
   SourceExtractionWorkerBatchSummary
 } from "./source/source-extraction-worker";
+export type {
+  BuildStudioStateInput,
+  CodexRuntimeStatus,
+  StudioCurrentNoteStatus,
+  StudioModeId,
+  StudioModeStatus,
+  StudioModeSummary,
+  StudioState
+} from "./studio/types";
