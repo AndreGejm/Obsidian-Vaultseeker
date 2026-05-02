@@ -45,6 +45,7 @@ export class VaultseerStudioView extends ItemView {
     private readonly store: VaultseerStore,
     private readonly getActivePath: () => string | null,
     private readonly getCodexRuntimeStatus: () => CodexRuntimeStatus,
+    private readonly resetCodexSession: () => Promise<void>,
     private readonly buildActiveNoteContext: () => Promise<ActiveNoteContextPacket>,
     private readonly chatAdapter: CodexChatAdapter,
     private readonly codexTools: CodexToolImplementations
@@ -190,6 +191,22 @@ export class VaultseerStudioView extends ItemView {
   }
 
   private renderChatMode(containerEl: HTMLElement): void {
+    const controlsEl = containerEl.createDiv({ cls: "vaultseer-studio-chat-controls" });
+    const resetButton = controlsEl.createEl("button", {
+      text: "Reset Codex",
+      attr: {
+        type: "button"
+      }
+    });
+    resetButton.disabled = this.chatSending;
+    resetButton.addEventListener("click", async () => {
+      this.chatSendId += 1;
+      this.chatSending = false;
+      this.chatState = applyChatEvent(this.chatState, { type: "clear" });
+      await this.resetCodexSession();
+      await this.refresh();
+    });
+
     const messagesEl = containerEl.createDiv({ cls: "vaultseer-studio-chat-messages" });
 
     if (this.chatState.messages.length === 0) {

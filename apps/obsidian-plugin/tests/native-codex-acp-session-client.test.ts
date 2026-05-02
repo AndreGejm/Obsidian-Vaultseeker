@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NativeCodexAcpSessionClient, type NativeCodexAcpConnectionFactory } from "../src/native-codex-acp-session-client";
 import type { NativeCodexProcessSettings } from "../src/codex-process-manager";
 
 describe("NativeCodexAcpSessionClient", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("exposes the native Codex process settings used by the client", () => {
     const client = new NativeCodexAcpSessionClient({
       getSettings: () =>
@@ -206,6 +210,119 @@ describe("NativeCodexAcpSessionClient", () => {
       processId: null
     });
   });
+
+  it("times out stalled startup, disposes the active connection, and records failed state", async () => {
+    vi.useFakeTimers();
+    const fake = createFakeConnection();
+    fake.initialize.mockImplementationOnce(() => new Promise(() => undefined));
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: async () => fake.connection,
+      startupTimeoutMs: 100
+    });
+
+    const sessionPromise = client.ensureSession();
+    const rejection = expect(sessionPromise).rejects.toThrow("Native Codex startup timed out after 100ms");
+    await vi.advanceTimersByTimeAsync(100);
+
+    await rejection;
+    expect(fake.dispose).toHaveBeenCalledTimes(1);
+    expect(client.getState()).toEqual({
+      status: "failed",
+      message: "Native Codex startup timed out after 100ms.",
+      processId: null
+    });
+  });
+
+  it("times out stalled prompts, disposes the connection, and records failed state", async () => {
+    vi.useFakeTimers();
+    const fake = createFakeConnection();
+    fake.prompt.mockImplementationOnce(() => new Promise(() => undefined));
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: async () => fake.connection,
+      promptTimeoutMs: 100
+    });
+
+    const session = await client.ensureSession();
+    const promptPromise = client.sendPrompt({ sessionId: session.sessionId, prompt: "hang" });
+    const rejection = expect(promptPromise).rejects.toThrow("Native Codex prompt timed out after 100ms");
+    await vi.advanceTimersByTimeAsync(100);
+
+    await rejection;
+    expect(fake.dispose).toHaveBeenCalledTimes(1);
+    expect(client.getState()).toEqual({
+      status: "failed",
+      message: "Native Codex prompt timed out after 100ms.",
+      processId: null
+    });
+  });
+
+  it("resets an initialized session by disposing the connection and starting fresh next time", async () => {
+    const first = createFakeConnection({ sessionId: "session-a", processId: 101 });
+    const second = createFakeConnection({ sessionId: "session-b", processId: 202 });
+    const createConnection = vi.fn<NativeCodexAcpConnectionFactory>()
+      .mockResolvedValueOnce(first.connection)
+      .mockResolvedValueOnce(second.connection);
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection
+    });
+
+    await expect(client.ensureSession()).resolves.toEqual({ sessionId: "session-a" });
+    expect(client.getState()).toEqual({
+      status: "running",
+      message: "Codex is running.",
+      processId: 101
+    });
+
+    await client.resetSession();
+
+    expect(first.dispose).toHaveBeenCalledTimes(1);
+    expect(client.getState()).toEqual({
+      status: "stopped",
+      message: "Codex is stopped.",
+      processId: null
+    });
+
+    await expect(client.ensureSession()).resolves.toEqual({ sessionId: "session-b" });
+    expect(createConnection).toHaveBeenCalledTimes(2);
+    expect(client.getState()).toEqual({
+      status: "running",
+      message: "Codex is running.",
+      processId: 202
+    });
+  });
+
+  it("keeps reset state when an abandoned startup later times out", async () => {
+    vi.useFakeTimers();
+    const fake = createFakeConnection({ processId: 101 });
+    fake.initialize.mockImplementationOnce(() => new Promise(() => undefined));
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: async () => fake.connection,
+      startupTimeoutMs: 100
+    });
+
+    const sessionPromise = client.ensureSession();
+    const rejection = expect(sessionPromise).rejects.toThrow("Native Codex startup timed out after 100ms");
+    await Promise.resolve();
+
+    await client.resetSession();
+    await vi.advanceTimersByTimeAsync(100);
+    await rejection;
+
+    expect(fake.dispose).toHaveBeenCalledTimes(1);
+    expect(client.getState()).toEqual({
+      status: "stopped",
+      message: "Codex is stopped.",
+      processId: null
+    });
+  });
 });
 
 function settings(overrides: Partial<NativeCodexProcessSettings> = {}): NativeCodexProcessSettings {
@@ -217,25 +334,30 @@ function settings(overrides: Partial<NativeCodexProcessSettings> = {}): NativeCo
   };
 }
 
-function createFakeConnection(): {
+function createFakeConnection(options: { sessionId?: string; processId?: number | null } = {}): {
   connection: Awaited<ReturnType<NativeCodexAcpConnectionFactory>>;
   initialize: ReturnType<typeof vi.fn>;
   newSession: ReturnType<typeof vi.fn>;
   prompt: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
   handler: any;
 } {
   const initialize = vi.fn(async () => ({ protocolVersion: 1 }));
-  const newSession = vi.fn(async () => ({ sessionId: "session-a" }));
+  const newSession = vi.fn(async () => ({ sessionId: options.sessionId ?? "session-a" }));
   const prompt = vi.fn(async () => ({ stopReason: "end_turn" }));
+  const dispose = vi.fn(async () => undefined);
   return {
     connection: {
       initialize,
       newSession,
-      prompt
+      prompt,
+      dispose,
+      processId: options.processId ?? null
     },
     initialize,
     newSession,
     prompt,
+    dispose,
     handler: null
   };
 }

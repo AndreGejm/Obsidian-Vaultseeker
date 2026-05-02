@@ -64,6 +64,7 @@ export default class VaultseerPlugin extends Plugin {
   private readonly dataStore = new VaultseerPluginDataStore(this);
   private store!: VaultseerStore;
   private health: IndexHealth | null = null;
+  private nativeCodexClient: NativeCodexAcpSessionClient | null = null;
 
   async onload(): Promise<void> {
     this.settings = await this.dataStore.loadSettings();
@@ -76,6 +77,7 @@ export default class VaultseerPlugin extends Plugin {
       getSettings: () => this.settings,
       getVaultBasePath: () => getVaultBasePath(this.app)
     });
+    this.nativeCodexClient = nativeCodexClient;
 
     this.addSettingTab(new VaultseerSettingTab(this.app, this));
     this.registerView(
@@ -136,6 +138,9 @@ export default class VaultseerPlugin extends Plugin {
           this.store,
           () => this.app.workspace.getActiveFile()?.path ?? null,
           () => nativeCodexClient.getState().status,
+          async () => {
+            await this.resetNativeCodexSession();
+          },
           async () =>
             buildActiveNoteContextFromStore({
               store: this.store,
@@ -284,6 +289,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Check native Codex setup",
       callback: async () => {
         await this.showNativeCodexSetupCheck();
+      }
+    });
+
+    this.addCommand({
+      id: "reset-native-codex-session",
+      name: "Reset native Codex session",
+      callback: async () => {
+        await this.resetNativeCodexSession();
       }
     });
 
@@ -542,6 +555,11 @@ export default class VaultseerPlugin extends Plugin {
     }
   }
 
+  onunload(): void {
+    void this.nativeCodexClient?.dispose();
+    this.nativeCodexClient = null;
+  }
+
   async openStudio(): Promise<void> {
     const leaf = await activateVaultseerStudio(this.app);
     if (!leaf) {
@@ -558,6 +576,12 @@ export default class VaultseerPlugin extends Plugin {
     });
 
     new Notice(formatNativeCodexSetupNotice(summary), 10_000);
+  }
+
+  async resetNativeCodexSession(): Promise<void> {
+    await this.nativeCodexClient?.resetSession();
+    new Notice("Vaultseer reset the native Codex session.");
+    await this.refreshVaultseerViews();
   }
 
   async planSemanticIndex(): Promise<void> {

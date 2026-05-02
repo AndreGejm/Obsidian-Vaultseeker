@@ -16,6 +16,8 @@ export type NativeCodexAcpConnection = {
   initialize(input: unknown): Promise<unknown>;
   newSession(input: { cwd: string; mcpServers: unknown[] }): Promise<{ sessionId: string }>;
   prompt(input: { sessionId: string; prompt: Array<{ type: "text"; text: string }> }): Promise<{ stopReason?: string }>;
+  dispose?: () => Promise<void> | void;
+  processId?: number | null;
 };
 
 export type NativeCodexAcpClientHandler = {
@@ -31,6 +33,7 @@ export type NativeCodexAcpConnectionFactoryOptions = {
   command: string;
   cwd: string;
   handler: NativeCodexAcpClientHandler;
+  onProcessFailure?: (message: string) => void;
 };
 
 export type NativeCodexAcpConnectionFactory = (
@@ -41,6 +44,8 @@ export type NativeCodexAcpSessionClientOptions = {
   getSettings: () => NativeCodexProcessSettings;
   getVaultBasePath: () => string | null;
   createConnection?: NativeCodexAcpConnectionFactory;
+  startupTimeoutMs?: number;
+  promptTimeoutMs?: number;
 };
 
 type NativeCodexAcpSessionNotification = {
@@ -66,11 +71,8 @@ const STARTING_STATE: CodexRuntimeState = {
   processId: null
 };
 
-const RUNNING_STATE: CodexRuntimeState = {
-  status: "running",
-  message: "Codex is running.",
-  processId: null
-};
+const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
+const DEFAULT_PROMPT_TIMEOUT_MS = 10 * 60 * 1000;
 
 export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
   private connection: NativeCodexAcpConnection | null = null;
@@ -78,6 +80,7 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
   private sessionPromise: Promise<CodexAcpSessionHandle> | null = null;
   private state: CodexRuntimeState = STOPPED_STATE;
   private readonly listenersBySessionId = new Map<string, Set<CodexAcpSessionUpdateListener>>();
+  private generation = 0;
 
   constructor(private readonly options: NativeCodexAcpSessionClientOptions) {}
 
@@ -109,21 +112,31 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
       throw new Error(DISABLED_STATE.message);
     }
 
+    const generation = this.generation;
     this.state = STARTING_STATE;
-    this.sessionPromise = this.startSession(settings);
+    this.sessionPromise = withTimeout(
+      this.startSession(settings),
+      this.options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS,
+      "Native Codex startup"
+    );
 
     try {
       this.session = await this.sessionPromise;
-      this.state = RUNNING_STATE;
+      if (this.generation !== generation) {
+        throw new Error("Native Codex session was reset while starting.");
+      }
+      this.state = runningState(this.connection);
       return this.session;
     } catch (error) {
-      this.connection = null;
+      await this.disposeConnection();
       this.session = null;
-      this.state = {
-        status: "failed",
-        message: getErrorMessage(error),
-        processId: null
-      };
+      if (this.generation === generation) {
+        this.state = {
+          status: "failed",
+          message: getErrorMessage(error),
+          processId: null
+        };
+      }
       throw error;
     } finally {
       this.sessionPromise = null;
@@ -156,15 +169,60 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
       throw new Error("Codex ACP session is not initialized.");
     }
 
-    const result = await connection.prompt({
-      sessionId: input.sessionId,
-      prompt: [{ type: "text", text: input.prompt }]
-    });
+    let result: { stopReason?: string };
+    try {
+      result = await withTimeout(
+        connection.prompt({
+          sessionId: input.sessionId,
+          prompt: [{ type: "text", text: input.prompt }]
+        }),
+        this.options.promptTimeoutMs ?? DEFAULT_PROMPT_TIMEOUT_MS,
+        "Native Codex prompt"
+      );
+    } catch (error) {
+      await this.failAndDispose(getErrorMessage(error));
+      throw error;
+    }
 
     return {
       status: "completed",
       ...(result.stopReason === undefined ? {} : { stopReason: result.stopReason })
     };
+  }
+
+  async resetSession(): Promise<void> {
+    this.generation += 1;
+    this.sessionPromise = null;
+    this.session = null;
+    this.listenersBySessionId.clear();
+
+    if (!this.options.getSettings().nativeCodexEnabled) {
+      await this.disposeConnection();
+      this.state = DISABLED_STATE;
+      return;
+    }
+
+    this.state = {
+      ...this.state,
+      status: "stopping",
+      message: "Stopping Codex."
+    };
+    await this.disposeConnection();
+    this.state = STOPPED_STATE;
+  }
+
+  async dispose(): Promise<void> {
+    this.generation += 1;
+    this.sessionPromise = null;
+    this.session = null;
+    this.listenersBySessionId.clear();
+    this.state = {
+      ...this.state,
+      status: "stopping",
+      message: "Stopping Codex."
+    };
+    await this.disposeConnection();
+    this.state = STOPPED_STATE;
   }
 
   private async startSession(settings: NativeCodexProcessSettings): Promise<CodexAcpSessionHandle> {
@@ -174,10 +232,16 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
     const connection = await createConnection({
       command: settings.codexCommand,
       cwd,
-      handler
+      handler,
+      onProcessFailure: (message) => this.handleProcessFailure(message)
     });
 
     this.connection = connection;
+    this.state = {
+      status: "starting",
+      message: "Connecting to Codex.",
+      processId: connection.processId ?? null
+    };
     await connection.initialize({
       protocolVersion: acp.PROTOCOL_VERSION,
       clientCapabilities: {
@@ -211,6 +275,42 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
       listener(update);
     }
   }
+
+  private async failAndDispose(message: string): Promise<void> {
+    await this.disposeConnection();
+    this.session = null;
+    this.sessionPromise = null;
+    this.state = {
+      status: "failed",
+      message,
+      processId: null
+    };
+  }
+
+  private handleProcessFailure(message: string): void {
+    if (this.connection === null) {
+      return;
+    }
+
+    this.connection = null;
+    this.session = null;
+    this.sessionPromise = null;
+    this.state = {
+      status: "failed",
+      message,
+      processId: null
+    };
+  }
+
+  private async disposeConnection(): Promise<void> {
+    const connection = this.connection;
+    this.connection = null;
+    if (connection?.dispose === undefined) {
+      return;
+    }
+
+    await Promise.resolve(connection.dispose()).catch(() => undefined);
+  }
 }
 
 export async function createNativeCodexAcpConnection(
@@ -221,8 +321,36 @@ export async function createNativeCodexAcpConnection(
     shell: true,
     stdio: ["pipe", "pipe", "pipe"]
   });
+  let disposed = false;
+  let stderr = "";
+  child.stderr.on("data", (chunk: Uint8Array) => {
+    stderr = `${stderr}${Buffer.from(chunk).toString("utf8")}`.slice(-4000);
+  });
+  child.on("error", (error) => {
+    if (!disposed) {
+      options.onProcessFailure?.(`Codex ACP process error: ${error.message}`);
+    }
+  });
+  child.on("exit", (code, signal) => {
+    if (!disposed) {
+      options.onProcessFailure?.(formatProcessExitMessage(code, signal, stderr));
+    }
+  });
   const stream = acp.ndJsonStream(createWritableProcessStream(child), createReadableProcessStream(child));
-  return new acp.ClientSideConnection(() => options.handler as unknown as acp.Client, stream);
+  const connection = new acp.ClientSideConnection(() => options.handler as unknown as acp.Client, stream);
+  const nativeConnection = connection as unknown as Pick<NativeCodexAcpConnection, "initialize" | "newSession" | "prompt">;
+  return {
+    initialize: (input) => nativeConnection.initialize(input),
+    newSession: (input) => nativeConnection.newSession(input),
+    prompt: (input) => nativeConnection.prompt(input),
+    processId: child.pid ?? null,
+    dispose: async () => {
+      disposed = true;
+      if (!child.killed) {
+        child.kill();
+      }
+    }
+  };
 }
 
 function createDenyByDefaultClientHandler(
@@ -292,6 +420,47 @@ function resolveWorkingDirectory(configuredWorkingDirectory: string, vaultBasePa
   }
 
   throw new Error("Native Codex working directory is not configured and this vault has no local base path.");
+}
+
+function runningState(connection: NativeCodexAcpConnection | null): CodexRuntimeState {
+  return {
+    status: "running",
+    message: "Codex is running.",
+    processId: connection?.processId ?? null
+  };
+}
+
+function withTimeout<T>(operation: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return operation;
+  }
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => reject(new Error(`${label} timed out after ${formatDuration(timeoutMs)}.`)), timeoutMs);
+  });
+
+  return Promise.race([operation, timeoutPromise]).finally(() => {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  });
+}
+
+function formatDuration(milliseconds: number): string {
+  return `${milliseconds}ms`;
+}
+
+function formatProcessExitMessage(code: number | null, signal: NodeJS.Signals | null, stderr: string): string {
+  const parts = [`Codex ACP process exited with code ${code ?? "unknown"}`];
+  if (signal !== null) {
+    parts.push(`signal ${signal}`);
+  }
+  const trimmedStderr = stderr.trim();
+  if (trimmedStderr.length > 0) {
+    parts.push(trimmedStderr);
+  }
+  return parts.join(": ");
 }
 
 function createWritableProcessStream(child: ChildProcessWithoutNullStreams): WritableStream<Uint8Array> {

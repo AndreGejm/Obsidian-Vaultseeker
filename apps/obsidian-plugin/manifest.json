@@ -6,6 +6,6 @@
   "description": "Reading, search, and vault gardening workbench for Obsidian.",
   "author": "Vaultseer",
   "authorUrl": "",
-  "isDesktopOnly": false
+  "isDesktopOnly": true
 }
 
