@@ -193,7 +193,14 @@ export function normalizeCodexAcpSessionUpdate(input: CodexAcpSessionUpdate): Co
 function normalizeToolCallUpdate(
   input: CodexAcpToolCallSessionUpdate,
   updateType: "tool_call" | "tool_call_update"
-): CodexToolCallSessionUpdate {
+): CodexToolCallSessionUpdate | Extract<CodexSessionUpdate, { type: "noop" }> {
+  if (stringValue(input.toolCallId) === undefined) {
+    return {
+      type: "noop",
+      sessionId: input.sessionId ?? null
+    };
+  }
+
   const output = hasOwn(input, "rawOutput") ? input.rawOutput : hasOwn(input, "output") ? input.output : input.content;
   const update: CodexToolCallSessionUpdate = {
     type: updateType,
@@ -218,13 +225,8 @@ function inferToolName(rawInput: unknown): string | undefined {
 
   return (
     nestedStringField(rawInput, "invocation", "tool") ??
-    nestedStringField(rawInput, "tool_call", "name") ??
-    directMcpToolName(rawInput)
+    nestedStringField(rawInput, "tool_call", "name")
   );
-}
-
-function directMcpToolName(rawInput: Record<string, unknown>): string | undefined {
-  return stringField(rawInput, "server") === undefined ? undefined : stringField(rawInput, "tool");
 }
 
 function textContent(input: CodexAcpTextSessionUpdate): string {
@@ -254,8 +256,11 @@ function nestedStringField(record: Record<string, unknown>, key: string, nestedK
 }
 
 function stringField(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return stringValue(record[key]);
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
 function stringUpdatedAt(updatedAt: unknown): { updatedAt?: string } {

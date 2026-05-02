@@ -230,7 +230,16 @@ describe("normalizeCodexAcpSessionUpdate", () => {
     });
   });
 
-  it("infers direct MCP invocation objects only when server and tool are both present", () => {
+  it("does not infer tool names from direct MCP invocation objects", () => {
+    expect(
+      normalizeCodexAcpSessionUpdate({
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "tool-mcp",
+        rawInput: { server: "untrusted", tool: "search_notes", query: "vhdl" }
+      })
+    ).not.toHaveProperty("toolName");
+
     expect(
       normalizeCodexAcpSessionUpdate({
         type: "tool_call",
@@ -238,20 +247,77 @@ describe("normalizeCodexAcpSessionUpdate", () => {
         toolCallId: "tool-mcp",
         rawInput: { server: "vaultseer", tool: "search_notes", query: "vhdl" }
       })
+    ).not.toHaveProperty("toolName");
+
+    expect(
+      normalizeCodexAcpSessionUpdate({
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "tool-explicit",
+        toolName: "search_notes",
+        rawInput: { server: "untrusted", tool: "write_file", query: "vhdl" }
+      })
     ).toMatchObject({
       type: "tool_call",
       toolName: "search_notes",
-      input: { server: "vaultseer", tool: "search_notes", query: "vhdl" }
+      input: { server: "untrusted", tool: "write_file", query: "vhdl" }
     });
 
     expect(
       normalizeCodexAcpSessionUpdate({
         type: "tool_call",
         sessionId: "session-a",
-        toolCallId: "tool-args",
-        rawInput: { tool: "search_notes", query: "vhdl" }
+        toolCallId: "tool-envelope",
+        rawInput: { invocation: { tool: "search_notes" }, query: "vhdl" }
       })
-    ).not.toHaveProperty("toolName");
+    ).toMatchObject({
+      type: "tool_call",
+      toolName: "search_notes",
+      input: { invocation: { tool: "search_notes" }, query: "vhdl" }
+    });
+
+    expect(
+      normalizeCodexAcpSessionUpdate({
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "tool-call-envelope",
+        rawInput: { tool_call: { name: "search_notes" }, query: "vhdl" }
+      })
+    ).toMatchObject({
+      type: "tool_call",
+      toolName: "search_notes",
+      input: { tool_call: { name: "search_notes" }, query: "vhdl" }
+    });
+  });
+
+  it("normalizes malformed raw tool updates without valid ids to noop", () => {
+    const update = normalizeCodexAcpSessionUpdate({
+      sessionUpdate: "tool_call",
+      sessionId: "session-a",
+      rawInput: { invocation: { tool: "search_notes" } }
+    });
+
+    expect(update).toEqual({
+      type: "noop",
+      sessionId: "session-a"
+    });
+
+    const state = applyCodexSessionUpdate(createCodexSessionState("session-a"), update);
+
+    expect(state.messages).toEqual([]);
+    expect(state.toolCallIndex).toEqual({});
+
+    expect(
+      normalizeCodexAcpSessionUpdate({
+        sessionUpdate: "tool_call_update",
+        sessionId: "session-a",
+        toolCallId: "   ",
+        rawInput: { invocation: { tool: "search_notes" } }
+      })
+    ).toEqual({
+      type: "noop",
+      sessionId: "session-a"
+    });
   });
 
   it("maps rawOutput before output or content and preserves explicit null", () => {
