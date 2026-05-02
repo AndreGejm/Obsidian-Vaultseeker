@@ -1,5 +1,5 @@
 import type { CodexRuntimeState } from "./codex-runtime-state";
-import { transitionCodexRuntime } from "./codex-runtime-state";
+import { canStartCodexRuntime, transitionCodexRuntime } from "./codex-runtime-state";
 
 export type NativeCodexProcessSettings = {
   nativeCodexEnabled: boolean;
@@ -33,6 +33,10 @@ export class CodexProcessManager {
       return this.state;
     }
 
+    if (!canStartCodexRuntime({ status: this.state.status, configured: true }) || this.state.processId !== null) {
+      return this.state;
+    }
+
     this.state = transitionCodexRuntime(this.state, { type: "start_requested" });
     try {
       const result = await this.launcher.launch(settings);
@@ -47,9 +51,18 @@ export class CodexProcessManager {
   }
 
   async stop(): Promise<CodexRuntimeState> {
+    const previousState = this.state;
     this.state = transitionCodexRuntime(this.state, { type: "stop_requested" });
-    await this.launcher.stop(this.state.processId);
-    this.state = transitionCodexRuntime(this.state, { type: "stopped" });
+    try {
+      await this.launcher.stop(this.state.processId);
+      this.state = transitionCodexRuntime(this.state, { type: "stopped" });
+    } catch (error) {
+      this.state = {
+        status: "failed",
+        message: error instanceof Error ? error.message : "Codex stop failed.",
+        processId: previousState.processId
+      };
+    }
     return this.state;
   }
 }
