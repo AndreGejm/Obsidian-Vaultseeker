@@ -199,7 +199,10 @@ function upsertToolCall(
   update: Extract<CodexSessionUpdate, { type: "tool_call" | "tool_call_update" }>
 ): CodexSessionState {
   const existingMessageIndex = state.toolCallIndex[update.toolCallId];
-  const messageIndex = existingMessageIndex ?? findToolCallMessageIndex(state.messages, update.toolCallId);
+  const messageIndex =
+    existingMessageIndex !== undefined && messageContainsToolCall(state.messages[existingMessageIndex], update.toolCallId)
+      ? existingMessageIndex
+      : findToolCallMessageIndex(state.messages, update.toolCallId);
   const targetIndex =
     messageIndex === undefined ? findOrCreateAssistantMessageIndex(state.messages) : messageIndex;
   const messages =
@@ -238,12 +241,12 @@ function upsertToolCallInMessage(
     isAllowed: toolName !== undefined && isAllowedCodexTool(toolName)
   };
   assignOptional(merged, "toolName", toolName);
-  assignOptional(merged, "status", update.status ?? existing?.status);
-  assignOptional(merged, "input", update.input ?? existing?.input);
-  assignOptional(merged, "output", update.output ?? existing?.output);
-  assignOptional(merged, "error", update.error ?? existing?.error);
-  assignOptional(merged, "title", update.title ?? existing?.title);
-  assignOptional(merged, "kind", update.kind ?? existing?.kind);
+  assignOptional(merged, "status", mergeOptional(update.status, existing?.status));
+  assignOptional(merged, "input", mergeOptional(update.input, existing?.input));
+  assignOptional(merged, "output", mergeOptional(update.output, existing?.output));
+  assignOptional(merged, "error", mergeOptional(update.error, existing?.error));
+  assignOptional(merged, "title", mergeOptional(update.title, existing?.title));
+  assignOptional(merged, "kind", mergeOptional(update.kind, existing?.kind));
 
   if (existingIndex < 0) {
     return [...toolCalls, merged];
@@ -254,10 +257,12 @@ function upsertToolCallInMessage(
   return next;
 }
 
+function messageContainsToolCall(message: CodexSessionMessage | undefined, toolCallId: string): boolean {
+  return message?.toolCalls.some((toolCall) => toolCall.toolCallId === toolCallId) ?? false;
+}
+
 function findToolCallMessageIndex(messages: CodexSessionMessage[], toolCallId: string): number | undefined {
-  const index = messages.findIndex((message) =>
-    message.toolCalls.some((toolCall) => toolCall.toolCallId === toolCallId)
-  );
+  const index = messages.findIndex((message) => messageContainsToolCall(message, toolCallId));
   return index >= 0 ? index : undefined;
 }
 
@@ -306,4 +311,8 @@ function assignOptional<T extends object, K extends keyof T>(target: T, key: K, 
   if (value !== undefined) {
     target[key] = value;
   }
+}
+
+function mergeOptional<T>(updated: T | undefined, existing: T | undefined): T | undefined {
+  return updated === undefined ? existing : updated;
 }

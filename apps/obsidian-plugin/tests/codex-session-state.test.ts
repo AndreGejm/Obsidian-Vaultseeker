@@ -157,6 +157,88 @@ describe("codex session state", () => {
     ]);
   });
 
+  it("repairs stale tool call indexes before merging updates", () => {
+    const state = {
+      ...createCodexSessionState("session-a"),
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant" as const,
+          content: "",
+          thoughts: "",
+          plan: null,
+          toolCalls: []
+        },
+        {
+          id: "assistant-2",
+          role: "assistant" as const,
+          content: "",
+          thoughts: "",
+          plan: null,
+          toolCalls: [
+            {
+              toolCallId: "tool-1",
+              toolName: "search_notes",
+              isAllowed: true,
+              status: "running"
+            }
+          ]
+        }
+      ],
+      toolCallIndex: { "tool-1": 0 }
+    };
+
+    const updated = applyCodexSessionUpdate(state, {
+      type: "tool_call_update",
+      sessionId: "session-a",
+      toolCallId: "tool-1",
+      status: "completed",
+      output: { ok: true },
+      updatedAt: "2026-05-02T12:00:03.000Z"
+    });
+
+    expect(updated.toolCallIndex).toEqual({ "tool-1": 1 });
+    expect(updated.messages[0]?.toolCalls).toEqual([]);
+    expect(updated.messages[1]?.toolCalls).toEqual([
+      {
+        toolCallId: "tool-1",
+        toolName: "search_notes",
+        isAllowed: true,
+        status: "completed",
+        output: { ok: true }
+      }
+    ]);
+  });
+
+  it("treats explicit null tool input and output values as overwrites", () => {
+    let state = createCodexSessionState("session-a");
+
+    state = applyCodexSessionUpdate(state, {
+      type: "tool_call",
+      sessionId: "session-a",
+      toolCallId: "tool-1",
+      toolName: "search_notes",
+      status: "running",
+      input: { query: "old" },
+      output: { value: 1 },
+      updatedAt: "2026-05-02T12:00:00.000Z"
+    });
+    state = applyCodexSessionUpdate(state, {
+      type: "tool_call_update",
+      sessionId: "session-a",
+      toolCallId: "tool-1",
+      input: null,
+      output: null,
+      updatedAt: "2026-05-02T12:00:01.000Z"
+    });
+
+    expect(state.messages[0]?.toolCalls[0]).toMatchObject({
+      toolCallId: "tool-1",
+      input: null,
+      output: null
+    });
+  });
+
   it("applies session metadata without creating chat messages", () => {
     const state = createCodexSessionState("session-a");
 
