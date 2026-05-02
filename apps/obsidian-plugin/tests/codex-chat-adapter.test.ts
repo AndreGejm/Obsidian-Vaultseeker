@@ -46,9 +46,10 @@ describe("AcpCodexChatAdapter", () => {
   });
 
   it("shapes transport failures into visible assistant content with no tool requests", async () => {
+    const rawTransportError = "stdio closed";
     const transport = {
       send: vi.fn(async () => {
-        throw new Error("stdio closed");
+        throw new Error(rawTransportError);
       })
     };
     const adapter = new AcpCodexChatAdapter(transport);
@@ -56,8 +57,8 @@ describe("AcpCodexChatAdapter", () => {
     const response = await adapter.send({ message: "Hello", context: readyContext() });
 
     expect(transport.send).toHaveBeenCalledTimes(1);
-    expect(response.content).toContain("Codex chat could not respond");
-    expect(response.content).toContain("stdio closed");
+    expect(response.content).toBe("Codex chat could not respond. Check the native Codex connection, then retry.");
+    expect(response.content).not.toContain(rawTransportError);
     expect(response.toolRequests).toEqual([]);
   });
 });

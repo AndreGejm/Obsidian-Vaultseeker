@@ -34,9 +34,9 @@ export class AcpCodexChatAdapter implements CodexChatAdapter {
         message: request.message,
         context: request.context
       });
-    } catch (error) {
+    } catch {
       return {
-        content: `Codex chat could not respond. ${getErrorMessage(error)}`,
+        content: "Codex chat could not respond. Check the native Codex connection, then retry.",
         toolRequests: []
       };
     }
@@ -50,8 +50,4 @@ export class NotConfiguredCodexChatAdapter implements CodexChatAdapter {
       toolRequests: []
     };
   }
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "The chat transport failed.";
 }
