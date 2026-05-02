@@ -29,6 +29,7 @@ import {
   type CodexToolImplementations,
   type CodexToolResult
 } from "./codex-tool-dispatcher";
+import { buildStudioChatShellState } from "./studio-chat-shell-state";
 import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 
@@ -145,15 +146,16 @@ export class VaultseerStudioView extends ItemView {
     const selectedMode = state.modes.find((mode) => mode.selected) ?? state.modes[0];
     const body = containerEl.createDiv({ cls: "vaultseer-studio-body" });
 
+    if (selectedMode?.id === "chat") {
+      this.renderChatMode(body, state);
+      return;
+    }
+
     body.createEl("h3", { text: selectedMode?.label ?? "Note" });
     body.createEl("p", { text: selectedMode?.message ?? "Mode is ready." });
 
     if (selectedMode?.id === "note") {
       this.renderNoteMode(body, state, writeOperations);
-    }
-
-    if (selectedMode?.id === "chat") {
-      this.renderChatMode(body);
     }
   }
 
@@ -190,13 +192,26 @@ export class VaultseerStudioView extends ItemView {
     }
   }
 
-  private renderChatMode(containerEl: HTMLElement): void {
-    const controlsEl = containerEl.createDiv({ cls: "vaultseer-studio-chat-controls" });
+  private renderChatMode(containerEl: HTMLElement, state: PluginStudioState): void {
+    const shellState = buildStudioChatShellState({
+      activeNoteLabel: state.activeNoteLabel,
+      activeNotePath: state.activeNotePath,
+      codexRuntimeStatus: this.getCodexRuntimeStatus()
+    });
+    const shellEl = containerEl.createDiv({ cls: "vaultseer-codex-shell" });
+    const headerEl = shellEl.createDiv({ cls: "vaultseer-codex-header" });
+    const titleEl = headerEl.createDiv({ cls: "vaultseer-codex-title" });
+    titleEl.createEl("strong", { text: shellState.title });
+    titleEl.createEl("span", { text: shellState.activeNoteTitle, cls: "vaultseer-codex-subtitle" });
+
+    const controlsEl = headerEl.createDiv({ cls: "vaultseer-codex-controls" });
+    controlsEl.createEl("span", { text: shellState.runtimeLabel, cls: "vaultseer-codex-runtime" });
     const resetButton = controlsEl.createEl("button", {
-      text: "Reset Codex",
+      text: "Reset",
       attr: {
         type: "button"
-      }
+      },
+      cls: "vaultseer-codex-ghost-button"
     });
     resetButton.disabled = this.chatSending;
     resetButton.addEventListener("click", async () => {
@@ -207,36 +222,47 @@ export class VaultseerStudioView extends ItemView {
       await this.refresh();
     });
 
-    const messagesEl = containerEl.createDiv({ cls: "vaultseer-studio-chat-messages" });
+    const messagesEl = shellEl.createDiv({ cls: "vaultseer-codex-messages" });
 
     if (this.chatState.messages.length === 0) {
-      messagesEl.createEl("p", { text: "No chat messages yet." });
+      messagesEl.createEl("p", { text: shellState.emptyStateText, cls: "vaultseer-codex-empty" });
     } else {
       for (const message of this.chatState.messages) {
-        const messageEl = messagesEl.createDiv({ cls: `vaultseer-studio-chat-message vaultseer-chat-${message.role}` });
-        messageEl.createEl("strong", { text: `${capitalize(message.role)}: ` });
+        const messageEl = messagesEl.createDiv({ cls: `vaultseer-codex-message vaultseer-chat-${message.role}` });
+        messageEl.createEl("strong", { text: `${capitalize(message.role)}` });
         messageEl.createSpan({ text: message.content });
       }
     }
 
-    this.renderPendingToolRequests(containerEl);
+    this.renderPendingToolRequests(shellEl);
 
     if (this.chatState.error) {
-      containerEl.createEl("p", { text: this.chatState.error, cls: "vaultseer-studio-chat-error" });
+      shellEl.createEl("p", { text: this.chatState.error, cls: "vaultseer-codex-error" });
     }
 
-    const form = containerEl.createEl("form", { cls: "vaultseer-studio-chat-form" });
-    const input = form.createEl("textarea", {
+    const form = shellEl.createEl("form", { cls: "vaultseer-codex-composer" });
+    const composerBodyEl = form.createDiv({ cls: "vaultseer-codex-composer-body" });
+    if (shellState.activeNoteMention !== null) {
+      composerBodyEl.createEl("span", { text: shellState.activeNoteMention, cls: "vaultseer-codex-note-pill" });
+    }
+    const input = composerBodyEl.createEl("textarea", {
       attr: {
         rows: "3",
-        placeholder: "Ask about the active note"
+        placeholder: shellState.composerPlaceholder
       }
     });
-    const sendButton = form.createEl("button", {
-      text: this.chatSending ? "Sending..." : "Send",
+
+    const footerEl = form.createDiv({ cls: "vaultseer-codex-composer-footer" });
+    footerEl.createEl("span", { text: shellState.modeLabel, cls: "vaultseer-codex-select-label" });
+    footerEl.createEl("span", { text: shellState.modelLabel, cls: "vaultseer-codex-select-label" });
+    footerEl.createEl("span", { text: shellState.reasoningLabel, cls: "vaultseer-codex-select-label" });
+    const sendButton = footerEl.createEl("button", {
+      text: this.chatSending ? "..." : ">",
       attr: {
-        type: "submit"
-      }
+        type: "submit",
+        "aria-label": "Send message"
+      },
+      cls: "vaultseer-codex-send-button"
     });
     input.disabled = this.chatSending;
     sendButton.disabled = this.chatSending;
