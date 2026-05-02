@@ -2,21 +2,25 @@ import type { CodexSessionToolCallStatus, CodexSessionUpdate } from "./codex-ses
 
 type BaseCodexAcpSessionUpdate = {
   sessionId?: string | null;
+  sessionUpdate?: string;
   updatedAt?: unknown;
 };
 
 export type CodexAcpTextSessionUpdate = BaseCodexAcpSessionUpdate & {
   type: "agent_message_chunk" | "agent_thought_chunk" | "user_message_chunk";
-  text: string;
+  text?: string;
+  content?: unknown;
 };
 
 export type CodexAcpToolCallSessionUpdate = BaseCodexAcpSessionUpdate & {
   type: "tool_call" | "tool_call_update";
   toolCallId: string;
   title?: string;
+  toolName?: string;
   status?: CodexSessionToolCallStatus;
   kind?: string;
   rawInput?: unknown;
+  rawOutput?: unknown;
   output?: unknown;
   content?: unknown;
   error?: string;
@@ -64,6 +68,12 @@ export type CodexAcpUnknownSessionUpdate = BaseCodexAcpSessionUpdate & {
   [key: string]: unknown;
 };
 
+export type CodexAcpRawSessionUpdate = BaseCodexAcpSessionUpdate & {
+  type?: never;
+  sessionUpdate: string;
+  [key: string]: unknown;
+};
+
 export type CodexAcpKnownSessionUpdate =
   | CodexAcpTextSessionUpdate
   | CodexAcpToolCallSessionUpdate
@@ -75,20 +85,22 @@ export type CodexAcpKnownSessionUpdate =
   | CodexAcpConfigOptionUpdate
   | CodexAcpProcessErrorUpdate;
 
-export type CodexAcpSessionUpdate = CodexAcpKnownSessionUpdate | CodexAcpUnknownSessionUpdate;
+export type CodexAcpSessionUpdate = CodexAcpKnownSessionUpdate | CodexAcpUnknownSessionUpdate | CodexAcpRawSessionUpdate;
 
 type CodexToolCallSessionUpdate = Extract<CodexSessionUpdate, { type: "tool_call" | "tool_call_update" }>;
 
 export function normalizeCodexAcpSessionUpdate(input: CodexAcpSessionUpdate): CodexSessionUpdate {
-  switch (input.type) {
+  const updateType = sessionUpdateType(input);
+
+  switch (updateType) {
     case "agent_message_chunk":
     case "agent_thought_chunk":
     case "user_message_chunk": {
       const textInput = input as CodexAcpTextSessionUpdate;
       return {
-        type: textInput.type,
+        type: updateType,
         ...sessionIdField(textInput.sessionId),
-        text: typeof textInput.text === "string" ? textInput.text : "",
+        text: textContent(textInput),
         ...stringUpdatedAt(textInput.updatedAt)
       };
     }
@@ -103,7 +115,7 @@ export function normalizeCodexAcpSessionUpdate(input: CodexAcpSessionUpdate): Co
     }
     case "tool_call":
     case "tool_call_update":
-      return normalizeToolCallUpdate(input as CodexAcpToolCallSessionUpdate);
+      return normalizeToolCallUpdate(input as CodexAcpToolCallSessionUpdate, updateType);
     case "session_info_update": {
       const sessionInfoInput = input as CodexAcpSessionInfoUpdate;
       return {
@@ -178,10 +190,13 @@ export function normalizeCodexAcpSessionUpdate(input: CodexAcpSessionUpdate): Co
   }
 }
 
-function normalizeToolCallUpdate(input: CodexAcpToolCallSessionUpdate): CodexToolCallSessionUpdate {
-  const output = hasOwn(input, "output") ? input.output : input.content;
+function normalizeToolCallUpdate(
+  input: CodexAcpToolCallSessionUpdate,
+  updateType: "tool_call" | "tool_call_update"
+): CodexToolCallSessionUpdate {
+  const output = hasOwn(input, "rawOutput") ? input.rawOutput : hasOwn(input, "output") ? input.output : input.content;
   const update: CodexToolCallSessionUpdate = {
-    type: input.type,
+    type: updateType,
     ...sessionIdField(input.sessionId),
     toolCallId: input.toolCallId,
     ...stringUpdatedAt(input.updatedAt)
@@ -192,7 +207,7 @@ function normalizeToolCallUpdate(input: CodexAcpToolCallSessionUpdate): CodexToo
   assignOptional(update, "input", hasOwn(input, "rawInput") ? input.rawInput : undefined);
   assignOptional(update, "output", output);
   assignOptional(update, "error", input.error);
-  assignOptional(update, "toolName", inferToolName(input.rawInput));
+  assignOptional(update, "toolName", input.toolName ?? inferToolName(input.rawInput));
   return update;
 }
 
@@ -202,12 +217,35 @@ function inferToolName(rawInput: unknown): string | undefined {
   }
 
   return (
-    stringField(rawInput, "tool") ??
-    stringField(rawInput, "toolName") ??
-    stringField(rawInput, "name") ??
     nestedStringField(rawInput, "invocation", "tool") ??
-    nestedStringField(rawInput, "tool_call", "name")
+    nestedStringField(rawInput, "tool_call", "name") ??
+    directMcpToolName(rawInput)
   );
+}
+
+function directMcpToolName(rawInput: Record<string, unknown>): string | undefined {
+  return stringField(rawInput, "server") === undefined ? undefined : stringField(rawInput, "tool");
+}
+
+function textContent(input: CodexAcpTextSessionUpdate): string {
+  if (typeof input.text === "string") {
+    return input.text;
+  }
+
+  if (isRecord(input.content) && input.content.type === "text") {
+    return stringField(input.content, "text") ?? "";
+  }
+
+  return "";
+}
+
+function sessionUpdateType(input: CodexAcpSessionUpdate): string {
+  const record = input as { type?: unknown; sessionUpdate?: unknown };
+  return typeof record.type === "string"
+    ? record.type
+    : typeof record.sessionUpdate === "string"
+      ? record.sessionUpdate
+      : "";
 }
 
 function nestedStringField(record: Record<string, unknown>, key: string, nestedKey: string): string | undefined {
