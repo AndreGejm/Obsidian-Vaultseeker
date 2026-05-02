@@ -1,0 +1,184 @@
+import { describe, expect, it, vi } from "vitest";
+import { NativeCodexAcpSessionClient, type NativeCodexAcpConnectionFactory } from "../src/native-codex-acp-session-client";
+import type { NativeCodexProcessSettings } from "../src/codex-process-manager";
+
+describe("NativeCodexAcpSessionClient", () => {
+  it("rejects disabled settings without creating a connection and marks runtime disabled", async () => {
+    const createConnection = vi.fn();
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings({ nativeCodexEnabled: false }),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection
+    });
+
+    await expect(client.ensureSession()).rejects.toThrow("Native Codex chat is disabled");
+
+    expect(createConnection).not.toHaveBeenCalled();
+    expect(client.getState()).toEqual({
+      status: "disabled",
+      message: "Native Codex chat is disabled in Vaultseer settings.",
+      processId: null
+    });
+  });
+
+  it("initializes lazily, creates one session with cwd fallback, forwards text prompts, and reuses the session", async () => {
+    const fake = createFakeConnection();
+    const createConnection = vi.fn<NativeCodexAcpConnectionFactory>(async () => fake.connection);
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings({ codexWorkingDirectory: "   " }),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection
+    });
+
+    const firstSession = await client.ensureSession();
+    await client.sendPrompt({ sessionId: firstSession.sessionId, prompt: "Hello Codex" });
+    const secondSession = await client.ensureSession();
+    await client.sendPrompt({ sessionId: secondSession.sessionId, prompt: "Reuse me" });
+
+    expect(createConnection).toHaveBeenCalledTimes(1);
+    expect(createConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: "codex-acp",
+        cwd: "F:\\Vault"
+      })
+    );
+    expect(fake.initialize).toHaveBeenCalledTimes(1);
+    expect(fake.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientCapabilities: {
+          fs: {
+            readTextFile: false,
+            writeTextFile: false
+          }
+        }
+      })
+    );
+    expect(fake.newSession).toHaveBeenCalledTimes(1);
+    expect(fake.newSession).toHaveBeenCalledWith({
+      cwd: "F:\\Vault",
+      mcpServers: []
+    });
+    expect(firstSession).toEqual({ sessionId: "session-a" });
+    expect(secondSession).toEqual({ sessionId: "session-a" });
+    expect(fake.prompt).toHaveBeenNthCalledWith(1, {
+      sessionId: "session-a",
+      prompt: [{ type: "text", text: "Hello Codex" }]
+    });
+    expect(fake.prompt).toHaveBeenNthCalledWith(2, {
+      sessionId: "session-a",
+      prompt: [{ type: "text", text: "Reuse me" }]
+    });
+    expect(client.getState()).toEqual({
+      status: "running",
+      message: "Codex is running.",
+      processId: null
+    });
+  });
+
+  it("fans out session updates only while subscribed and rejects ACP permission requests by default", async () => {
+    const fake = createFakeConnection();
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: async (options) => {
+        fake.handler = options.handler;
+        return fake.connection;
+      }
+    });
+    const updates: unknown[] = [];
+
+    const session = await client.ensureSession();
+    fake.handler.sessionUpdate({
+      sessionId: session.sessionId,
+      update: {
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: "before subscribe" }
+      }
+    });
+    const unsubscribe = client.subscribeToSessionUpdates(session.sessionId, (update) => updates.push(update));
+    fake.handler.sessionUpdate({
+      sessionId: session.sessionId,
+      update: {
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: "hello" }
+      }
+    });
+    unsubscribe();
+    fake.handler.sessionUpdate({
+      sessionId: session.sessionId,
+      update: {
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: "after unsubscribe" }
+      }
+    });
+
+    await expect(
+      fake.handler.requestPermission({
+        sessionId: session.sessionId,
+        toolCallId: "write-1",
+        options: [{ optionId: "allow", kind: "allow_once", name: "Allow" }]
+      })
+    ).resolves.toEqual({ outcome: { outcome: "cancelled" } });
+    await expect(fake.handler.readTextFile({ path: "A.md" })).rejects.toThrow("disabled");
+    await expect(fake.handler.writeTextFile({ path: "A.md", content: "nope" })).rejects.toThrow("disabled");
+
+    expect(updates).toEqual([
+      {
+        type: "agent_message_chunk",
+        sessionId: "session-a",
+        content: { type: "text", text: "hello" },
+        text: "hello"
+      }
+    ]);
+  });
+
+  it("moves to failed state with a clear message when initialization fails", async () => {
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: async () => {
+        throw new Error("spawn codex-acp ENOENT");
+      }
+    });
+
+    await expect(client.ensureSession()).rejects.toThrow("spawn codex-acp ENOENT");
+
+    expect(client.getState()).toEqual({
+      status: "failed",
+      message: "spawn codex-acp ENOENT",
+      processId: null
+    });
+  });
+});
+
+function settings(overrides: Partial<NativeCodexProcessSettings> = {}): NativeCodexProcessSettings {
+  return {
+    nativeCodexEnabled: true,
+    codexCommand: "codex-acp",
+    codexWorkingDirectory: "F:\\Configured",
+    ...overrides
+  };
+}
+
+function createFakeConnection(): {
+  connection: Awaited<ReturnType<NativeCodexAcpConnectionFactory>>;
+  initialize: ReturnType<typeof vi.fn>;
+  newSession: ReturnType<typeof vi.fn>;
+  prompt: ReturnType<typeof vi.fn>;
+  handler: any;
+} {
+  const initialize = vi.fn(async () => ({ protocolVersion: 1 }));
+  const newSession = vi.fn(async () => ({ sessionId: "session-a" }));
+  const prompt = vi.fn(async () => ({ stopReason: "end_turn" }));
+  return {
+    connection: {
+      initialize,
+      newSession,
+      prompt
+    },
+    initialize,
+    newSession,
+    prompt,
+    handler: null
+  };
+}

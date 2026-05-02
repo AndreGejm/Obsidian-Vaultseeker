@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "^0.14.1",
     "@vaultseer/core": "workspace:*"
   },
   "devDependencies": {

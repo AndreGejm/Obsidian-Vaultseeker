@@ -20,6 +20,9 @@ importers:
 
   apps/obsidian-plugin:
     dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: 0.14.1
+        version: 0.14.1(zod@4.4.2)
       '@vaultseer/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -44,6 +47,11 @@ importers:
         version: 3.2.4(@types/node@22.19.17)
 
 packages:
+
+  '@agentclientprotocol/sdk@0.14.1':
+    resolution: {integrity: sha512-b6r3PS3Nly+Wyw9U+0nOr47bV8tfS476EgyEMhoKvJCZLbgqoDFN7DJwkxL88RR0aiOqOYV1ZnESHqb+RmdH8w==}
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
 
   '@codemirror/state@6.5.0':
     resolution: {integrity: sha512-MwBHVK60IiIHDcoMet78lxt6iw5gJOGSbNbOIVBHWVXIH4/Nq1+GQgLLGgI1KlnN86WDXsPudVaqYHKBIx7Eyw==}
@@ -784,7 +792,14 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+  zod@4.4.2:
+    resolution: {integrity: sha512-IynmDyxsEsb9RKzO3J9+4SxXnl2FTFSzNBaKKaMV6tsSk0rw9gYw9gs+JFCq/qk2LCZ78KDwyj+Z289TijSkUw==}
+
 snapshots:
+
+  '@agentclientprotocol/sdk@0.14.1(zod@4.4.2)':
+    dependencies:
+      zod: 4.4.2
 
   '@codemirror/state@6.5.0':
     dependencies:
@@ -1367,3 +1382,5 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
+
+  zod@4.4.2: {}
