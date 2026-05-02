@@ -8,7 +8,12 @@ import type {
   StudioModeId,
   VaultseerStore
 } from "@vaultseer/core";
-import { applyChatEvent, createEmptyChatState, type CodexChatState } from "./codex-chat-state";
+import {
+  applyChatEvent,
+  createEmptyChatState,
+  formatCodexToolRequestInputPreview,
+  type CodexChatState
+} from "./codex-chat-state";
 import type { CodexChatAdapter } from "./codex-chat-adapter";
 import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
@@ -177,6 +182,8 @@ export class VaultseerStudioView extends ItemView {
       }
     }
 
+    this.renderPendingToolRequests(containerEl);
+
     if (this.chatState.error) {
       containerEl.createEl("p", { text: this.chatState.error, cls: "vaultseer-studio-chat-error" });
     }
@@ -225,7 +232,8 @@ export class VaultseerStudioView extends ItemView {
           this.chatState = applyChatEvent(this.chatState, {
             type: "assistant_message",
             content: response.content,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            toolRequests: response.toolRequests
           });
         }
       } catch (error) {
@@ -242,6 +250,37 @@ export class VaultseerStudioView extends ItemView {
         await this.refresh();
       }
     });
+  }
+
+  private renderPendingToolRequests(containerEl: HTMLElement): void {
+    if (this.chatState.pendingToolRequests.length === 0) {
+      return;
+    }
+
+    const pendingEl = containerEl.createDiv({ cls: "vaultseer-studio-chat-tool-requests" });
+    pendingEl.createEl("h4", { text: "Requested actions" });
+
+    for (const request of this.chatState.pendingToolRequests) {
+      const requestEl = pendingEl.createDiv({ cls: "vaultseer-studio-chat-tool-request" });
+      requestEl.createEl("strong", { text: request.tool });
+      requestEl.createSpan({
+        text: ` - Pending review - ${formatCodexToolRequestInputPreview(request.input)}`
+      });
+
+      const dismissButton = requestEl.createEl("button", {
+        text: "Dismiss",
+        attr: {
+          type: "button"
+        }
+      });
+      dismissButton.addEventListener("click", async () => {
+        this.chatState = applyChatEvent(this.chatState, {
+          type: "dismiss_tool_request",
+          id: request.id
+        });
+        await this.refresh();
+      });
+    }
   }
 
   private isCurrentChatSend(sendId: number, activePath: string | null): boolean {
