@@ -34,13 +34,13 @@ Vaultseer should borrow the two-content idea. Studio can keep a user-visible mes
 
 `AcpHandler.sessionUpdate` normalizes ACP update variants into a smaller `SessionUpdate` union: text chunks, thought chunks, user replay chunks, tool calls, plans, slash-command updates, mode updates, session info, usage, and config updates. `message-state.ts` then applies only message-relevant updates and ignores session-level updates by returning the previous array reference.
 
-Vaultseer should borrow the reducer-style normalization and tool-call upsert model. In Studio, tool updates should map only to Vaultseer-visible inspect/search/propose/stage operations. Tool output should be status-first and reviewable; any diff-like content should replace earlier diff content the way `mergeToolCallContent` replaces old diff entries when a new diff arrives.
+Vaultseer should borrow the reducer-style normalization and tool-call upsert model. In Studio, tool updates should map only to Vaultseer-visible operations backed by the current dispatcher allowlist: `inspect_current_note`, `search_notes`, `search_sources`, and `stage_suggestion`. Tool output should be status-first and reviewable; any diff-like content should replace earlier diff content the way `mergeToolCallContent` replaces old diff entries when a new diff arrives.
 
 ## Permission Handling
 
 Agent Client surfaces permission as active message state. `findActivePermission` scans tool-call content for an active request, and `selectOption` chooses from explicit options by preferred kind. The protocol response path remains separate through `AcpClient.respondToPermission`.
 
-Vaultseer should keep that boundary, but the allowed decisions are narrower. ACP-originated permission prompts may approve only read/inspect/search/propose/stage actions exposed by Vaultseer. Vault writes are not ACP permissions and must remain guarded Vaultseer operations with the existing review/stage/apply flow.
+Vaultseer should keep that boundary, but the allowed decisions are narrower. ACP-originated permission prompts may approve only the current Vaultseer dispatcher allowlist: `inspect_current_note`, `search_notes`, `search_sources`, and `stage_suggestion`. Read-only context is supplied by Vaultseer context packets or search tools, not by a separate ACP write-capable file tool. Vault writes are not ACP permissions and must remain guarded Vaultseer operations with the existing review/stage/apply flow.
 
 ## Error-Shaping Patterns
 
@@ -52,7 +52,7 @@ Vaultseer should borrow the user-facing error shape, not the stderr/process diag
 
 - Chat history remains ephemeral by default.
 - Vaultseer owns active-note context packet creation.
-- Vaultseer tool dispatcher exposes only inspect/search/propose/stage tools.
+- Vaultseer tool dispatcher exposes only `inspect_current_note`, `search_notes`, `search_sources`, and `stage_suggestion`.
 - Vault writes are not ACP tools; they remain guarded Vaultseer operations.
 - Studio should treat the ACP adapter as a future transport boundary, not as permission to launch Codex or mutate the vault from terminal actions.
 
@@ -71,5 +71,5 @@ When native ACP work begins, implement the adaptation in this order:
 1. Define a Vaultseer session/update boundary modeled after `AcpClient.onSessionUpdate` and `AcpHandler.sessionUpdate`.
 2. Add pure message reducers modeled after `message-state.ts`, scoped to Vaultseer chat content and tool statuses.
 3. Keep prompt display content separate from enriched agent content, but build enrichment from Vaultseer-owned active-note/search/proposal context.
-4. Route tool updates through the existing guarded dispatcher and reject any request outside inspect/search/propose/stage.
+4. Route tool updates through the existing guarded dispatcher and reject any request outside `inspect_current_note`, `search_notes`, `search_sources`, and `stage_suggestion`.
 5. Shape errors at the send boundary so failed sends are visible, retryable, and unable to bypass vault-write review.
