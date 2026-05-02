@@ -26,8 +26,9 @@ Vaultseer does not create missing folders during source-note apply. If the confi
    - Expected: Studio opens in a side pane and shows the current note label.
    - Verify: switch between Obsidian notes; Studio should follow the active note without writing files.
 5. In Studio, open Chat mode.
-   - Expected: chat accepts a message, but if native Codex is not wired it returns the not-connected message.
-   - Verify: no Markdown file changes occur and chat history clears when the active note changes.
+   - Expected: chat accepts a message when native Codex is enabled and `codex-acp` can start from the configured working directory. If Codex is stopped, the first sent message starts the native session. If Codex is disabled, starting, stopping, or failed, Chat mode explains that state.
+   - Verify: no Markdown file changes occur, Codex tool requests appear as explicit requested actions, and chat history clears when the active note changes.
+   - Recovery: enable native Codex in Vaultseer settings, set the Codex command to `codex-acp` or the full local command path, and leave the working directory blank to use the vault folder as the default.
 6. In Studio, open Note mode before staging any proposal.
    - Expected: it says there are no current-note proposals to review.
    - Verify: it does not claim an inline-reviewable change exists until a proposal is actually staged.

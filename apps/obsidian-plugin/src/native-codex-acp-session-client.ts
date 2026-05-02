@@ -184,7 +184,8 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
         fs: {
           readTextFile: false,
           writeTextFile: false
-        }
+        },
+        terminal: false
       },
       clientInfo: {
         name: "vaultseer-studio",

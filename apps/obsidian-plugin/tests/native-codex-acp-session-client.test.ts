@@ -68,7 +68,8 @@ describe("NativeCodexAcpSessionClient", () => {
           fs: {
             readTextFile: false,
             writeTextFile: false
-          }
+          },
+          terminal: false
         }
       })
     );

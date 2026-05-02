@@ -52,7 +52,7 @@ function buildModeSummary(
   }
 
   if (id === "chat" && input.codexRuntimeStatus !== "running") {
-    return summary(id, "degraded", "Codex is not running. Start Codex to chat with the active note.");
+    return summary(id, "degraded", chatRuntimeMessage(input.codexRuntimeStatus));
   }
 
   if ((id === "search" || id === "sources") && input.indexStatus === "empty") {
@@ -69,4 +69,21 @@ function summary(id: StudioModeId, status: StudioModeStatus, message: string): S
     status,
     message
   };
+}
+
+function chatRuntimeMessage(status: BuildStudioStateInput["codexRuntimeStatus"]): string {
+  switch (status) {
+    case "disabled":
+      return "Enable native Codex in Vaultseer settings to chat with the active note.";
+    case "starting":
+      return "Codex is starting. Chat will be ready when the native session connects.";
+    case "stopping":
+      return "Codex is stopping. Wait for it to stop before starting a new chat session.";
+    case "failed":
+      return "Codex failed to start or connect. Check the native Codex settings, then retry.";
+    case "stopped":
+      return "Send a message to start Codex and chat with the active note.";
+    case "running":
+      return "Chat mode is ready.";
+  }
 }

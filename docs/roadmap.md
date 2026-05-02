@@ -228,7 +228,7 @@ Exit gate:
 
 ## Phase 6.5: Native Studio Codex Chat
 
-Status: started. Vaultseer Studio opens as a current-note-first Obsidian view, has ephemeral active-note-scoped chat state, a controlled Codex tool dispatcher, native Codex settings, a process-manager abstraction with injected launch/stop behavior, and an ACP-compatible chat adapter boundary. The ACP adapter is transport-injected and does not start a process by itself. It sends the user message plus the active-note context packet only when context is ready, returns a visible blocked-context message when context is not ready, and hides raw transport error details from assistant-visible chat content. The real Codex ACP stdio/session transport is not wired yet.
+Status: implemented for limited local use. Vaultseer Studio opens as a current-note-first Obsidian view, has ephemeral active-note-scoped chat state, a controlled Codex tool dispatcher, native Codex settings, and a native `codex-acp` stdio/session client. The chat adapter sends the user message plus the active-note context packet only when context is ready, returns a visible blocked-context message when context is not ready, and hides raw transport error details from assistant-visible chat content. The native ACP client starts lazily on first chat send, uses the vault folder as the working-directory fallback, creates one reusable ACP session, disables ACP filesystem and terminal client capabilities, and rejects ACP permission requests by default.
 
 Goal: let Vaultseer become the native place to ask Codex about the active note while preserving Obsidian as the editor and keeping all durable output behind proposals.
 
@@ -236,12 +236,12 @@ Implementation steps:
 
 - model native Codex runtime states and settings (**implemented**)
 - keep chat history ephemeral and scoped to the active note (**implemented**)
-- define a controlled tool dispatcher for current-note inspection, note search, source search, and suggestion staging (**implemented as an allowlist; chat UI does not execute tool requests yet**)
+- define a controlled tool dispatcher for current-note inspection, note search, source search, and suggestion staging (**implemented as an allowlist with explicit Run/Stage/Dismiss controls**)
 - study Obsidian Agent Client and Codex ACP before wiring real transport (**implemented in `docs/reuse/native-codex-acp-adaptation.md`**)
 - add an ACP-compatible adapter boundary with injected transport (**implemented**)
-- wire real Codex ACP process/session transport (**not implemented yet**)
-- execute allowed tool requests through Vaultseer and render tool status in Studio (**not implemented yet**)
-- keep vault writes out of ACP tools; staged suggestions and write proposals still use guarded Vaultseer flows (**implemented as a design boundary; full chat-to-suggestion flow remains future work**)
+- wire real Codex ACP process/session transport (**implemented through the native ACP session client**)
+- execute allowed tool requests through Vaultseer and render tool status in Studio (**implemented for read-only tools and guarded `stage_suggestion` proposals**)
+- keep vault writes out of ACP tools; staged suggestions and write proposals still use guarded Vaultseer flows (**implemented; no chat path writes notes directly**)
 
 Exit gate:
 

@@ -38,6 +38,29 @@ describe("buildStudioState", () => {
     expect(state.modeSummaries.chat.message).toContain("Codex");
   });
 
+  it("explains each non-running Codex runtime state in chat mode", () => {
+    const cases = [
+      ["disabled", "Enable native Codex"],
+      ["stopped", "Send a message to start Codex"],
+      ["starting", "starting"],
+      ["stopping", "stopping"],
+      ["failed", "failed"]
+    ] as const;
+
+    for (const [codexRuntimeStatus, expectedMessage] of cases) {
+      const state = buildStudioState({
+        requestedMode: "chat",
+        activePath: "Notes/VHDL.md",
+        indexedNotePaths: ["Notes/VHDL.md"],
+        codexRuntimeStatus,
+        indexStatus: "ready"
+      });
+
+      expect(state.modeSummaries.chat.status).toBe("degraded");
+      expect(state.modeSummaries.chat.message).toContain(expectedMessage);
+    }
+  });
+
   it("blocks note-specific modes when no note is active", () => {
     const state = buildStudioState({
       requestedMode: null,

@@ -22,7 +22,7 @@ All planned research files existed under `F:\Dev\scripts\Mimir\obsidian-vaultsee
 
 Agent Client separates process/connection initialization from session creation. `AcpClient.initialize` establishes the ACP connection and protocol capabilities, while `newSession`, `loadSession`, and `resumeSession` each set or preserve `currentSessionId` and pass a working directory into the ACP session call.
 
-Vaultseer should borrow that separation conceptually, but not the concrete process launcher. Native Studio should have a small session controller that can initialize a future ACP adapter, start an ephemeral Studio chat session, and register one update listener. For v1, session start should also build Vaultseer's active-note context packet before the first user send rather than relying on Agent Client's `@[[note]]` mention system.
+Vaultseer borrows that separation conceptually, but keeps the process launcher small. Native Studio has a session client that initializes `codex-acp`, starts an ephemeral Studio chat session, and registers update listeners through the existing chat controller. For v1, each send still builds Vaultseer's active-note context packet rather than relying on Agent Client's `@[[note]]` mention system.
 
 ## Message Send Patterns
 
@@ -54,19 +54,19 @@ Vaultseer should borrow the user-facing error shape, not the stderr/process diag
 - Vaultseer owns active-note context packet creation.
 - Vaultseer tool dispatcher exposes only `inspect_current_note`, `search_notes`, `search_sources`, and `stage_suggestion`.
 - Vault writes are not ACP tools; they remain guarded Vaultseer operations.
-- Studio should treat the ACP adapter as a future transport boundary, not as permission to launch Codex or mutate the vault from terminal actions.
+- Studio treats the ACP adapter as a transport boundary, not as permission to mutate the vault from terminal actions.
 
 ## Non-Copied Surfaces
 
 - Do not copy Agent Client's full React UI.
 - Do not copy persistent session history for v1.
 - Do not let Codex terminal actions mutate vault files directly.
-- Do not copy `AcpClient.initialize` process spawning, Windows WSL command preparation, terminal manager wiring, or process-tree cleanup into this task.
-- Do not wire real ACP transport, add process launch behavior, change the chat adapter or Studio view, or add dependencies as part of Task 5.1.
+- Do not copy Agent Client's full Windows WSL command preparation, terminal manager wiring, or process-tree cleanup.
+- Do not expose ACP filesystem or terminal capabilities as part of native Studio v1.
 
 ## Practical Adaptation Checklist
 
-When native ACP work begins, implement the adaptation in this order:
+Native ACP work now follows this implemented order:
 
 1. Define a Vaultseer session/update boundary modeled after `AcpClient.onSessionUpdate` and `AcpHandler.sessionUpdate`.
 2. Add pure message reducers modeled after `message-state.ts`, scoped to Vaultseer chat content and tool statuses.
