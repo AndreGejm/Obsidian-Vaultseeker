@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CodexAcpSessionController,
   type CodexAcpSessionClient,
+  type CodexAcpTurnResult,
   type CodexAcpSessionUpdateListener
 } from "../src/codex-acp-session-controller";
 import type { CodexAcpSessionUpdate } from "../src/codex-acp-session-update-normalizer";
@@ -25,6 +26,7 @@ describe("CodexAcpSessionController", () => {
         events.push(`sendPrompt:${input.sessionId}:${input.prompt}`);
         listener?.({ type: "agent_message_chunk", sessionId: "session-a", text: "Hello" });
         listener?.({ type: "agent_message_chunk", sessionId: "session-a", text: " from Codex" });
+        return completedTurn();
       })
     };
     const controller = new CodexAcpSessionController(client);
@@ -67,13 +69,49 @@ describe("CodexAcpSessionController", () => {
     expect(response.content).toBe("Raw ACP");
   });
 
-  it("returns only allowed tool requests and excludes disallowed and title-only tool calls", async () => {
+  it("waits for the explicit Codex turn result before building the response", async () => {
+    let listener: CodexAcpSessionUpdateListener | null = null;
+    let completeTurn: ((result: CodexAcpTurnResult) => void) | null = null;
+    const client: CodexAcpSessionClient = {
+      ensureSession: vi.fn(async () => ({ sessionId: "session-a" })),
+      subscribeToSessionUpdates: vi.fn((_sessionId, updateListener) => {
+        listener = updateListener;
+        return vi.fn();
+      }),
+      sendPrompt: vi.fn(
+        () =>
+          new Promise<CodexAcpTurnResult>((resolve) => {
+            completeTurn = resolve;
+            listener?.({ type: "agent_message_chunk", sessionId: "session-a", text: "Waiting" });
+          })
+      )
+    };
+    const controller = new CodexAcpSessionController(client);
+
+    const responsePromise = controller.send(promptPacket());
+    let settled = false;
+    responsePromise.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+
+    expect(settled).toBe(false);
+
+    completeTurn?.({ status: "completed", stopReason: "end_turn" });
+    await expect(responsePromise).resolves.toEqual({
+      content: "Waiting",
+      toolRequests: []
+    });
+  });
+
+  it("returns only pending or requested read-only tool requests and preserves explicit null input", async () => {
     const client = clientWithUpdates([
       {
         type: "tool_call",
         sessionId: "session-a",
         toolCallId: "allowed-search",
         toolName: "search_notes",
+        status: "pending",
         rawInput: { query: "vhdl" }
       },
       {
@@ -81,13 +119,54 @@ describe("CodexAcpSessionController", () => {
         sessionId: "session-a",
         toolCallId: "allowed-null",
         toolName: "inspect_current_note",
+        status: "requested",
         rawInput: null
+      },
+      {
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "allowed-running",
+        toolName: "search_sources",
+        status: "running",
+        rawInput: { query: "in progress" }
+      },
+      {
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "allowed-completed",
+        toolName: "search_notes",
+        status: "completed",
+        rawInput: { query: "already done" }
+      },
+      {
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "allowed-failed",
+        toolName: "search_notes",
+        status: "failed",
+        rawInput: { query: "failed" }
+      },
+      {
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "allowed-cancelled",
+        toolName: "search_notes",
+        status: "cancelled",
+        rawInput: { query: "cancelled" }
+      },
+      {
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "allowed-missing-status",
+        toolName: "search_notes",
+        rawInput: { query: "missing status" }
       },
       {
         type: "tool_call",
         sessionId: "session-a",
         toolCallId: "disallowed-write",
         toolName: "write_file",
+        status: "pending",
         rawInput: { path: "Notes/VHDL.md" }
       },
       {
@@ -95,12 +174,14 @@ describe("CodexAcpSessionController", () => {
         sessionId: "session-a",
         toolCallId: "title-only",
         title: "search_notes",
+        status: "pending",
         rawInput: { query: "unsafe title" }
       },
       {
         sessionUpdate: "tool_call",
         sessionId: "session-a",
         title: "search_sources",
+        status: "pending",
         rawInput: { invocation: { tool: "search_sources" }, query: "datasheet" }
       }
     ]);
@@ -112,6 +193,31 @@ describe("CodexAcpSessionController", () => {
       { tool: "search_notes", input: { query: "vhdl" } },
       { tool: "inspect_current_note", input: null }
     ]);
+  });
+
+  it("omits proposal tool requests by default and can include them when explicitly enabled", async () => {
+    const updates: CodexAcpSessionUpdate[] = [
+      {
+        type: "tool_call",
+        sessionId: "session-a",
+        toolCallId: "stage-1",
+        toolName: "stage_suggestion",
+        status: "pending",
+        rawInput: { kind: "tag", value: "vhdl" }
+      }
+    ];
+
+    await expect(new CodexAcpSessionController(clientWithUpdates(updates)).send(promptPacket())).resolves.toEqual({
+      content: "Codex did not return visible assistant text.",
+      toolRequests: []
+    });
+
+    await expect(
+      new CodexAcpSessionController(clientWithUpdates(updates), { includeProposalTools: true }).send(promptPacket())
+    ).resolves.toEqual({
+      content: "Codex did not return visible assistant text.",
+      toolRequests: [{ tool: "stage_suggestion", input: { kind: "tag", value: "vhdl" } }]
+    });
   });
 
   it("ignores mismatched-session updates", async () => {
@@ -131,7 +237,7 @@ describe("CodexAcpSessionController", () => {
     const successClient: CodexAcpSessionClient = {
       ensureSession: vi.fn(async () => ({ sessionId: "session-a" })),
       subscribeToSessionUpdates: vi.fn(() => successUnsubscribe),
-      sendPrompt: vi.fn(async () => undefined)
+      sendPrompt: vi.fn(async () => completedTurn())
     };
 
     await new CodexAcpSessionController(successClient).send(promptPacket());
@@ -159,7 +265,7 @@ describe("CodexAcpSessionController", () => {
         throw sessionError;
       }),
       subscribeToSessionUpdates: vi.fn(() => vi.fn()),
-      sendPrompt: vi.fn(async () => undefined)
+      sendPrompt: vi.fn(async () => completedTurn())
     };
 
     await expect(new CodexAcpSessionController(client).send(promptPacket())).rejects.toBe(sessionError);
@@ -182,6 +288,24 @@ describe("CodexAcpSessionController", () => {
       toolRequests: []
     });
   });
+
+  it("surfaces process errors as visible content when there is no assistant text", async () => {
+    const client = clientWithUpdates([
+      {
+        type: "process_error",
+        sessionId: "session-a",
+        error: { message: "spawn codex ENOENT", code: "ENOENT" }
+      }
+    ]);
+    const controller = new CodexAcpSessionController(client);
+
+    const response = await controller.send(promptPacket());
+
+    expect(response).toEqual({
+      content: "Codex process error: spawn codex ENOENT",
+      toolRequests: []
+    });
+  });
 });
 
 function clientWithUpdates(updates: CodexAcpSessionUpdate[]): CodexAcpSessionClient {
@@ -197,7 +321,15 @@ function clientWithUpdates(updates: CodexAcpSessionUpdate[]): CodexAcpSessionCli
       for (const update of updates) {
         listener?.(update);
       }
+      return completedTurn();
     })
+  };
+}
+
+function completedTurn(): CodexAcpTurnResult {
+  return {
+    status: "completed",
+    stopReason: "end_turn"
   };
 }
 

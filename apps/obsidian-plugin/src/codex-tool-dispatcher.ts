@@ -1,11 +1,11 @@
-export type AllowedCodexTool = "inspect_current_note" | "search_notes" | "search_sources" | "stage_suggestion";
+export type CodexReadOnlyTool = "inspect_current_note" | "search_notes" | "search_sources";
+export type CodexProposalTool = "stage_suggestion";
+export type AllowedCodexTool = CodexReadOnlyTool | CodexProposalTool;
+export type CodexToolRequestClass = "read-only" | "proposal";
 
-const ALLOWED_CODEX_TOOLS = new Set<string>([
-  "inspect_current_note",
-  "search_notes",
-  "search_sources",
-  "stage_suggestion"
-]);
+const READ_ONLY_CODEX_TOOLS = new Set<string>(["inspect_current_note", "search_notes", "search_sources"]);
+const PROPOSAL_CODEX_TOOLS = new Set<string>(["stage_suggestion"]);
+const ALLOWED_CODEX_TOOLS = new Set<string>([...READ_ONLY_CODEX_TOOLS, ...PROPOSAL_CODEX_TOOLS]);
 
 export type CodexToolRequest = {
   tool: string;
@@ -27,6 +27,26 @@ export function isAllowedCodexTool(tool: string): tool is AllowedCodexTool {
   return ALLOWED_CODEX_TOOLS.has(tool);
 }
 
+export function isReadOnlyCodexTool(tool: string): tool is CodexReadOnlyTool {
+  return READ_ONLY_CODEX_TOOLS.has(tool);
+}
+
+export function isProposalCodexTool(tool: string): tool is CodexProposalTool {
+  return PROPOSAL_CODEX_TOOLS.has(tool);
+}
+
+export function getCodexToolRequestClass(tool: string): CodexToolRequestClass | null {
+  if (isReadOnlyCodexTool(tool)) {
+    return "read-only";
+  }
+
+  if (isProposalCodexTool(tool)) {
+    return "proposal";
+  }
+
+  return null;
+}
+
 async function runAllowedCodexTool(tool: AllowedCodexTool, implementation: () => Promise<unknown>): Promise<CodexToolResult> {
   try {
     return { ok: true, tool, output: await implementation() };
@@ -42,6 +62,7 @@ async function runAllowedCodexTool(tool: AllowedCodexTool, implementation: () =>
 export async function dispatchCodexToolRequest(input: {
   request: CodexToolRequest;
   tools: CodexToolImplementations;
+  allowProposalTools?: boolean;
 }): Promise<CodexToolResult> {
   switch (input.request.tool) {
     case "inspect_current_note":
@@ -51,6 +72,14 @@ export async function dispatchCodexToolRequest(input: {
     case "search_sources":
       return runAllowedCodexTool("search_sources", () => input.tools.searchSources(input.request.input));
     case "stage_suggestion":
+      if (input.allowProposalTools !== true) {
+        return {
+          ok: false,
+          tool: input.request.tool,
+          message: "Codex tool 'stage_suggestion' requires explicit proposal approval."
+        };
+      }
+
       return runAllowedCodexTool("stage_suggestion", () => input.tools.stageSuggestion(input.request.input));
     default:
       return {

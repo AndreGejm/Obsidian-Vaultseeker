@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { dispatchCodexToolRequest, isAllowedCodexTool } from "../src/codex-tool-dispatcher";
+import {
+  dispatchCodexToolRequest,
+  getCodexToolRequestClass,
+  isAllowedCodexTool,
+  isProposalCodexTool,
+  isReadOnlyCodexTool
+} from "../src/codex-tool-dispatcher";
 
 describe("dispatchCodexToolRequest", () => {
   it("exposes the Vaultseer Codex tool allowlist as a predicate", () => {
@@ -8,6 +14,20 @@ describe("dispatchCodexToolRequest", () => {
     expect(isAllowedCodexTool("search_sources")).toBe(true);
     expect(isAllowedCodexTool("stage_suggestion")).toBe(true);
     expect(isAllowedCodexTool("write_file")).toBe(false);
+  });
+
+  it("classifies read-only and proposal tools separately", () => {
+    expect(isReadOnlyCodexTool("inspect_current_note")).toBe(true);
+    expect(isReadOnlyCodexTool("search_notes")).toBe(true);
+    expect(isReadOnlyCodexTool("search_sources")).toBe(true);
+    expect(isReadOnlyCodexTool("stage_suggestion")).toBe(false);
+    expect(isReadOnlyCodexTool("write_file")).toBe(false);
+
+    expect(isProposalCodexTool("stage_suggestion")).toBe(true);
+    expect(isProposalCodexTool("search_notes")).toBe(false);
+    expect(getCodexToolRequestClass("search_notes")).toBe("read-only");
+    expect(getCodexToolRequestClass("stage_suggestion")).toBe("proposal");
+    expect(getCodexToolRequestClass("write_file")).toBeNull();
   });
 
   it.each([
@@ -31,13 +51,6 @@ describe("dispatchCodexToolRequest", () => {
       implementation: "searchSources",
       output: [{ title: "FPGA Datasheet" }],
       expectedArguments: [{ query: "datasheet" }]
-    },
-    {
-      tool: "stage_suggestion",
-      input: { kind: "tag", value: "vhdl" },
-      implementation: "stageSuggestion",
-      output: { staged: true },
-      expectedArguments: [{ kind: "tag", value: "vhdl" }]
     }
   ] as const)("allows $tool and delegates to $implementation", async (scenario) => {
     const tools = {
@@ -55,6 +68,34 @@ describe("dispatchCodexToolRequest", () => {
     expect(result).toEqual({ ok: true, tool: scenario.tool, output: scenario.output });
     expect(tools[scenario.implementation]).toHaveBeenCalledTimes(1);
     expect(tools[scenario.implementation]).toHaveBeenCalledWith(...scenario.expectedArguments);
+  });
+
+  it("rejects proposal tools by default and delegates when proposals are explicitly allowed", async () => {
+    const tools = {
+      inspectCurrentNote: vi.fn(async () => ({ status: "ready" })),
+      searchNotes: vi.fn(async () => []),
+      searchSources: vi.fn(async () => []),
+      stageSuggestion: vi.fn(async () => ({ staged: true }))
+    };
+
+    const rejected = await dispatchCodexToolRequest({
+      request: { tool: "stage_suggestion", input: { kind: "tag", value: "vhdl" } },
+      tools
+    });
+
+    expect(rejected.ok).toBe(false);
+    expect(rejected.tool).toBe("stage_suggestion");
+    expect(rejected.message).toContain("requires explicit proposal approval");
+    expect(tools.stageSuggestion).not.toHaveBeenCalled();
+
+    const allowed = await dispatchCodexToolRequest({
+      request: { tool: "stage_suggestion", input: { kind: "tag", value: "vhdl" } },
+      tools,
+      allowProposalTools: true
+    });
+
+    expect(allowed).toEqual({ ok: true, tool: "stage_suggestion", output: { staged: true } });
+    expect(tools.stageSuggestion).toHaveBeenCalledWith({ kind: "tag", value: "vhdl" });
   });
 
   it.each(["write_file", "unknown_tool"])("rejects disallowed tool %s", async (tool) => {
@@ -94,6 +135,7 @@ describe("dispatchCodexToolRequest", () => {
   it("returns a fallback failed result when an allowed implementation throws a non-Error", async () => {
     const result = await dispatchCodexToolRequest({
       request: { tool: "stage_suggestion", input: { kind: "tag" } },
+      allowProposalTools: true,
       tools: {
         inspectCurrentNote: async () => ({ status: "ready" }),
         searchNotes: async () => [],

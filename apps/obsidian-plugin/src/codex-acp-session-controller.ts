@@ -2,7 +2,8 @@ import type { AcpCodexChatTransport, CodexChatAdapterResponse } from "./codex-ch
 import type { CodexAcpSessionUpdate } from "./codex-acp-session-update-normalizer";
 import { normalizeCodexAcpSessionUpdate } from "./codex-acp-session-update-normalizer";
 import type { CodexPromptPacket } from "./codex-prompt-packet";
-import type { CodexSessionState } from "./codex-session-state";
+import { isProposalCodexTool, isReadOnlyCodexTool } from "./codex-tool-dispatcher";
+import type { CodexSessionState, CodexSessionToolCall } from "./codex-session-state";
 import { applyCodexSessionUpdate, createCodexSessionState } from "./codex-session-state";
 
 const NEUTRAL_EMPTY_ASSISTANT_CONTENT = "Codex did not return visible assistant text.";
@@ -16,6 +17,11 @@ export type CodexAcpSendPromptInput = {
   prompt: string;
 };
 
+export type CodexAcpTurnResult = {
+  status: string;
+  stopReason?: string;
+};
+
 export type CodexAcpSessionUpdateListener = (update: CodexAcpSessionUpdate) => void;
 
 export type CodexAcpSessionUnsubscribe = () => void;
@@ -26,11 +32,18 @@ export interface CodexAcpSessionClient {
     sessionId: string,
     listener: CodexAcpSessionUpdateListener
   ): CodexAcpSessionUnsubscribe;
-  sendPrompt(input: CodexAcpSendPromptInput): Promise<void>;
+  sendPrompt(input: CodexAcpSendPromptInput): Promise<CodexAcpTurnResult>;
 }
 
+export type CodexAcpSessionControllerOptions = {
+  includeProposalTools?: boolean;
+};
+
 export class CodexAcpSessionController implements AcpCodexChatTransport {
-  constructor(private readonly client: CodexAcpSessionClient) {}
+  constructor(
+    private readonly client: CodexAcpSessionClient,
+    private readonly options: CodexAcpSessionControllerOptions = {}
+  ) {}
 
   async send(packet: CodexPromptPacket): Promise<CodexChatAdapterResponse> {
     const session = await this.client.ensureSession();
@@ -45,20 +58,23 @@ export class CodexAcpSessionController implements AcpCodexChatTransport {
         prompt: packet.agentContent
       });
 
-      return buildResponse(state);
+      return buildResponse(state, this.options);
     } finally {
       unsubscribe();
     }
   }
 }
 
-function buildResponse(state: CodexSessionState): CodexChatAdapterResponse {
+function buildResponse(
+  state: CodexSessionState,
+  options: CodexAcpSessionControllerOptions
+): CodexChatAdapterResponse {
   return {
     content: visibleAssistantContent(state),
     toolRequests: state.messages
       .flatMap((message) => message.toolCalls)
       .flatMap((toolCall) => {
-        if (!toolCall.isAllowed || !hasToolName(toolCall.toolName)) {
+        if (!requiresVaultseerExecution(toolCall, options)) {
           return [];
         }
 
@@ -79,9 +95,63 @@ function visibleAssistantContent(state: CodexSessionState): string {
     .filter((messageContent) => messageContent.length > 0)
     .join("\n\n");
 
-  return content.length > 0 ? content : NEUTRAL_EMPTY_ASSISTANT_CONTENT;
+  if (content.length > 0) {
+    return content;
+  }
+
+  if (state.metadata.processError !== undefined) {
+    return `Codex process error: ${safeStringifyProcessError(state.metadata.processError)}`;
+  }
+
+  return NEUTRAL_EMPTY_ASSISTANT_CONTENT;
 }
 
 function hasToolName(toolName: string | undefined): toolName is string {
   return toolName !== undefined && toolName.trim().length > 0;
+}
+
+function requiresVaultseerExecution(
+  toolCall: CodexSessionToolCall,
+  options: CodexAcpSessionControllerOptions
+): toolCall is CodexSessionToolCall & { toolName: string } {
+  if (!toolCall.isAllowed || !hasToolName(toolCall.toolName) || !isPendingToolStatus(toolCall.status)) {
+    return false;
+  }
+
+  return (
+    isReadOnlyCodexTool(toolCall.toolName) ||
+    (options.includeProposalTools === true && isProposalCodexTool(toolCall.toolName))
+  );
+}
+
+function isPendingToolStatus(status: string | undefined): boolean {
+  return status === "pending" || status === "requested";
+}
+
+function safeStringifyProcessError(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error.trim().length > 0 ? error : "Unknown Codex process error.";
+  }
+
+  if (isRecord(error)) {
+    const message = error["message"];
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+  }
+
+  try {
+    const serialized = JSON.stringify(error);
+    return serialized === undefined ? String(error) : serialized;
+  } catch {
+    return String(error);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
