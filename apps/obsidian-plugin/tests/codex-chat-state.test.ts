@@ -3,8 +3,10 @@ import {
   applyChatEvent,
   applyActiveNoteChangeToChatState,
   createCodexChatSendScope,
+  createCodexToolRequestScope,
   createEmptyChatState,
   formatCodexToolRequestInputPreview,
+  isCurrentCodexToolRequestScope,
   isCurrentCodexChatSend
 } from "../src/codex-chat-state";
 
@@ -188,6 +190,139 @@ describe("codex chat state", () => {
         reviewStatus: "pending_review"
       }
     ]);
+  });
+
+  it("marks a pending tool request running and completed while preserving provenance", () => {
+    let state = createEmptyChatState("Notes/VHDL.md");
+    state = applyChatEvent(state, {
+      type: "assistant_message",
+      content: "I can search your notes.",
+      createdAt: "2026-05-02T12:00:01.000Z",
+      toolRequests: [
+        {
+          tool: "search_notes",
+          input: { query: "timing" },
+          toolCallId: "tool-call-1",
+          sessionId: "session-a",
+          status: "requested",
+          kind: "read",
+          requestClass: "read"
+        }
+      ]
+    });
+    const scope = createCodexToolRequestScope(state, "codex-tool-request-1-1", "Notes/VHDL.md");
+
+    state = applyChatEvent(state, {
+      type: "start_tool_request",
+      displayId: "codex-tool-request-1-1",
+      scope
+    });
+
+    expect(state.pendingToolRequests[0]).toMatchObject({
+      displayId: "codex-tool-request-1-1",
+      toolCallId: "tool-call-1",
+      sessionId: "session-a",
+      status: "requested",
+      kind: "read",
+      requestClass: "read",
+      executionStatus: "running"
+    });
+
+    state = applyChatEvent(state, {
+      type: "complete_tool_request",
+      displayId: "codex-tool-request-1-1",
+      scope,
+      result: {
+        ok: true,
+        tool: "search_notes",
+        output: {
+          message: "1 result found.",
+          results: [{ title: "VHDL", notePath: "Notes/VHDL.md", reason: "timing in body", excerpt: "Setup time matters." }]
+        }
+      },
+      createdAt: "2026-05-02T12:00:02.000Z"
+    });
+
+    expect(state.pendingToolRequests[0]).toMatchObject({
+      displayId: "codex-tool-request-1-1",
+      toolCallId: "tool-call-1",
+      sessionId: "session-a",
+      status: "requested",
+      kind: "read",
+      requestClass: "read",
+      executionStatus: "completed"
+    });
+    expect(state.messages.at(-1)).toEqual({
+      role: "system",
+      content: expect.stringContaining("Tool result (search_notes)"),
+      createdAt: "2026-05-02T12:00:02.000Z"
+    });
+    expect(state.messages.at(-1)?.content).toContain("1 result found.");
+  });
+
+  it("marks a tool request failed and appends a visible error result", () => {
+    let state = createEmptyChatState("Notes/VHDL.md");
+    state = applyChatEvent(state, {
+      type: "assistant_message",
+      content: "I can search your notes.",
+      createdAt: "2026-05-02T12:00:01.000Z",
+      toolRequests: [{ tool: "search_notes", input: { query: "timing" }, toolCallId: "tool-call-1" }]
+    });
+    const scope = createCodexToolRequestScope(state, "codex-tool-request-1-1", "Notes/VHDL.md");
+
+    state = applyChatEvent(state, {
+      type: "fail_tool_request",
+      displayId: "codex-tool-request-1-1",
+      scope,
+      result: {
+        ok: false,
+        tool: "search_notes",
+        message: "Search unavailable"
+      },
+      createdAt: "2026-05-02T12:00:02.000Z"
+    });
+
+    expect(state.pendingToolRequests[0]).toMatchObject({
+      displayId: "codex-tool-request-1-1",
+      toolCallId: "tool-call-1",
+      executionStatus: "failed"
+    });
+    expect(state.messages.at(-1)).toEqual({
+      role: "system",
+      content: "Tool result (search_notes) failed: Search unavailable",
+      createdAt: "2026-05-02T12:00:02.000Z"
+    });
+  });
+
+  it("ignores a tool result when the active note changes before completion", () => {
+    let state = createEmptyChatState("Notes/VHDL.md");
+    state = applyChatEvent(state, {
+      type: "assistant_message",
+      content: "I can inspect the current note.",
+      createdAt: "2026-05-02T12:00:01.000Z",
+      toolRequests: [{ tool: "inspect_current_note", input: null }]
+    });
+    const scope = createCodexToolRequestScope(state, "codex-tool-request-1-1", "Notes/VHDL.md");
+    state = applyChatEvent(state, {
+      type: "start_tool_request",
+      displayId: "codex-tool-request-1-1",
+      scope
+    });
+
+    state = applyChatEvent(state, { type: "active_note_changed", activePath: "Notes/C++.md" });
+    const unchangedState = applyChatEvent(state, {
+      type: "complete_tool_request",
+      displayId: "codex-tool-request-1-1",
+      scope,
+      result: { ok: true, tool: "inspect_current_note", output: { status: "ready" } },
+      createdAt: "2026-05-02T12:00:02.000Z"
+    });
+
+    expect(unchangedState).toBe(state);
+    expect(unchangedState.activePath).toBe("Notes/C++.md");
+    expect(unchangedState.messages).toEqual([]);
+    expect(unchangedState.pendingToolRequests).toEqual([]);
+    expect(isCurrentCodexToolRequestScope(unchangedState, "Notes/C++.md", scope)).toBe(false);
   });
 
   it("does not create pending requests for empty tool request responses", () => {

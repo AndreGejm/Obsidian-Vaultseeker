@@ -12,13 +12,22 @@ import {
   applyChatEvent,
   applyActiveNoteChangeToChatState,
   createCodexChatSendScope,
+  createCodexToolRequestScope,
   createEmptyChatState,
+  isCurrentCodexToolRequestScope,
   isCurrentCodexChatSend,
   type CodexChatSendScope,
-  type CodexChatState
+  type CodexChatState,
+  type CodexToolRequestScope
 } from "./codex-chat-state";
 import type { CodexChatAdapter } from "./codex-chat-adapter";
 import { buildCodexPendingToolRequestDisplayItems } from "./codex-pending-tool-request-display";
+import {
+  dispatchCodexToolRequest,
+  isReadOnlyCodexTool,
+  type CodexToolImplementations,
+  type CodexToolResult
+} from "./codex-tool-dispatcher";
 import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 
@@ -36,7 +45,8 @@ export class VaultseerStudioView extends ItemView {
     private readonly getActivePath: () => string | null,
     private readonly getCodexRuntimeStatus: () => CodexRuntimeStatus,
     private readonly buildActiveNoteContext: () => Promise<ActiveNoteContextPacket>,
-    private readonly chatAdapter: CodexChatAdapter
+    private readonly chatAdapter: CodexChatAdapter,
+    private readonly codexTools: CodexToolImplementations
   ) {
     super(leaf);
   }
@@ -275,25 +285,85 @@ export class VaultseerStudioView extends ItemView {
       });
 
       for (const control of request.controls) {
-        const dismissButton = requestEl.createEl("button", {
+        const button = requestEl.createEl("button", {
           text: control.label,
           attr: {
             type: "button"
           }
         });
-        dismissButton.addEventListener("click", async () => {
-          this.chatState = applyChatEvent(this.chatState, {
-            type: "dismiss_tool_request",
-            displayId: control.displayId
-          });
-          await this.refresh();
+        button.addEventListener("click", async () => {
+          if (control.type === "run") {
+            await this.handleToolRequestRun(control.displayId);
+            return;
+          }
+
+          await this.handleToolRequestDismiss(control.displayId);
         });
       }
     }
   }
 
+  private async handleToolRequestRun(displayId: string): Promise<void> {
+    const activePath = this.getActivePath();
+    this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+    const request = this.chatState.pendingToolRequests.find((pendingRequest) => pendingRequest.displayId === displayId);
+    if (!request || !isReadOnlyCodexTool(request.tool) || request.executionStatus !== undefined) {
+      await this.refresh();
+      return;
+    }
+
+    const scope = createCodexToolRequestScope(this.chatState, displayId, activePath);
+    this.chatState = applyChatEvent(this.chatState, {
+      type: "start_tool_request",
+      displayId,
+      scope
+    });
+    await this.refresh();
+
+    let result: CodexToolResult;
+    try {
+      result = await dispatchCodexToolRequest({
+        request: {
+          tool: request.tool,
+          input: request.input
+        },
+        tools: this.codexTools
+      });
+    } catch (error) {
+      result = {
+        ok: false,
+        tool: request.tool,
+        message: getErrorMessage(error)
+      };
+    }
+
+    if (this.isCurrentToolRequest(scope)) {
+      this.chatState = applyChatEvent(this.chatState, {
+        type: result.ok ? "complete_tool_request" : "fail_tool_request",
+        displayId,
+        scope,
+        result,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    await this.refresh();
+  }
+
+  private async handleToolRequestDismiss(displayId: string): Promise<void> {
+    this.chatState = applyChatEvent(this.chatState, {
+      type: "dismiss_tool_request",
+      displayId
+    });
+    await this.refresh();
+  }
+
   private isCurrentChatSend(scope: CodexChatSendScope): boolean {
     return isCurrentCodexChatSend(this.chatState, this.getActivePath(), scope, this.chatSendId);
+  }
+
+  private isCurrentToolRequest(scope: CodexToolRequestScope): boolean {
+    return isCurrentCodexToolRequestScope(this.chatState, this.getActivePath(), scope);
   }
 
   private handleActiveNoteOpened(activePath: string | null): void {

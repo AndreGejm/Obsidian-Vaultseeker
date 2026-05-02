@@ -3,7 +3,7 @@ import { applyChatEvent, createEmptyChatState } from "../src/codex-chat-state";
 import { buildCodexPendingToolRequestDisplayItems } from "../src/codex-pending-tool-request-display";
 
 describe("codex pending tool request display", () => {
-  it("renders tool request display data with Dismiss as the only available control", () => {
+  it("renders Run and Dismiss controls for read-only tool requests", () => {
     const items = buildCodexPendingToolRequestDisplayItems([
       {
         displayId: "codex-tool-request-1-1",
@@ -26,6 +26,11 @@ describe("codex pending tool request display", () => {
         statusLabel: "Pending review",
         controls: [
           {
+            type: "run",
+            label: "Run",
+            displayId: "codex-tool-request-1-1"
+          },
+          {
             type: "dismiss",
             label: "Dismiss",
             displayId: "codex-tool-request-1-1"
@@ -35,6 +40,30 @@ describe("codex pending tool request display", () => {
     ]);
     expect(items.flatMap((item) => item.controls.map((control) => control.label))).not.toContain("Approve");
     expect(items.flatMap((item) => item.controls.map((control) => control.label))).not.toContain("Execute");
+  });
+
+  it("renders Dismiss only for proposal tool requests", () => {
+    const items = buildCodexPendingToolRequestDisplayItems([
+      {
+        displayId: "codex-tool-request-1-1",
+        toolCallId: "tool-call-1",
+        sessionId: "session-a",
+        tool: "stage_suggestion",
+        input: { kind: "tag", value: "vhdl" },
+        createdAt: "2026-05-02T12:00:01.000Z",
+        reviewStatus: "pending_review",
+        status: "requested",
+        kind: "proposal"
+      }
+    ]);
+
+    expect(items[0]?.controls).toEqual([
+      {
+        type: "dismiss",
+        label: "Dismiss",
+        displayId: "codex-tool-request-1-1"
+      }
+    ]);
   });
 
   it("uses the Dismiss display id to remove a pending request locally", () => {

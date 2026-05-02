@@ -43,6 +43,7 @@ import { activateVaultseerStudio, VAULTSEER_STUDIO_VIEW_TYPE, VaultseerStudioVie
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 import { buildActiveNoteContextFromStore } from "./active-note-context-controller";
 import { NotConfiguredCodexChatAdapter } from "./codex-chat-adapter";
+import { createCodexReadOnlyToolImplementations } from "./codex-read-only-tool-implementations";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
@@ -129,7 +130,13 @@ export default class VaultseerPlugin extends Plugin {
               store: this.store,
               activePath: this.app.workspace.getActiveFile()?.path ?? null
             }),
-          new NotConfiguredCodexChatAdapter()
+          new NotConfiguredCodexChatAdapter(),
+          createCodexReadOnlyToolImplementations({
+            store: this.store,
+            getActivePath: () => this.app.workspace.getActiveFile()?.path ?? null,
+            searchNotesSemanticSearch: this.createSearchModalSemanticSearch(),
+            searchSourcesSemanticSearch: this.createSourceSearchModalSemanticSearch()
+          })
         )
     );
 

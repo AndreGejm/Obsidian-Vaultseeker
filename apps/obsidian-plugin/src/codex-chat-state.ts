@@ -1,3 +1,8 @@
+import type { CodexToolResult } from "./codex-tool-dispatcher";
+import { formatCodexToolResultMessage } from "./codex-tool-result-message";
+
+export type CodexToolExecutionStatus = "running" | "completed" | "failed";
+
 export type CodexChatMessage = {
   role: "user" | "assistant" | "system";
   content: string;
@@ -25,6 +30,7 @@ export type CodexPendingToolRequest = {
   status?: string;
   requestClass?: string;
   kind?: string;
+  executionStatus?: CodexToolExecutionStatus;
 };
 
 export type CodexChatState = {
@@ -42,12 +48,21 @@ export type CodexChatSendScope = {
   chatScopeId: number;
 };
 
+export type CodexToolRequestScope = {
+  displayId: string;
+  activePath: string | null;
+  chatScopeId: number;
+};
+
 export type CodexChatEvent =
   | { type: "user_message"; content: string; createdAt: string }
   | { type: "assistant_message"; content: string; createdAt: string; toolRequests?: CodexChatToolRequest[] }
   | { type: "error"; message: string }
   | { type: "active_note_changed"; activePath: string | null }
   | { type: "dismiss_tool_request"; displayId: string }
+  | { type: "start_tool_request"; displayId: string; scope: CodexToolRequestScope }
+  | { type: "complete_tool_request"; displayId: string; scope: CodexToolRequestScope; result: CodexToolResult; createdAt: string }
+  | { type: "fail_tool_request"; displayId: string; scope: CodexToolRequestScope; result: CodexToolResult; createdAt: string }
   | { type: "clear" };
 
 export function createEmptyChatState(activePath: string | null, chatScopeId = 0): CodexChatState {
@@ -87,6 +102,30 @@ export function isCurrentCodexChatSend(
   );
 }
 
+export function createCodexToolRequestScope(
+  state: CodexChatState,
+  displayId: string,
+  activePath: string | null
+): CodexToolRequestScope {
+  return {
+    displayId,
+    activePath,
+    chatScopeId: state.chatScopeId
+  };
+}
+
+export function isCurrentCodexToolRequestScope(
+  state: CodexChatState,
+  currentActivePath: string | null,
+  scope: CodexToolRequestScope
+): boolean {
+  return (
+    state.chatScopeId === scope.chatScopeId &&
+    state.activePath === scope.activePath &&
+    currentActivePath === scope.activePath
+  );
+}
+
 export function applyActiveNoteChangeToChatState(state: CodexChatState, activePath: string | null): CodexChatState {
   return applyChatEvent(state, { type: "active_note_changed", activePath });
 }
@@ -113,9 +152,64 @@ export function applyChatEvent(state: CodexChatState, event: CodexChatEvent): Co
       const pendingToolRequests = state.pendingToolRequests.filter((request) => request.displayId !== event.displayId);
       return pendingToolRequests.length === state.pendingToolRequests.length ? state : { ...state, pendingToolRequests };
     }
+    case "start_tool_request":
+      if (!isCurrentToolRequestEvent(state, event.scope) || event.displayId !== event.scope.displayId) {
+        return state;
+      }
+
+      return updatePendingToolRequestExecutionStatus(state, event.displayId, "running");
+    case "complete_tool_request":
+      return applyToolRequestResultEvent(state, event.displayId, event.scope, "completed", event.result, event.createdAt);
+    case "fail_tool_request":
+      return applyToolRequestResultEvent(state, event.displayId, event.scope, "failed", event.result, event.createdAt);
     case "clear":
       return createEmptyChatState(state.activePath, state.chatScopeId + 1);
   }
+}
+
+function applyToolRequestResultEvent(
+  state: CodexChatState,
+  displayId: string,
+  scope: CodexToolRequestScope,
+  executionStatus: Extract<CodexToolExecutionStatus, "completed" | "failed">,
+  result: CodexToolResult,
+  createdAt: string
+): CodexChatState {
+  if (!isCurrentToolRequestEvent(state, scope) || displayId !== scope.displayId || !hasPendingToolRequest(state, displayId)) {
+    return state;
+  }
+
+  return appendMessage(
+    updatePendingToolRequestExecutionStatus(state, displayId, executionStatus),
+    "system",
+    formatCodexToolResultMessage(result),
+    createdAt
+  );
+}
+
+function isCurrentToolRequestEvent(state: CodexChatState, scope: CodexToolRequestScope): boolean {
+  return state.chatScopeId === scope.chatScopeId && state.activePath === scope.activePath;
+}
+
+function hasPendingToolRequest(state: CodexChatState, displayId: string): boolean {
+  return state.pendingToolRequests.some((request) => request.displayId === displayId);
+}
+
+function updatePendingToolRequestExecutionStatus(
+  state: CodexChatState,
+  displayId: string,
+  executionStatus: CodexToolExecutionStatus
+): CodexChatState {
+  if (!hasPendingToolRequest(state, displayId)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    pendingToolRequests: state.pendingToolRequests.map((request) =>
+      request.displayId === displayId ? { ...request, executionStatus } : request
+    )
+  };
 }
 
 function appendMessage(
