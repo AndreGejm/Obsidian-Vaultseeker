@@ -1,17 +1,29 @@
 import { ItemView, Notice, type App, type WorkspaceLeaf } from "obsidian";
-import type { CodexRuntimeStatus, IndexHealth, NoteRecord, StudioModeId, VaultseerStore } from "@vaultseer/core";
+import type {
+  ActiveNoteContextPacket,
+  CodexRuntimeStatus,
+  IndexHealth,
+  NoteRecord,
+  StudioModeId,
+  VaultseerStore
+} from "@vaultseer/core";
+import { applyChatEvent, createEmptyChatState, type CodexChatState } from "./codex-chat-state";
+import type { CodexChatAdapter } from "./codex-chat-adapter";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 
 export class VaultseerStudioView extends ItemView {
   private activeMode: StudioModeId | null = null;
+  private chatState: CodexChatState = createEmptyChatState(null);
 
   constructor(
     leaf: WorkspaceLeaf,
     private readonly store: VaultseerStore,
     private readonly getActivePath: () => string | null,
-    private readonly getCodexRuntimeStatus: () => CodexRuntimeStatus
+    private readonly getCodexRuntimeStatus: () => CodexRuntimeStatus,
+    private readonly buildActiveNoteContext: () => Promise<ActiveNoteContextPacket>,
+    private readonly chatAdapter: CodexChatAdapter
   ) {
     super(leaf);
   }
@@ -55,9 +67,12 @@ export class VaultseerStudioView extends ItemView {
   }
 
   private render(health: IndexHealth, notes: NoteRecord[]): void {
+    const activePath = this.getActivePath();
+    this.chatState = applyChatEvent(this.chatState, { type: "active_note_changed", activePath });
+
     const state = buildPluginStudioState({
       requestedMode: this.activeMode,
-      activePath: this.getActivePath(),
+      activePath,
       notes,
       indexStatus: health.status,
       codexRuntimeStatus: this.getCodexRuntimeStatus()
@@ -94,6 +109,78 @@ export class VaultseerStudioView extends ItemView {
 
     body.createEl("h3", { text: selectedMode?.label ?? "Note" });
     body.createEl("p", { text: selectedMode?.message ?? "Mode is ready." });
+
+    if (selectedMode?.id === "chat") {
+      this.renderChatMode(body);
+    }
+  }
+
+  private renderChatMode(containerEl: HTMLElement): void {
+    const messagesEl = containerEl.createDiv({ cls: "vaultseer-studio-chat-messages" });
+
+    if (this.chatState.messages.length === 0) {
+      messagesEl.createEl("p", { text: "No chat messages yet." });
+    } else {
+      for (const message of this.chatState.messages) {
+        const messageEl = messagesEl.createDiv({ cls: `vaultseer-studio-chat-message vaultseer-chat-${message.role}` });
+        messageEl.createEl("strong", { text: `${capitalize(message.role)}: ` });
+        messageEl.createSpan({ text: message.content });
+      }
+    }
+
+    if (this.chatState.error) {
+      containerEl.createEl("p", { text: this.chatState.error, cls: "vaultseer-studio-chat-error" });
+    }
+
+    const form = containerEl.createEl("form", { cls: "vaultseer-studio-chat-form" });
+    const input = form.createEl("textarea", {
+      attr: {
+        rows: "3",
+        placeholder: "Ask about the active note"
+      }
+    });
+    const sendButton = form.createEl("button", {
+      text: "Send",
+      attr: {
+        type: "submit"
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+
+      sendButton.disabled = true;
+      input.disabled = true;
+      this.chatState = applyChatEvent(this.chatState, {
+        type: "active_note_changed",
+        activePath: this.getActivePath()
+      });
+      this.chatState = applyChatEvent(this.chatState, {
+        type: "user_message",
+        content: message,
+        createdAt: new Date().toISOString()
+      });
+      await this.refresh();
+
+      try {
+        const context = await this.buildActiveNoteContext();
+        const response = await this.chatAdapter.send({ message, context });
+        this.chatState = applyChatEvent(this.chatState, {
+          type: "assistant_message",
+          content: response.content,
+          createdAt: new Date().toISOString()
+        });
+      } catch (error) {
+        this.chatState = applyChatEvent(this.chatState, {
+          type: "error",
+          message: getErrorMessage(error)
+        });
+      }
+
+      await this.refresh();
+    });
   }
 }
 
@@ -109,4 +196,8 @@ export async function activateVaultseerStudio(app: App): Promise<WorkspaceLeaf |
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function capitalize(value: string): string {
+  return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }

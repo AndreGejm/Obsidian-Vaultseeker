@@ -41,6 +41,8 @@ import type { SearchModalSemanticSearch } from "./search-modal-query";
 import type { SourceSearchModalSemanticSearch } from "./source-search-modal-query";
 import { activateVaultseerStudio, VAULTSEER_STUDIO_VIEW_TYPE, VaultseerStudioView } from "./studio-view";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
+import { buildActiveNoteContextFromStore } from "./active-note-context-controller";
+import { NotConfiguredCodexChatAdapter } from "./codex-chat-adapter";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
@@ -121,7 +123,13 @@ export default class VaultseerPlugin extends Plugin {
           leaf,
           this.store,
           () => this.app.workspace.getActiveFile()?.path ?? null,
-          () => "stopped"
+          () => "stopped",
+          async () =>
+            buildActiveNoteContextFromStore({
+              store: this.store,
+              activePath: this.app.workspace.getActiveFile()?.path ?? null
+            }),
+          new NotConfiguredCodexChatAdapter()
         )
     );
 
