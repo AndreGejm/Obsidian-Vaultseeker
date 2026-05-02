@@ -2,6 +2,12 @@ import type { ChunkRecord } from "../storage/types";
 import type { NoteRecord } from "../types";
 import type { ActiveNoteContextPacket } from "./types";
 
+const DEFAULT_MAX_NOTE_CHUNKS = 8;
+const DEFAULT_MAX_METADATA_ITEMS = 32;
+const DEFAULT_MAX_RELATED_NOTES = 8;
+const DEFAULT_MAX_SOURCE_EXCERPTS = 8;
+const DEFAULT_MAX_CHUNK_CHARACTERS = 1200;
+
 export type BuildActiveNoteContextPacketInput = {
   activePath: string | null;
   notes: NoteRecord[];
@@ -9,6 +15,10 @@ export type BuildActiveNoteContextPacketInput = {
   relatedNotes: Array<{ path: string; title: string; reason: string }>;
   sourceExcerpts: Array<{ sourceId: string; sourcePath: string; chunkId: string; text: string; evidenceLabel: string }>;
   maxChunkCharacters?: number;
+  maxNoteChunks?: number;
+  maxMetadataItems?: number;
+  maxRelatedNotes?: number;
+  maxSourceExcerpts?: number;
 };
 
 export function buildActiveNoteContextPacket(input: BuildActiveNoteContextPacketInput): ActiveNoteContextPacket {
@@ -21,28 +31,35 @@ export function buildActiveNoteContextPacket(input: BuildActiveNoteContextPacket
     return blocked("The active note is not indexed. Rebuild the Vaultseer index before using note-aware chat.");
   }
 
+  const maxChunkCharacters = normalizeLimit(input.maxChunkCharacters, DEFAULT_MAX_CHUNK_CHARACTERS);
+  const maxNoteChunks = normalizeLimit(input.maxNoteChunks, DEFAULT_MAX_NOTE_CHUNKS);
+  const maxMetadataItems = normalizeLimit(input.maxMetadataItems, DEFAULT_MAX_METADATA_ITEMS);
+  const maxRelatedNotes = normalizeLimit(input.maxRelatedNotes, DEFAULT_MAX_RELATED_NOTES);
+  const maxSourceExcerpts = normalizeLimit(input.maxSourceExcerpts, DEFAULT_MAX_SOURCE_EXCERPTS);
+
   return {
     status: "ready",
     message: "Active note context is ready.",
     note: {
       path: note.path,
       title: note.title,
-      aliases: note.aliases,
-      tags: note.tags,
-      headings: note.headings.map((heading) => heading.heading),
-      links: note.links.map((link) => link.raw)
+      aliases: note.aliases.slice(0, maxMetadataItems),
+      tags: note.tags.slice(0, maxMetadataItems),
+      headings: note.headings.slice(0, maxMetadataItems).map((heading) => heading.heading),
+      links: note.links.slice(0, maxMetadataItems).map((link) => link.raw)
     },
     noteChunks: input.chunks
       .filter((chunk) => chunk.notePath === note.path)
+      .slice(0, maxNoteChunks)
       .map((chunk) => ({
         chunkId: chunk.id,
         headingPath: chunk.headingPath,
-        text: truncate(chunk.text, input.maxChunkCharacters ?? 1200)
+        text: truncate(chunk.text, maxChunkCharacters)
       })),
-    relatedNotes: input.relatedNotes.slice(0, 8),
-    sourceExcerpts: input.sourceExcerpts.slice(0, 8).map((excerpt) => ({
+    relatedNotes: input.relatedNotes.slice(0, maxRelatedNotes),
+    sourceExcerpts: input.sourceExcerpts.slice(0, maxSourceExcerpts).map((excerpt) => ({
       ...excerpt,
-      text: truncate(excerpt.text, input.maxChunkCharacters ?? 1200)
+      text: truncate(excerpt.text, maxChunkCharacters)
     }))
   };
 }
@@ -56,6 +73,11 @@ function blocked(message: string): ActiveNoteContextPacket {
     relatedNotes: [],
     sourceExcerpts: []
   };
+}
+
+function normalizeLimit(value: number | undefined, defaultValue: number): number {
+  if (value === undefined || !Number.isFinite(value)) return defaultValue;
+  return Math.max(0, Math.floor(value));
 }
 
 function truncate(value: string, maxCharacters: number): string {
