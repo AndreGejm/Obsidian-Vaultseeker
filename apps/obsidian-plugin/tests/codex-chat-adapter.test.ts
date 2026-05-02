@@ -30,7 +30,8 @@ describe("AcpCodexChatAdapter", () => {
     );
     expect(transport.send.mock.calls[0]?.[0].agentContent).toContain("User Message");
     expect(transport.send.mock.calls[0]?.[0].agentContent).toContain("Suggest a tag");
-    expect(transport.send.mock.calls[0]?.[0].agentContent).toContain("Path: Notes/VHDL.md");
+    expect(transport.send.mock.calls[0]?.[0].agentContent).toContain("BEGIN_VAULTSEER_UNTRUSTED_CONTEXT_JSON");
+    expect(transport.send.mock.calls[0]?.[0].agentContent).toContain('"path": "Notes/VHDL.md"');
     expect(response).toEqual({
       content: "Try a vhdl/timing tag.",
       toolRequests: [{ tool: "stage_suggestion", input: { kind: "tag", value: "vhdl/timing" } }]
