@@ -2,6 +2,7 @@ import { ItemView, Notice, type App, type WorkspaceLeaf } from "obsidian";
 import type {
   ActiveNoteContextPacket,
   CodexRuntimeStatus,
+  GuardedVaultWriteOperation,
   IndexHealth,
   NoteRecord,
   StudioModeId,
@@ -9,6 +10,7 @@ import type {
 } from "@vaultseer/core";
 import { applyChatEvent, createEmptyChatState, type CodexChatState } from "./codex-chat-state";
 import type { CodexChatAdapter } from "./codex-chat-adapter";
+import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
@@ -58,8 +60,12 @@ export class VaultseerStudioView extends ItemView {
     contentEl.createEl("p", { text: "Loading Studio..." });
 
     try {
-      const [health, notes] = await Promise.all([this.store.getHealth(), this.store.getNoteRecords()]);
-      this.render(health, notes);
+      const [health, notes, writeOperations] = await Promise.all([
+        this.store.getHealth(),
+        this.store.getNoteRecords(),
+        this.store.getVaultWriteOperations()
+      ]);
+      this.render(health, notes, writeOperations);
     } catch (error) {
       contentEl.empty();
       contentEl.createEl("h2", { text: "Vaultseer Studio" });
@@ -68,7 +74,7 @@ export class VaultseerStudioView extends ItemView {
     }
   }
 
-  private render(health: IndexHealth, notes: NoteRecord[]): void {
+  private render(health: IndexHealth, notes: NoteRecord[], writeOperations: GuardedVaultWriteOperation[]): void {
     const activePath = this.getActivePath();
     this.chatState = applyChatEvent(this.chatState, { type: "active_note_changed", activePath });
 
@@ -85,7 +91,7 @@ export class VaultseerStudioView extends ItemView {
     contentEl.createEl("h2", { text: state.title });
     contentEl.createEl("p", { text: `Current note: ${state.activeNoteLabel}` });
     this.renderModeButtons(contentEl, state);
-    this.renderSelectedMode(contentEl, state);
+    this.renderSelectedMode(contentEl, state, writeOperations);
   }
 
   private renderModeButtons(containerEl: HTMLElement, state: PluginStudioState): void {
@@ -105,15 +111,62 @@ export class VaultseerStudioView extends ItemView {
     }
   }
 
-  private renderSelectedMode(containerEl: HTMLElement, state: PluginStudioState): void {
+  private renderSelectedMode(
+    containerEl: HTMLElement,
+    state: PluginStudioState,
+    writeOperations: GuardedVaultWriteOperation[]
+  ): void {
     const selectedMode = state.modes.find((mode) => mode.selected) ?? state.modes[0];
     const body = containerEl.createDiv({ cls: "vaultseer-studio-body" });
 
     body.createEl("h3", { text: selectedMode?.label ?? "Note" });
     body.createEl("p", { text: selectedMode?.message ?? "Mode is ready." });
 
+    if (selectedMode?.id === "note") {
+      this.renderNoteMode(body, state, writeOperations);
+    }
+
     if (selectedMode?.id === "chat") {
       this.renderChatMode(body);
+    }
+  }
+
+  private renderNoteMode(
+    containerEl: HTMLElement,
+    state: PluginStudioState,
+    writeOperations: GuardedVaultWriteOperation[]
+  ): void {
+    const activePath = state.activeNotePath;
+    if (!activePath) {
+      containerEl.createEl("p", { text: "Open a Markdown note to review current-note proposals." });
+      return;
+    }
+
+    const currentNoteOperations = writeOperations.filter((operation) => operation.targetPath === activePath);
+    if (currentNoteOperations.length === 0) {
+      const tagUpdateState = buildInlineApprovalState({
+        operationType: "update_note_tags",
+        targetPath: activePath,
+        activePath,
+        touchesMultipleFiles: false
+      });
+      containerEl.createEl("p", { text: tagUpdateState.message });
+      containerEl.createEl("p", {
+        text: "Stage tag suggestions through the guarded proposal flow before approving any note changes."
+      });
+      return;
+    }
+
+    for (const operation of currentNoteOperations) {
+      const approvalState = buildInlineApprovalState({
+        operationType: operation.type,
+        targetPath: operation.targetPath,
+        activePath,
+        touchesMultipleFiles: false
+      });
+      containerEl.createEl("p", {
+        text: `${formatOperationType(operation.type)} for ${operation.targetPath}: ${approvalState.message}`
+      });
     }
   }
 
@@ -218,4 +271,8 @@ function getErrorMessage(error: unknown): string {
 
 function capitalize(value: string): string {
   return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
+}
+
+function formatOperationType(type: GuardedVaultWriteOperation["type"]): string {
+  return type.replace(/_/g, " ");
 }
