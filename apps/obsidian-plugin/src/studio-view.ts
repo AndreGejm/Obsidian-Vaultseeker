@@ -16,6 +16,8 @@ export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 export class VaultseerStudioView extends ItemView {
   private activeMode: StudioModeId | null = null;
   private chatState: CodexChatState = createEmptyChatState(null);
+  private chatSending = false;
+  private chatSendId = 0;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -140,22 +142,27 @@ export class VaultseerStudioView extends ItemView {
       }
     });
     const sendButton = form.createEl("button", {
-      text: "Send",
+      text: this.chatSending ? "Sending..." : "Send",
       attr: {
         type: "submit"
       }
     });
+    input.disabled = this.chatSending;
+    sendButton.disabled = this.chatSending;
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (this.chatSending) return;
+
       const message = input.value.trim();
       if (!message) return;
 
-      sendButton.disabled = true;
-      input.disabled = true;
+      const sendId = ++this.chatSendId;
+      const activePath = this.getActivePath();
+      this.chatSending = true;
       this.chatState = applyChatEvent(this.chatState, {
         type: "active_note_changed",
-        activePath: this.getActivePath()
+        activePath
       });
       this.chatState = applyChatEvent(this.chatState, {
         type: "user_message",
@@ -167,20 +174,31 @@ export class VaultseerStudioView extends ItemView {
       try {
         const context = await this.buildActiveNoteContext();
         const response = await this.chatAdapter.send({ message, context });
-        this.chatState = applyChatEvent(this.chatState, {
-          type: "assistant_message",
-          content: response.content,
-          createdAt: new Date().toISOString()
-        });
+        if (this.isCurrentChatSend(sendId, activePath)) {
+          this.chatState = applyChatEvent(this.chatState, {
+            type: "assistant_message",
+            content: response.content,
+            createdAt: new Date().toISOString()
+          });
+        }
       } catch (error) {
-        this.chatState = applyChatEvent(this.chatState, {
-          type: "error",
-          message: getErrorMessage(error)
-        });
+        if (this.isCurrentChatSend(sendId, activePath)) {
+          this.chatState = applyChatEvent(this.chatState, {
+            type: "error",
+            message: getErrorMessage(error)
+          });
+        }
+      } finally {
+        if (this.chatSendId === sendId) {
+          this.chatSending = false;
+        }
+        await this.refresh();
       }
-
-      await this.refresh();
     });
+  }
+
+  private isCurrentChatSend(sendId: number, activePath: string | null): boolean {
+    return this.chatSendId === sendId && this.chatState.activePath === activePath && this.getActivePath() === activePath;
   }
 }
 
