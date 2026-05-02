@@ -1,4 +1,10 @@
-import { buildStudioState, type CodexRuntimeStatus, type IndexStatus, type StudioModeId } from "@vaultseer/core";
+import {
+  buildStudioState,
+  type CodexRuntimeStatus,
+  type IndexStatus,
+  type StudioModeId,
+  type StudioModeStatus
+} from "@vaultseer/core";
 
 export type StudioStateNoteSummary = {
   path: string;
@@ -23,7 +29,7 @@ export type PluginStudioState = {
   modes: Array<{
     id: StudioModeId;
     label: string;
-    status: string;
+    status: StudioModeStatus;
     message: string;
     selected: boolean;
   }>;

@@ -306,13 +306,13 @@ export default class VaultseerPlugin extends Plugin {
       now: () => new Date().toISOString()
     });
     new Notice(`Vaultseer indexed ${this.health.noteCount} notes.`);
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async clearIndex(): Promise<void> {
     this.health = await clearReadOnlyIndex(this.store);
     new Notice("Vaultseer index cleared.");
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async showIndexHealth(): Promise<void> {
@@ -410,7 +410,7 @@ export default class VaultseerPlugin extends Plugin {
     new Notice(
       `Vaultseer planned ${summary.plannedJobCount} PDF extraction job${summary.plannedJobCount === 1 ? "" : "s"}; ${summary.reusableSourceCount} already current, ${summary.skippedByLimitCount} skipped by limit.`
     );
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async showSourceExtractionQueueStatus(): Promise<void> {
@@ -458,7 +458,7 @@ export default class VaultseerPlugin extends Plugin {
         `Vaultseer source extraction completed ${summary.completed}/${summary.claimed} job${summary.claimed === 1 ? "" : "s"}; ${summary.failed} failed.`
       );
     }
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async recoverSourceExtractionQueue(): Promise<void> {
@@ -474,7 +474,7 @@ export default class VaultseerPlugin extends Plugin {
         `Vaultseer recovered ${summary.recoveredJobCount} source extraction job${summary.recoveredJobCount === 1 ? "" : "s"}.`
       );
     }
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async cancelSourceExtractionQueue(): Promise<void> {
@@ -490,7 +490,7 @@ export default class VaultseerPlugin extends Plugin {
         `Vaultseer cancelled ${summary.newlyCancelledJobCount} source extraction job${summary.newlyCancelledJobCount === 1 ? "" : "s"}.`
       );
     }
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async openWorkbench(): Promise<void> {
@@ -526,7 +526,7 @@ export default class VaultseerPlugin extends Plugin {
     new Notice(
       `Vaultseer planned ${summary.queuedJobCount} semantic job${summary.queuedJobCount === 1 ? "" : "s"}.`
     );
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async runSemanticIndexBatch(): Promise<void> {
@@ -564,7 +564,7 @@ export default class VaultseerPlugin extends Plugin {
         `Vaultseer semantic batch completed ${summary.completed}/${summary.claimed} job${summary.claimed === 1 ? "" : "s"}; ${summary.failed} failed.`
       );
     }
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async planSourceSemanticIndex(): Promise<void> {
@@ -586,7 +586,7 @@ export default class VaultseerPlugin extends Plugin {
     new Notice(
       `Vaultseer planned ${summary.queuedJobCount} source semantic job${summary.queuedJobCount === 1 ? "" : "s"}.`
     );
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async runSourceSemanticIndexBatch(): Promise<void> {
@@ -624,7 +624,7 @@ export default class VaultseerPlugin extends Plugin {
         `Vaultseer source semantic batch completed ${summary.completed}/${summary.claimed} job${summary.claimed === 1 ? "" : "s"}; ${summary.failed} failed.`
       );
     }
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async cancelSemanticIndexQueue(): Promise<void> {
@@ -640,7 +640,7 @@ export default class VaultseerPlugin extends Plugin {
         `Vaultseer cancelled ${summary.cancelledJobCount} semantic job${summary.cancelledJobCount === 1 ? "" : "s"}.`
       );
     }
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   async cancelSourceSemanticIndexQueue(): Promise<void> {
@@ -656,7 +656,7 @@ export default class VaultseerPlugin extends Plugin {
         `Vaultseer cancelled ${summary.cancelledJobCount} source semantic job${summary.cancelledJobCount === 1 ? "" : "s"}.`
       );
     }
-    await this.refreshWorkbenchViews();
+    await this.refreshVaultseerViews();
   }
 
   private async recoverInterruptedQueuesOnStartup(): Promise<void> {
@@ -683,11 +683,14 @@ export default class VaultseerPlugin extends Plugin {
     }
   }
 
-  private async refreshWorkbenchViews(): Promise<void> {
+  private async refreshVaultseerViews(): Promise<void> {
     await Promise.all(
-      this.app.workspace.getLeavesOfType(VAULTSEER_WORKBENCH_VIEW_TYPE).map(async (leaf) => {
+      [
+        ...this.app.workspace.getLeavesOfType(VAULTSEER_WORKBENCH_VIEW_TYPE),
+        ...this.app.workspace.getLeavesOfType(VAULTSEER_STUDIO_VIEW_TYPE)
+      ].map(async (leaf) => {
         const view = leaf.view;
-        if (view instanceof VaultseerWorkbenchView) {
+        if (view instanceof VaultseerWorkbenchView || view instanceof VaultseerStudioView) {
           await view.refresh();
         }
       })
