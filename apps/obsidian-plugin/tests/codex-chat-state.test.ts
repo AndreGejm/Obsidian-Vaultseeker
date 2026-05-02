@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyChatEvent,
+  applyActiveNoteChangeToChatState,
   createCodexChatSendScope,
   createEmptyChatState,
   formatCodexToolRequestInputPreview,
@@ -232,5 +233,27 @@ describe("codex chat state", () => {
 
     expect(state.activePath).toBe("Notes/VHDL.md");
     expect(isCurrentCodexChatSend(state, "Notes/VHDL.md", sendScope)).toBe(false);
+  });
+
+  it("invalidates file-open note changes before async Studio refresh renders", () => {
+    const state = createEmptyChatState("Notes/VHDL.md");
+    const sendScope = createCodexChatSendScope(state, 1, "Notes/VHDL.md");
+
+    const changedAwayState = applyActiveNoteChangeToChatState(state, "Notes/C++.md");
+    const changedBackState = applyActiveNoteChangeToChatState(changedAwayState, "Notes/VHDL.md");
+
+    expect(changedAwayState.chatScopeId).toBe(state.chatScopeId + 1);
+    expect(changedBackState.activePath).toBe("Notes/VHDL.md");
+    expect(changedBackState.chatScopeId).toBe(state.chatScopeId + 2);
+    expect(isCurrentCodexChatSend(changedBackState, "Notes/VHDL.md", sendScope)).toBe(false);
+  });
+
+  it("does not churn file-open chat scope when the active note path is unchanged", () => {
+    const state = createEmptyChatState("Notes/VHDL.md");
+
+    const unchangedState = applyActiveNoteChangeToChatState(state, "Notes/VHDL.md");
+
+    expect(unchangedState).toBe(state);
+    expect(unchangedState.chatScopeId).toBe(state.chatScopeId);
   });
 });

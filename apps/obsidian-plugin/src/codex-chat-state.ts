@@ -87,6 +87,10 @@ export function isCurrentCodexChatSend(
   );
 }
 
+export function applyActiveNoteChangeToChatState(state: CodexChatState, activePath: string | null): CodexChatState {
+  return applyChatEvent(state, { type: "active_note_changed", activePath });
+}
+
 export function applyChatEvent(state: CodexChatState, event: CodexChatEvent): CodexChatState {
   switch (event.type) {
     case "user_message":

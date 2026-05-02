@@ -10,6 +10,7 @@ import type {
 } from "@vaultseer/core";
 import {
   applyChatEvent,
+  applyActiveNoteChangeToChatState,
   createCodexChatSendScope,
   createEmptyChatState,
   isCurrentCodexChatSend,
@@ -53,7 +54,12 @@ export class VaultseerStudioView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    this.registerEvent(this.app.workspace.on("file-open", () => void this.refresh()));
+    this.registerEvent(
+      this.app.workspace.on("file-open", (file) => {
+        this.handleActiveNoteOpened(file?.path ?? null);
+        void this.refresh();
+      })
+    );
     await this.refresh();
   }
 
@@ -84,7 +90,7 @@ export class VaultseerStudioView extends ItemView {
 
   private render(health: IndexHealth, notes: NoteRecord[], writeOperations: GuardedVaultWriteOperation[]): void {
     const activePath = this.getActivePath();
-    this.chatState = applyChatEvent(this.chatState, { type: "active_note_changed", activePath });
+    this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
 
     const state = buildPluginStudioState({
       requestedMode: this.activeMode,
@@ -217,10 +223,7 @@ export class VaultseerStudioView extends ItemView {
       const sendId = ++this.chatSendId;
       const activePath = this.getActivePath();
       this.chatSending = true;
-      this.chatState = applyChatEvent(this.chatState, {
-        type: "active_note_changed",
-        activePath
-      });
+      this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
       const sendScope = createCodexChatSendScope(this.chatState, sendId, activePath);
       this.chatState = applyChatEvent(this.chatState, {
         type: "user_message",
@@ -291,6 +294,10 @@ export class VaultseerStudioView extends ItemView {
 
   private isCurrentChatSend(scope: CodexChatSendScope): boolean {
     return isCurrentCodexChatSend(this.chatState, this.getActivePath(), scope, this.chatSendId);
+  }
+
+  private handleActiveNoteOpened(activePath: string | null): void {
+    this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
   }
 }
 
