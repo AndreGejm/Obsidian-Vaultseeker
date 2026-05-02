@@ -3,7 +3,13 @@ import { Notice, Plugin } from "obsidian";
 import { PersistentVaultseerStore, type IndexHealth, type VaultseerStore } from "@vaultseer/core";
 import { checkReadOnlyIndexStaleness, clearReadOnlyIndex, rebuildReadOnlyIndex } from "./index-controller";
 import { readVaultNoteInputs, type VaultReaderApp } from "./obsidian-adapter";
-import { DEFAULT_SETTINGS, VaultseerSettingTab, type VaultseerSettings } from "./settings";
+import {
+  DEFAULT_SETTINGS,
+  normalizeCodexModel,
+  normalizeCodexReasoningEffort,
+  VaultseerSettingTab,
+  type VaultseerSettings
+} from "./settings";
 import { VaultseerPluginDataStore } from "./plugin-data-store";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
@@ -140,6 +146,19 @@ export default class VaultseerPlugin extends Plugin {
           () => nativeCodexClient.getState().status,
           async () => {
             await this.resetNativeCodexSession();
+          },
+          () => ({
+            codexModel: this.settings.codexModel,
+            codexReasoningEffort: this.settings.codexReasoningEffort
+          }),
+          async (patch) => {
+            if (patch.codexModel !== undefined) {
+              await this.setNativeCodexModel(patch.codexModel);
+              return;
+            }
+            if (patch.codexReasoningEffort !== undefined) {
+              await this.setNativeCodexReasoningEffort(patch.codexReasoningEffort);
+            }
           },
           async () =>
             buildActiveNoteContextFromStore({
@@ -579,8 +598,30 @@ export default class VaultseerPlugin extends Plugin {
   }
 
   async resetNativeCodexSession(): Promise<void> {
-    await this.nativeCodexClient?.resetSession();
+    await this.resetNativeCodexSessionQuietly();
     new Notice("Vaultseer reset the native Codex session.");
+    await this.refreshVaultseerViews();
+  }
+
+  async setNativeCodexModel(value: string): Promise<void> {
+    const codexModel = normalizeCodexModel(value);
+    if (this.settings.codexModel === codexModel) return;
+
+    this.settings.codexModel = codexModel;
+    await this.saveSettings();
+    await this.resetNativeCodexSessionQuietly();
+    new Notice(`Vaultseer Codex model set to ${codexModel}.`);
+    await this.refreshVaultseerViews();
+  }
+
+  async setNativeCodexReasoningEffort(value: string): Promise<void> {
+    const codexReasoningEffort = normalizeCodexReasoningEffort(value);
+    if (this.settings.codexReasoningEffort === codexReasoningEffort) return;
+
+    this.settings.codexReasoningEffort = codexReasoningEffort;
+    await this.saveSettings();
+    await this.resetNativeCodexSessionQuietly();
+    new Notice(`Vaultseer Codex reasoning set to ${codexReasoningEffort}.`);
     await this.refreshVaultseerViews();
   }
 
@@ -776,6 +817,10 @@ export default class VaultseerPlugin extends Plugin {
 
   getHealth(): IndexHealth | null {
     return this.health;
+  }
+
+  private async resetNativeCodexSessionQuietly(): Promise<void> {
+    await this.nativeCodexClient?.resetSession();
   }
 
   private createSearchModalSemanticSearch(): SearchModalSemanticSearch | undefined {

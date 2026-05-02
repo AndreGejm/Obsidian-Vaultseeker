@@ -16,6 +16,8 @@ const defaultSettings = {
   nativeCodexEnabled: false,
   codexCommand: "codex-acp",
   codexWorkingDirectory: "",
+  codexModel: "gpt-5.5",
+  codexReasoningEffort: "xhigh",
   managedSourceFolder: "Sources",
   planFolder: "Plans",
   releaseFolder: "Releases"
@@ -145,7 +147,9 @@ describe("VaultseerPluginDataStore", () => {
       settings: {
         nativeCodexEnabled: true,
         codexCommand: "codex",
-        codexWorkingDirectory: "F:\\Dev\\Obsidian"
+        codexWorkingDirectory: "F:\\Dev\\Obsidian",
+        codexModel: "gpt-5.4",
+        codexReasoningEffort: "medium"
       },
       index: null
     });
@@ -155,6 +159,8 @@ describe("VaultseerPluginDataStore", () => {
     expect(settings.nativeCodexEnabled).toBe(true);
     expect(settings.codexCommand).toBe("codex");
     expect(settings.codexWorkingDirectory).toBe("F:\\Dev\\Obsidian");
+    expect(settings.codexModel).toBe("gpt-5.4");
+    expect(settings.codexReasoningEffort).toBe("medium");
   });
 
   it("saves settings without dropping the persisted index", async () => {

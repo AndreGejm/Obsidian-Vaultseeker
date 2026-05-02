@@ -1,7 +1,20 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type VaultseerPlugin from "./main";
-import { DEFAULT_SETTINGS, normalizeVaultFolderPath, type VaultseerSettings } from "./settings-model";
-export { DEFAULT_SETTINGS, type VaultseerSettings } from "./settings-model";
+import {
+  CODEX_MODEL_OPTIONS,
+  CODEX_REASONING_EFFORT_OPTIONS,
+  DEFAULT_SETTINGS,
+  normalizeCodexModel,
+  normalizeCodexReasoningEffort,
+  normalizeVaultFolderPath,
+  type VaultseerSettings
+} from "./settings-model";
+export {
+  DEFAULT_SETTINGS,
+  normalizeCodexModel,
+  normalizeCodexReasoningEffort,
+  type VaultseerSettings
+} from "./settings-model";
 
 export class VaultseerSettingTab extends PluginSettingTab {
   constructor(app: App, private readonly plugin: VaultseerPlugin) {
@@ -78,6 +91,30 @@ export class VaultseerSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl)
+      .setName("Codex model")
+      .setDesc("Model used by native Studio chat. Changing it resets the native Codex session.")
+      .addDropdown((dropdown) => {
+        for (const model of CODEX_MODEL_OPTIONS) {
+          dropdown.addOption(model, model);
+        }
+        dropdown.setValue(this.plugin.settings.codexModel).onChange(async (value) => {
+          await this.plugin.setNativeCodexModel(normalizeCodexModel(value));
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Codex reasoning effort")
+      .setDesc("Reasoning depth used by native Studio chat. Lower values are faster; higher values are deeper.")
+      .addDropdown((dropdown) => {
+        for (const effort of CODEX_REASONING_EFFORT_OPTIONS) {
+          dropdown.addOption(effort, formatReasoningEffort(effort));
+        }
+        dropdown.setValue(this.plugin.settings.codexReasoningEffort).onChange(async (value) => {
+          await this.plugin.setNativeCodexReasoningEffort(normalizeCodexReasoningEffort(value));
+        });
+      });
 
     new Setting(containerEl)
       .setName("Native Codex setup")
@@ -210,4 +247,8 @@ export class VaultseerSettingTab extends PluginSettingTab {
         })
       );
   }
+}
+
+function formatReasoningEffort(value: string): string {
+  return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }

@@ -1,5 +1,11 @@
 import type { StoredVaultIndex, VaultseerStorageBackend } from "@vaultseer/core";
-import { DEFAULT_SETTINGS, normalizeVaultFolderPath, type VaultseerSettings } from "./settings-model";
+import {
+  DEFAULT_SETTINGS,
+  normalizeCodexModel,
+  normalizeCodexReasoningEffort,
+  normalizeVaultFolderPath,
+  type VaultseerSettings
+} from "./settings-model";
 
 export type VaultseerPluginData = {
   settings: VaultseerSettings;
@@ -87,6 +93,8 @@ function normalizeSettings(raw: unknown): VaultseerSettings {
       typeof raw.codexWorkingDirectory === "string"
         ? raw.codexWorkingDirectory.trim()
         : DEFAULT_SETTINGS.codexWorkingDirectory,
+    codexModel: normalizeCodexModel(raw.codexModel),
+    codexReasoningEffort: normalizeCodexReasoningEffort(raw.codexReasoningEffort),
     managedSourceFolder: normalizeVaultFolderPath(raw.managedSourceFolder, DEFAULT_SETTINGS.managedSourceFolder),
     planFolder: normalizeVaultFolderPath(raw.planFolder, DEFAULT_SETTINGS.planFolder),
     releaseFolder: normalizeVaultFolderPath(raw.releaseFolder, DEFAULT_SETTINGS.releaseFolder)

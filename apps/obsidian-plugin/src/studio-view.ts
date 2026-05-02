@@ -1,4 +1,4 @@
-import { ItemView, Notice, type App, type WorkspaceLeaf } from "obsidian";
+import { ItemView, Menu, Notice, type App, type WorkspaceLeaf } from "obsidian";
 import type {
   ActiveNoteContextPacket,
   CodexRuntimeStatus,
@@ -32,6 +32,7 @@ import {
 import { buildStudioChatShellState } from "./studio-chat-shell-state";
 import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
+import { CODEX_MODEL_OPTIONS, CODEX_REASONING_EFFORT_OPTIONS, type CodexReasoningEffort } from "./settings-model";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 
@@ -47,6 +48,10 @@ export class VaultseerStudioView extends ItemView {
     private readonly getActivePath: () => string | null,
     private readonly getCodexRuntimeStatus: () => CodexRuntimeStatus,
     private readonly resetCodexSession: () => Promise<void>,
+    private readonly getCodexModelSelection: () => { codexModel: string; codexReasoningEffort: CodexReasoningEffort },
+    private readonly updateCodexModelSelection: (
+      patch: Partial<{ codexModel: string; codexReasoningEffort: CodexReasoningEffort }>
+    ) => Promise<void>,
     private readonly buildActiveNoteContext: () => Promise<ActiveNoteContextPacket>,
     private readonly chatAdapter: CodexChatAdapter,
     private readonly codexTools: CodexToolImplementations
@@ -196,7 +201,8 @@ export class VaultseerStudioView extends ItemView {
     const shellState = buildStudioChatShellState({
       activeNoteLabel: state.activeNoteLabel,
       activeNotePath: state.activeNotePath,
-      codexRuntimeStatus: this.getCodexRuntimeStatus()
+      codexRuntimeStatus: this.getCodexRuntimeStatus(),
+      ...this.getCodexModelSelection()
     });
     const shellEl = containerEl.createDiv({ cls: "vaultseer-codex-shell" });
     const headerEl = shellEl.createDiv({ cls: "vaultseer-codex-header" });
@@ -254,8 +260,30 @@ export class VaultseerStudioView extends ItemView {
 
     const footerEl = form.createDiv({ cls: "vaultseer-codex-composer-footer" });
     footerEl.createEl("span", { text: shellState.modeLabel, cls: "vaultseer-codex-select-label" });
-    footerEl.createEl("span", { text: shellState.modelLabel, cls: "vaultseer-codex-select-label" });
-    footerEl.createEl("span", { text: shellState.reasoningLabel, cls: "vaultseer-codex-select-label" });
+    const modelButton = footerEl.createEl("button", {
+      text: shellState.modelLabel,
+      attr: {
+        type: "button",
+        "aria-label": "Change Codex model"
+      },
+      cls: "vaultseer-codex-select-button"
+    });
+    modelButton.disabled = this.chatSending;
+    modelButton.addEventListener("click", (event) => {
+      this.showModelMenu(event);
+    });
+    const reasoningButton = footerEl.createEl("button", {
+      text: shellState.reasoningLabel,
+      attr: {
+        type: "button",
+        "aria-label": "Change Codex reasoning effort"
+      },
+      cls: "vaultseer-codex-select-button"
+    });
+    reasoningButton.disabled = this.chatSending;
+    reasoningButton.addEventListener("click", (event) => {
+      this.showReasoningMenu(event);
+    });
     const sendButton = footerEl.createEl("button", {
       text: this.chatSending ? "..." : ">",
       attr: {
@@ -456,6 +484,43 @@ export class VaultseerStudioView extends ItemView {
     await this.refresh();
   }
 
+  private showModelMenu(event: MouseEvent): void {
+    event.preventDefault();
+    const current = this.getCodexModelSelection().codexModel;
+    const menu = new Menu();
+
+    for (const model of CODEX_MODEL_OPTIONS) {
+      menu.addItem((item) => {
+        item.setTitle(model === current ? `Current: ${model}` : model);
+        item.onClick(async () => {
+          await this.updateCodexModelSelection({ codexModel: model });
+          await this.refresh();
+        });
+      });
+    }
+
+    menu.showAtMouseEvent(event);
+  }
+
+  private showReasoningMenu(event: MouseEvent): void {
+    event.preventDefault();
+    const current = this.getCodexModelSelection().codexReasoningEffort;
+    const menu = new Menu();
+
+    for (const effort of CODEX_REASONING_EFFORT_OPTIONS) {
+      menu.addItem((item) => {
+        const label = formatReasoningEffort(effort);
+        item.setTitle(effort === current ? `Current: ${label}` : label);
+        item.onClick(async () => {
+          await this.updateCodexModelSelection({ codexReasoningEffort: effort });
+          await this.refresh();
+        });
+      });
+    }
+
+    menu.showAtMouseEvent(event);
+  }
+
   private isCurrentChatSend(scope: CodexChatSendScope): boolean {
     return isCurrentCodexChatSend(this.chatState, this.getActivePath(), scope, this.chatSendId);
   }
@@ -489,4 +554,8 @@ function capitalize(value: string): string {
 
 function formatOperationType(type: GuardedVaultWriteOperation["type"]): string {
   return type.replace(/_/g, " ");
+}
+
+function formatReasoningEffort(value: string): string {
+  return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }

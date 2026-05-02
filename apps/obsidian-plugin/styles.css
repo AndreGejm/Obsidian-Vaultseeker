@@ -158,6 +158,26 @@
   white-space: nowrap;
 }
 
+.vaultseer-codex-select-button {
+  height: 30px;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  box-shadow: none;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 12px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vaultseer-codex-select-button:hover,
+.vaultseer-codex-select-button:focus-visible {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
 .vaultseer-codex-send-button {
   width: 40px;
   height: 34px;
@@ -200,13 +220,16 @@
     grid-template-columns: 1fr 40px;
   }
 
+  .vaultseer-codex-composer-footer {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+  }
+
   .vaultseer-codex-header {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .vaultseer-codex-select-label:nth-of-type(2),
-  .vaultseer-codex-select-label:nth-of-type(3) {
+  .vaultseer-codex-select-label {
     display: none;
   }
 }

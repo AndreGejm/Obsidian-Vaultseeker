@@ -16,6 +16,8 @@ export type BuildStudioChatShellStateInput = {
   activeNoteLabel: string;
   activeNotePath: string | null;
   codexRuntimeStatus: CodexRuntimeStatus;
+  codexModel: string;
+  codexReasoningEffort: string;
 };
 
 export function buildStudioChatShellState(input: BuildStudioChatShellStateInput): StudioChatShellState {
@@ -26,9 +28,9 @@ export function buildStudioChatShellState(input: BuildStudioChatShellStateInput)
     activeNoteMention: input.activeNotePath === null ? null : `@${input.activeNoteLabel}`,
     activeNoteTitle: input.activeNotePath ?? "Open a note",
     runtimeLabel: runtimeLabel(input.codexRuntimeStatus),
-    modelLabel: "gpt-5.5",
+    modelLabel: input.codexModel,
     modeLabel: "Default",
-    reasoningLabel: "Xhigh"
+    reasoningLabel: titleCase(input.codexReasoningEffort)
   };
 }
 
@@ -39,4 +41,8 @@ function runtimeLabel(status: CodexRuntimeStatus): string {
   if (status === "disabled") return "Disabled";
   if (status === "failed") return "Needs attention";
   return "Stopped";
+}
+
+function titleCase(value: string): string {
+  return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }

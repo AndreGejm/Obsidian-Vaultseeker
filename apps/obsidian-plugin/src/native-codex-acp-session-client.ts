@@ -89,7 +89,9 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
     return {
       nativeCodexEnabled: settings.nativeCodexEnabled,
       codexCommand: settings.codexCommand,
-      codexWorkingDirectory: settings.codexWorkingDirectory
+      codexWorkingDirectory: settings.codexWorkingDirectory,
+      codexModel: settings.codexModel,
+      codexReasoningEffort: settings.codexReasoningEffort
     };
   }
 
@@ -230,7 +232,7 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
     const handler = createDenyByDefaultClientHandler((update) => this.forwardSessionUpdate(update));
     const createConnection = this.options.createConnection ?? createNativeCodexAcpConnection;
     const connection = await createConnection({
-      command: settings.codexCommand,
+      command: buildCodexAcpLaunchCommand(settings),
       cwd,
       handler,
       onProcessFailure: (message) => this.handleProcessFailure(message)
@@ -311,6 +313,21 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
 
     await Promise.resolve(connection.dispose()).catch(() => undefined);
   }
+}
+
+export function buildCodexAcpLaunchCommand(settings: NativeCodexProcessSettings): string {
+  const command = settings.codexCommand.trim();
+  return [
+    command,
+    "-c",
+    `model=${tomlString(settings.codexModel)}`,
+    "-c",
+    `model_reasoning_effort=${tomlString(settings.codexReasoningEffort)}`
+  ].join(" ");
+}
+
+function tomlString(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
 export async function createNativeCodexAcpConnection(

@@ -6,7 +6,9 @@ describe("buildStudioChatShellState", () => {
     const state = buildStudioChatShellState({
       activeNoteLabel: "CLAUDE",
       activeNotePath: "CLAUDE.md",
-      codexRuntimeStatus: "running"
+      codexRuntimeStatus: "running",
+      codexModel: "gpt-5.4",
+      codexReasoningEffort: "medium"
     });
 
     expect(state.title).toBe("Codex");
@@ -15,15 +17,17 @@ describe("buildStudioChatShellState", () => {
     expect(state.activeNoteMention).toBe("@CLAUDE");
     expect(state.activeNoteTitle).toBe("CLAUDE.md");
     expect(state.runtimeLabel).toBe("Connected");
-    expect(state.modelLabel).toBe("gpt-5.5");
-    expect(state.reasoningLabel).toBe("Xhigh");
+    expect(state.modelLabel).toBe("gpt-5.4");
+    expect(state.reasoningLabel).toBe("Medium");
   });
 
   it("uses a gentle disabled composer label when no note is active", () => {
     const state = buildStudioChatShellState({
       activeNoteLabel: "No active note",
       activeNotePath: null,
-      codexRuntimeStatus: "failed"
+      codexRuntimeStatus: "failed",
+      codexModel: "gpt-5.5",
+      codexReasoningEffort: "xhigh"
     });
 
     expect(state.activeNoteMention).toBeNull();

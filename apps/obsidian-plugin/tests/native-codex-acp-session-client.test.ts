@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NativeCodexAcpSessionClient, type NativeCodexAcpConnectionFactory } from "../src/native-codex-acp-session-client";
+import {
+  buildCodexAcpLaunchCommand,
+  NativeCodexAcpSessionClient,
+  type NativeCodexAcpConnectionFactory
+} from "../src/native-codex-acp-session-client";
 import type { NativeCodexProcessSettings } from "../src/codex-process-manager";
 
 describe("NativeCodexAcpSessionClient", () => {
@@ -13,7 +17,9 @@ describe("NativeCodexAcpSessionClient", () => {
         settings({
           nativeCodexEnabled: false,
           codexCommand: "codex --acp",
-          codexWorkingDirectory: "F:\\Workspace"
+          codexWorkingDirectory: "F:\\Workspace",
+          codexModel: "gpt-5.4",
+          codexReasoningEffort: "medium"
         }),
       getVaultBasePath: () => "F:\\Vault",
       createConnection: vi.fn()
@@ -22,8 +28,22 @@ describe("NativeCodexAcpSessionClient", () => {
     expect(client.settings).toEqual({
       nativeCodexEnabled: false,
       codexCommand: "codex --acp",
-      codexWorkingDirectory: "F:\\Workspace"
+      codexWorkingDirectory: "F:\\Workspace",
+      codexModel: "gpt-5.4",
+      codexReasoningEffort: "medium"
     });
+  });
+
+  it("builds a Codex ACP command with model and reasoning overrides", () => {
+    expect(
+      buildCodexAcpLaunchCommand(
+        settings({
+          codexCommand: "codex-acp",
+          codexModel: "gpt-5.4",
+          codexReasoningEffort: "medium"
+        })
+      )
+    ).toBe('codex-acp -c model="gpt-5.4" -c model_reasoning_effort="medium"');
   });
 
   it("rejects disabled settings without creating a connection and marks runtime disabled", async () => {
@@ -61,7 +81,7 @@ describe("NativeCodexAcpSessionClient", () => {
     expect(createConnection).toHaveBeenCalledTimes(1);
     expect(createConnection).toHaveBeenCalledWith(
       expect.objectContaining({
-        command: "codex-acp",
+        command: 'codex-acp -c model="gpt-5.5" -c model_reasoning_effort="xhigh"',
         cwd: "F:\\Vault"
       })
     );
@@ -330,6 +350,8 @@ function settings(overrides: Partial<NativeCodexProcessSettings> = {}): NativeCo
     nativeCodexEnabled: true,
     codexCommand: "codex-acp",
     codexWorkingDirectory: "F:\\Configured",
+    codexModel: "gpt-5.5",
+    codexReasoningEffort: "xhigh",
     ...overrides
   };
 }

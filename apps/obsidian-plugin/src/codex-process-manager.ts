@@ -5,6 +5,8 @@ export type NativeCodexProcessSettings = {
   nativeCodexEnabled: boolean;
   codexCommand: string;
   codexWorkingDirectory: string;
+  codexModel: string;
+  codexReasoningEffort: string;
 };
 
 export type CodexLaunchResult = {

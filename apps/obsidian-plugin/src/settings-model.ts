@@ -11,10 +11,27 @@ export type VaultseerSettings = {
   nativeCodexEnabled: boolean;
   codexCommand: string;
   codexWorkingDirectory: string;
+  codexModel: CodexModelId;
+  codexReasoningEffort: CodexReasoningEffort;
   managedSourceFolder: string;
   planFolder: string;
   releaseFolder: string;
 };
+
+export const CODEX_MODEL_OPTIONS = [
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-5.3-codex",
+  "gpt-5.3-codex-spark",
+  "gpt-5.2"
+] as const;
+
+export type CodexModelId = (typeof CODEX_MODEL_OPTIONS)[number];
+
+export const CODEX_REASONING_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"] as const;
+
+export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORT_OPTIONS)[number];
 
 export const DEFAULT_SOURCE_NOTE_FOLDER = "Source Notes";
 export const DEFAULT_MANAGED_SOURCE_FOLDER = "Sources";
@@ -34,6 +51,8 @@ export const DEFAULT_SETTINGS: VaultseerSettings = {
   nativeCodexEnabled: false,
   codexCommand: "codex-acp",
   codexWorkingDirectory: "",
+  codexModel: "gpt-5.5",
+  codexReasoningEffort: "xhigh",
   managedSourceFolder: DEFAULT_MANAGED_SOURCE_FOLDER,
   planFolder: DEFAULT_PLAN_FOLDER,
   releaseFolder: DEFAULT_RELEASE_FOLDER
@@ -48,4 +67,18 @@ export function normalizeVaultFolderPath(value: unknown, fallback = DEFAULT_SOUR
     .replace(/^\/+|\/+$/g, "")
     .trim();
   return normalized.length > 0 ? normalized : fallback;
+}
+
+export function normalizeCodexModel(value: unknown): CodexModelId {
+  return includesString(CODEX_MODEL_OPTIONS, value) ? value : DEFAULT_SETTINGS.codexModel;
+}
+
+export function normalizeCodexReasoningEffort(value: unknown): CodexReasoningEffort {
+  return includesString(CODEX_REASONING_EFFORT_OPTIONS, value)
+    ? value
+    : DEFAULT_SETTINGS.codexReasoningEffort;
+}
+
+function includesString<const T extends readonly string[]>(values: T, value: unknown): value is T[number] {
+  return typeof value === "string" && values.includes(value);
 }
