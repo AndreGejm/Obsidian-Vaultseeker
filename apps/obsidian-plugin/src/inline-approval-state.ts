@@ -18,7 +18,7 @@ export function buildInlineApprovalState(input: BuildInlineApprovalStateInput): 
   if (
     input.targetPath !== input.activePath ||
     input.touchesMultipleFiles ||
-    input.operationType === "create_note_from_source"
+    input.operationType !== "update_note_tags"
   ) {
     return {
       surface: "review_queue",

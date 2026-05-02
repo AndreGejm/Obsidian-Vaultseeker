@@ -144,15 +144,9 @@ export class VaultseerStudioView extends ItemView {
 
     const currentNoteOperations = writeOperations.filter((operation) => operation.targetPath === activePath);
     if (currentNoteOperations.length === 0) {
-      const tagUpdateState = buildInlineApprovalState({
-        operationType: "update_note_tags",
-        targetPath: activePath,
-        activePath,
-        touchesMultipleFiles: false
-      });
-      containerEl.createEl("p", { text: tagUpdateState.message });
+      containerEl.createEl("p", { text: "There are no current-note proposals to review." });
       containerEl.createEl("p", {
-        text: "Stage tag suggestions through the guarded proposal flow before approving any note changes."
+        text: "Stage note changes through the guarded proposal flow before approving them from the review queue."
       });
       return;
     }
