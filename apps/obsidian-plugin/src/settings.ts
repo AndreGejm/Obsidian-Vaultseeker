@@ -81,7 +81,9 @@ export class VaultseerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Managed source folder")
-      .setDesc("Vault folder for approved managed sources created by native Studio workflows.")
+      .setDesc(
+        "Vault folder for managed sources in experimental Windows native Studio workflows. Writes still require approval."
+      )
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.managedSourceFolder)
@@ -97,7 +99,7 @@ export class VaultseerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Plan folder")
-      .setDesc("Vault folder for approved plans created by native Studio workflows.")
+      .setDesc("Vault folder for plans in experimental Windows native Studio workflows. Writes still require approval.")
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.planFolder)
@@ -110,7 +112,9 @@ export class VaultseerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Release folder")
-      .setDesc("Vault folder for approved release notes created by native Studio workflows.")
+      .setDesc(
+        "Vault folder for release notes in experimental Windows native Studio workflows. Writes still require approval."
+      )
       .addText((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.releaseFolder)
