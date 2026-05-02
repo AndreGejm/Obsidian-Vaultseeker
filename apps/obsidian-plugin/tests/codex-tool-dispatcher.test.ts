@@ -98,6 +98,37 @@ describe("dispatchCodexToolRequest", () => {
     expect(tools.stageSuggestion).toHaveBeenCalledWith({ kind: "tag", value: "vhdl" });
   });
 
+  it("forwards proposal freshness context only when proposals are explicitly allowed", async () => {
+    const beforeProposalCommit = vi.fn(() => true);
+    const tools = {
+      inspectCurrentNote: vi.fn(async () => ({ status: "ready" })),
+      searchNotes: vi.fn(async () => []),
+      searchSources: vi.fn(async () => []),
+      stageSuggestion: vi.fn(async () => ({ staged: true }))
+    };
+
+    await dispatchCodexToolRequest({
+      request: { tool: "stage_suggestion", input: { kind: "tag", tags: ["vhdl/timing"] } },
+      tools,
+      beforeProposalCommit
+    });
+
+    expect(tools.stageSuggestion).not.toHaveBeenCalled();
+
+    const allowed = await dispatchCodexToolRequest({
+      request: { tool: "stage_suggestion", input: { kind: "tag", tags: ["vhdl/timing"] } },
+      tools,
+      allowProposalTools: true,
+      beforeProposalCommit
+    });
+
+    expect(allowed).toEqual({ ok: true, tool: "stage_suggestion", output: { staged: true } });
+    expect(tools.stageSuggestion).toHaveBeenCalledWith(
+      { kind: "tag", tags: ["vhdl/timing"] },
+      { beforeProposalCommit }
+    );
+  });
+
   it.each(["write_file", "unknown_tool"])("rejects disallowed tool %s", async (tool) => {
     const result = await dispatchCodexToolRequest({
       request: { tool, input: {} },

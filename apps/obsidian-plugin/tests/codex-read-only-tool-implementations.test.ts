@@ -263,6 +263,34 @@ describe("createCodexReadOnlyToolImplementations", () => {
     await expect(store.getVaultWriteOperations()).resolves.toEqual([]);
   });
 
+  it("does not store a proposal when the tool request scope was invalidated away and back before commit", async () => {
+    const store = new InMemoryVaultseerStore();
+    const beforeProposalCommit = () => false;
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => "Notes/VHDL.md",
+      readActiveNoteContent: async () => "# VHDL Timing\n",
+      now: () => "2026-05-02T12:00:00.000Z"
+    });
+
+    await expect(
+      tools.stageSuggestion(
+        {
+          kind: "tag",
+          targetPath: "Notes/VHDL.md",
+          tags: ["vhdl/timing"]
+        },
+        { beforeProposalCommit }
+      )
+    ).resolves.toMatchObject({
+      status: "skipped",
+      message: "The active note changed before staging could finish. Nothing was staged."
+    });
+
+    await expect(store.getSuggestionRecords()).resolves.toEqual([]);
+    await expect(store.getVaultWriteOperations()).resolves.toEqual([]);
+  });
+
   it("stages a current-note link proposal into guarded review without mutating content", async () => {
     const store = new InMemoryVaultseerStore();
     const content = "# VHDL Timing\n\nSee [[Missing Timing Note]] for details.\n";

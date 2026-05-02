@@ -381,7 +381,8 @@ export class VaultseerStudioView extends ItemView {
           input: request.input
         },
         tools: this.codexTools,
-        allowProposalTools: true
+        allowProposalTools: true,
+        beforeProposalCommit: () => this.isCurrentToolRequest(scope)
       });
     } catch (error) {
       result = {

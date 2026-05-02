@@ -4,7 +4,7 @@ import type { SearchModalSemanticSearch } from "./search-modal-query";
 import { buildSearchModalQueryState } from "./search-modal-query";
 import type { SourceSearchModalSemanticSearch } from "./source-search-modal-query";
 import { buildSourceSearchModalQueryState } from "./source-search-modal-query";
-import type { CodexToolImplementations } from "./codex-tool-dispatcher";
+import type { CodexProposalToolExecutionContext, CodexToolImplementations } from "./codex-tool-dispatcher";
 import { stageNoteLinkUpdateProposal } from "./link-write-proposal-controller";
 import { stageNoteTagUpdateProposal } from "./tag-write-proposal-controller";
 
@@ -104,7 +104,7 @@ export function createCodexReadOnlyToolImplementations(
           : queryInput
       );
     },
-    stageSuggestion: async (toolInput) => {
+    stageSuggestion: async (toolInput, context?: CodexProposalToolExecutionContext) => {
       const activePath = input.getActivePath();
       if (!activePath) {
         throw new Error("Open a note before staging a Codex proposal.");
@@ -125,7 +125,7 @@ export function createCodexReadOnlyToolImplementations(
           currentContent,
           tagSuggestions: proposal.tagSuggestions,
           now,
-          beforeCommit: () => input.getActivePath() === proposal.targetPath
+          beforeCommit: () => input.getActivePath() === proposal.targetPath && isProposalCommitFresh(context)
         });
       }
 
@@ -135,10 +135,14 @@ export function createCodexReadOnlyToolImplementations(
         currentContent,
         linkSuggestions: proposal.linkSuggestions,
         now,
-        beforeCommit: () => input.getActivePath() === proposal.targetPath
+        beforeCommit: () => input.getActivePath() === proposal.targetPath && isProposalCommitFresh(context)
       });
     }
   };
+}
+
+async function isProposalCommitFresh(context: CodexProposalToolExecutionContext | undefined): Promise<boolean> {
+  return context?.beforeProposalCommit ? context.beforeProposalCommit() : true;
 }
 
 export function parseCodexStageSuggestionInput(

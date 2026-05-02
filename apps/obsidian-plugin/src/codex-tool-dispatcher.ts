@@ -16,11 +16,15 @@ export type CodexToolResult =
   | { ok: true; tool: AllowedCodexTool; output: unknown }
   | { ok: false; tool: string; message: string };
 
+export type CodexProposalToolExecutionContext = {
+  beforeProposalCommit?: () => boolean | Promise<boolean>;
+};
+
 export type CodexToolImplementations = {
   inspectCurrentNote(): Promise<unknown>;
   searchNotes(input: unknown): Promise<unknown>;
   searchSources(input: unknown): Promise<unknown>;
-  stageSuggestion(input: unknown): Promise<unknown>;
+  stageSuggestion(input: unknown, context?: CodexProposalToolExecutionContext): Promise<unknown>;
 };
 
 export function isAllowedCodexTool(tool: string): tool is AllowedCodexTool {
@@ -63,6 +67,7 @@ export async function dispatchCodexToolRequest(input: {
   request: CodexToolRequest;
   tools: CodexToolImplementations;
   allowProposalTools?: boolean;
+  beforeProposalCommit?: () => boolean | Promise<boolean>;
 }): Promise<CodexToolResult> {
   switch (input.request.tool) {
     case "inspect_current_note":
@@ -80,7 +85,13 @@ export async function dispatchCodexToolRequest(input: {
         };
       }
 
-      return runAllowedCodexTool("stage_suggestion", () => input.tools.stageSuggestion(input.request.input));
+      return runAllowedCodexTool("stage_suggestion", () =>
+        input.beforeProposalCommit
+          ? input.tools.stageSuggestion(input.request.input, {
+              beforeProposalCommit: input.beforeProposalCommit
+            })
+          : input.tools.stageSuggestion(input.request.input)
+      );
     default:
       return {
         ok: false,
