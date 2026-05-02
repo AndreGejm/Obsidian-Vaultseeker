@@ -140,6 +140,41 @@ describe("buildCodexPromptPacket", () => {
     expect(packet.agentContent).not.toContain(longMessage);
     expect(packet.contextSummary.truncated).toBe(true);
   });
+
+  it("preserves structural delimiters when both context and user message are oversized", () => {
+    const longMessage = `Keep the wrapper intact.\n${"Message payload ".repeat(1_000)}`;
+    const packet = buildCodexPromptPacket({
+      message: longMessage,
+      context: {
+        ...readyContext(),
+        noteChunks: [
+          {
+            chunkId: "oversized-note#0",
+            headingPath: ["Oversized"],
+            text: "C".repeat(18_000)
+          }
+        ],
+        sourceExcerpts: [
+          {
+            sourceId: "oversized-source",
+            sourcePath: "Sources/Oversized.md",
+            chunkId: "oversized-source#0",
+            text: "D".repeat(18_000),
+            evidenceLabel: "oversized source"
+          }
+        ]
+      },
+      maxContextCharacters: 12_000
+    });
+
+    expect(packet.displayContent).toBe(longMessage);
+    expect(packet.agentContent.length).toBeLessThanOrEqual(12_000);
+    expect(packet.agentContent).toContain("END_VAULTSEER_UNTRUSTED_CONTEXT_JSON");
+    expect(packet.agentContent).toContain("END_VAULTSEER_USER_MESSAGE");
+    expect(packet.agentContent.endsWith("END_VAULTSEER_USER_MESSAGE")).toBe(true);
+    expect(packet.agentContent).not.toContain("END_VAULTSEE\n[truncated]");
+    expect(packet.contextSummary.truncated).toBe(true);
+  });
 });
 
 function readyContext(): ActiveNoteContextPacket {

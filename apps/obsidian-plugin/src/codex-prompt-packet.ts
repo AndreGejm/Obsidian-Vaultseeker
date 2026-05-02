@@ -53,24 +53,27 @@ export function buildCodexPromptPacket(input: BuildCodexPromptPacketInput): Code
   const contextSuffix = "\nEND_VAULTSEER_UNTRUSTED_CONTEXT_JSON";
   const userMessagePrefix = "\n\nUser Message\nBEGIN_VAULTSEER_USER_MESSAGE\n";
   const userMessageSuffix = "\nEND_VAULTSEER_USER_MESSAGE";
+  const packetSeparator = "\n";
   const fixedTransportLength =
     fixedPrefix.length +
+    packetSeparator.length +
     contextPrefix.length +
     contextSuffix.length +
+    packetSeparator.length +
     userMessagePrefix.length +
     userMessageSuffix.length;
   const payloadBudget = Math.max(0, maxContextCharacters - fixedTransportLength);
   const allocation = allocatePayloadBudget(contextBody.length, message.length, payloadBudget);
   const boundedContext = boundText(contextBody, allocation.contextCharacters);
   const boundedMessage = boundText(message, allocation.messageCharacters);
-  const transportContent = [
-    fixedPrefix,
-    `${contextPrefix}${boundedContext.text}${contextSuffix}`,
-    `${userMessagePrefix}${boundedMessage.text}${userMessageSuffix}`
-  ]
-    .filter((part) => part.length > 0)
-    .join("\n");
-  const boundedTransport = boundText(transportContent, maxContextCharacters);
+  const transportContent =
+    `${fixedPrefix}${packetSeparator}` +
+    `${contextPrefix}${boundedContext.text}${contextSuffix}${packetSeparator}` +
+    `${userMessagePrefix}${boundedMessage.text}${userMessageSuffix}`;
+  const boundedTransport =
+    transportContent.length <= maxContextCharacters
+      ? { text: transportContent, truncated: false }
+      : boundText(transportContent, maxContextCharacters);
 
   return {
     displayContent: message,
