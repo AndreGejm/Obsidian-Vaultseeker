@@ -29,7 +29,7 @@ export function buildStudioChatShellState(input: BuildStudioChatShellStateInput)
     activeNoteTitle: input.activeNotePath ?? "Open a note",
     runtimeLabel: runtimeLabel(input.codexRuntimeStatus),
     modelLabel: input.codexModel,
-    modeLabel: "Default",
+    modeLabel: "Commands",
     reasoningLabel: titleCase(input.codexReasoningEffort)
   };
 }

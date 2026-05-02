@@ -33,6 +33,7 @@ import { buildStudioChatShellState } from "./studio-chat-shell-state";
 import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 import { CODEX_MODEL_OPTIONS, CODEX_REASONING_EFFORT_OPTIONS, type CodexReasoningEffort } from "./settings-model";
+import type { VaultseerStudioCommand } from "./studio-command-catalog";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 
@@ -52,6 +53,7 @@ export class VaultseerStudioView extends ItemView {
     private readonly updateCodexModelSelection: (
       patch: Partial<{ codexModel: string; codexReasoningEffort: CodexReasoningEffort }>
     ) => Promise<void>,
+    private readonly getVaultseerCommands: () => VaultseerStudioCommand[],
     private readonly buildActiveNoteContext: () => Promise<ActiveNoteContextPacket>,
     private readonly chatAdapter: CodexChatAdapter,
     private readonly codexTools: CodexToolImplementations
@@ -259,7 +261,18 @@ export class VaultseerStudioView extends ItemView {
     });
 
     const footerEl = form.createDiv({ cls: "vaultseer-codex-composer-footer" });
-    footerEl.createEl("span", { text: shellState.modeLabel, cls: "vaultseer-codex-select-label" });
+    const commandButton = footerEl.createEl("button", {
+      text: shellState.modeLabel,
+      attr: {
+        type: "button",
+        "aria-label": "Open Vaultseer commands"
+      },
+      cls: "vaultseer-codex-select-button"
+    });
+    commandButton.disabled = this.chatSending;
+    commandButton.addEventListener("click", (event) => {
+      this.showCommandMenu(event);
+    });
     const modelButton = footerEl.createEl("button", {
       text: shellState.modelLabel,
       attr: {
@@ -494,6 +507,23 @@ export class VaultseerStudioView extends ItemView {
         item.setTitle(model === current ? `Current: ${model}` : model);
         item.onClick(async () => {
           await this.updateCodexModelSelection({ codexModel: model });
+          await this.refresh();
+        });
+      });
+    }
+
+    menu.showAtMouseEvent(event);
+  }
+
+  private showCommandMenu(event: MouseEvent): void {
+    event.preventDefault();
+    const menu = new Menu();
+
+    for (const command of this.getVaultseerCommands()) {
+      menu.addItem((item) => {
+        item.setTitle(command.name);
+        item.onClick(async () => {
+          await command.run();
           await this.refresh();
         });
       });

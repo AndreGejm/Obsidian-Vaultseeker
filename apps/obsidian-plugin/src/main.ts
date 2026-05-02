@@ -57,6 +57,10 @@ import {
   nativeCodexPathExists
 } from "./native-codex-setup-check";
 import { createNativeStudioCodexChatAdapter } from "./studio-codex-chat-composition";
+import {
+  VAULTSEER_STUDIO_COMMAND_DEFINITIONS,
+  type VaultseerStudioCommand
+} from "./studio-command-catalog";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
@@ -160,6 +164,7 @@ export default class VaultseerPlugin extends Plugin {
               await this.setNativeCodexReasoningEffort(patch.codexReasoningEffort);
             }
           },
+          () => this.createVaultseerStudioCommands(),
           async () =>
             buildActiveNoteContextFromStore({
               store: this.store,
@@ -821,6 +826,46 @@ export default class VaultseerPlugin extends Plugin {
 
   private async resetNativeCodexSessionQuietly(): Promise<void> {
     await this.nativeCodexClient?.resetSession();
+  }
+
+  private createVaultseerStudioCommands(): VaultseerStudioCommand[] {
+    const handlers: Record<string, () => Promise<void>> = {
+      "rebuild-index": () => this.rebuildIndex(),
+      "clear-index": () => this.clearIndex(),
+      "show-index-health": () => this.showIndexHealth(),
+      "search-index": () => this.showSearch(),
+      "search-source-workspaces": () => this.showSourceSearch(),
+      "open-write-review-queue": () => this.showWriteReviewQueue(),
+      "import-active-text-source": () => this.importActiveTextSource(),
+      "choose-text-source-file": () => this.chooseTextSourceFile(),
+      "plan-source-extraction-queue": () => this.planSourceExtractionQueue(),
+      "show-source-extraction-queue-status": () => this.showSourceExtractionQueueStatus(),
+      "run-source-extraction-batch": () => this.runSourceExtractionBatch(),
+      "recover-source-extraction-queue": () => this.recoverSourceExtractionQueue(),
+      "cancel-source-extraction-queue": () => this.cancelSourceExtractionQueue(),
+      "open-workbench": () => this.openWorkbench(),
+      "open-studio": () => this.openStudio(),
+      "check-native-codex-setup": () => this.showNativeCodexSetupCheck(),
+      "reset-native-codex-session": () => this.resetNativeCodexSession(),
+      "plan-semantic-index": () => this.planSemanticIndex(),
+      "run-semantic-index-batch": () => this.runSemanticIndexBatch(),
+      "cancel-semantic-index-queue": () => this.cancelSemanticIndexQueue(),
+      "plan-source-semantic-index": () => this.planSourceSemanticIndex(),
+      "run-source-semantic-index-batch": () => this.runSourceSemanticIndexBatch(),
+      "cancel-source-semantic-index-queue": () => this.cancelSourceSemanticIndexQueue()
+    };
+
+    return VAULTSEER_STUDIO_COMMAND_DEFINITIONS.map((definition) => {
+      const run = handlers[definition.id];
+      if (run === undefined) {
+        throw new Error(`Vaultseer Studio command '${definition.id}' has no handler.`);
+      }
+
+      return {
+        ...definition,
+        run
+      };
+    });
   }
 
   private createSearchModalSemanticSearch(): SearchModalSemanticSearch | undefined {

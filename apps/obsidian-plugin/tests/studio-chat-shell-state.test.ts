@@ -19,6 +19,7 @@ describe("buildStudioChatShellState", () => {
     expect(state.runtimeLabel).toBe("Connected");
     expect(state.modelLabel).toBe("gpt-5.4");
     expect(state.reasoningLabel).toBe("Medium");
+    expect(state.modeLabel).toBe("Commands");
   });
 
   it("uses a gentle disabled composer label when no note is active", () => {
