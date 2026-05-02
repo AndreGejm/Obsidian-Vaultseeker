@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { dispatchCodexToolRequest } from "../src/codex-tool-dispatcher";
+import { dispatchCodexToolRequest, isAllowedCodexTool } from "../src/codex-tool-dispatcher";
 
 describe("dispatchCodexToolRequest", () => {
+  it("exposes the Vaultseer Codex tool allowlist as a predicate", () => {
+    expect(isAllowedCodexTool("inspect_current_note")).toBe(true);
+    expect(isAllowedCodexTool("search_notes")).toBe(true);
+    expect(isAllowedCodexTool("search_sources")).toBe(true);
+    expect(isAllowedCodexTool("stage_suggestion")).toBe(true);
+    expect(isAllowedCodexTool("write_file")).toBe(false);
+  });
+
   it.each([
     {
       tool: "inspect_current_note",

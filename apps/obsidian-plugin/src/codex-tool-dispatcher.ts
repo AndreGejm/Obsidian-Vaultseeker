@@ -1,5 +1,12 @@
 export type AllowedCodexTool = "inspect_current_note" | "search_notes" | "search_sources" | "stage_suggestion";
 
+const ALLOWED_CODEX_TOOLS = new Set<string>([
+  "inspect_current_note",
+  "search_notes",
+  "search_sources",
+  "stage_suggestion"
+]);
+
 export type CodexToolRequest = {
   tool: string;
   input: unknown;
@@ -15,6 +22,10 @@ export type CodexToolImplementations = {
   searchSources(input: unknown): Promise<unknown>;
   stageSuggestion(input: unknown): Promise<unknown>;
 };
+
+export function isAllowedCodexTool(tool: string): tool is AllowedCodexTool {
+  return ALLOWED_CODEX_TOOLS.has(tool);
+}
 
 async function runAllowedCodexTool(tool: AllowedCodexTool, implementation: () => Promise<unknown>): Promise<CodexToolResult> {
   try {
