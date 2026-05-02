@@ -134,6 +134,14 @@ export default class VaultseerPlugin extends Plugin {
           createCodexReadOnlyToolImplementations({
             store: this.store,
             getActivePath: () => this.app.workspace.getActiveFile()?.path ?? null,
+            readActiveNoteContent: async (path) => {
+              const file = this.app.workspace.getActiveFile();
+              if (!file || file.path !== path) {
+                throw new Error("Open the current active note before staging a Codex proposal.");
+              }
+
+              return this.app.vault.cachedRead(file);
+            },
             searchNotesSemanticSearch: this.createSearchModalSemanticSearch(),
             searchSourcesSemanticSearch: this.createSourceSearchModalSemanticSearch()
           })

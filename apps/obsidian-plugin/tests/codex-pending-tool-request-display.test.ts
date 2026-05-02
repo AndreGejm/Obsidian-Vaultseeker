@@ -42,7 +42,7 @@ describe("codex pending tool request display", () => {
     expect(items.flatMap((item) => item.controls.map((control) => control.label))).not.toContain("Execute");
   });
 
-  it("renders Dismiss only for proposal tool requests", () => {
+  it("renders Stage and Dismiss controls for proposal tool requests", () => {
     const items = buildCodexPendingToolRequestDisplayItems([
       {
         displayId: "codex-tool-request-1-1",
@@ -59,10 +59,60 @@ describe("codex pending tool request display", () => {
 
     expect(items[0]?.controls).toEqual([
       {
+        type: "stage",
+        label: "Stage",
+        displayId: "codex-tool-request-1-1"
+      },
+      {
         type: "dismiss",
         label: "Dismiss",
         displayId: "codex-tool-request-1-1"
       }
+    ]);
+    expect(items[0]?.controls.map((control) => control.label)).not.toContain("Approve");
+    expect(items[0]?.controls.map((control) => control.label)).not.toContain("Apply");
+  });
+
+  it("renders Dismiss only for unknown or arbitrary write tool requests", () => {
+    const items = buildCodexPendingToolRequestDisplayItems([
+      {
+        displayId: "codex-tool-request-1-1",
+        toolCallId: "tool-call-1",
+        sessionId: "session-a",
+        tool: "write_file",
+        input: { path: "Notes/VHDL.md", content: "replace" },
+        createdAt: "2026-05-02T12:00:01.000Z",
+        reviewStatus: "pending_review",
+        status: "requested",
+        kind: "write"
+      },
+      {
+        displayId: "codex-tool-request-1-2",
+        toolCallId: "tool-call-2",
+        sessionId: "session-a",
+        tool: "unknown_tool",
+        input: {},
+        createdAt: "2026-05-02T12:00:01.000Z",
+        reviewStatus: "pending_review",
+        status: "requested"
+      }
+    ]);
+
+    expect(items.map((item) => item.controls)).toEqual([
+      [
+        {
+          type: "dismiss",
+          label: "Dismiss",
+          displayId: "codex-tool-request-1-1"
+        }
+      ],
+      [
+        {
+          type: "dismiss",
+          label: "Dismiss",
+          displayId: "codex-tool-request-1-2"
+        }
+      ]
     ]);
   });
 

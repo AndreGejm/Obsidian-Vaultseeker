@@ -294,6 +294,82 @@ describe("codex chat state", () => {
     });
   });
 
+  it("treats staged proposal results like completed system tool messages", () => {
+    let state = createEmptyChatState("Notes/VHDL.md");
+    state = applyChatEvent(state, {
+      type: "assistant_message",
+      content: "I can stage a tag suggestion for review.",
+      createdAt: "2026-05-02T12:00:01.000Z",
+      toolRequests: [{ tool: "stage_suggestion", input: { kind: "tag", tags: ["vhdl/timing"] }, toolCallId: "tool-call-1" }]
+    });
+    const scope = createCodexToolRequestScope(state, "codex-tool-request-1-1", "Notes/VHDL.md");
+
+    state = applyChatEvent(state, {
+      type: "complete_tool_request",
+      displayId: "codex-tool-request-1-1",
+      scope,
+      result: {
+        ok: true,
+        tool: "stage_suggestion",
+        output: {
+          status: "planned",
+          message: "Staged 1 tag suggestion for review. No note was changed."
+        }
+      },
+      createdAt: "2026-05-02T12:00:02.000Z"
+    });
+
+    expect(state.pendingToolRequests[0]).toMatchObject({
+      displayId: "codex-tool-request-1-1",
+      toolCallId: "tool-call-1",
+      executionStatus: "completed"
+    });
+    expect(state.messages.at(-1)).toEqual({
+      role: "system",
+      content: expect.stringContaining("Tool result (stage_suggestion)"),
+      createdAt: "2026-05-02T12:00:02.000Z"
+    });
+    expect(state.messages.at(-1)?.content).toContain("Staged 1 tag suggestion for review. No note was changed.");
+  });
+
+  it("ignores stale staged proposal results when the active note changes before completion", () => {
+    let state = createEmptyChatState("Notes/VHDL.md");
+    state = applyChatEvent(state, {
+      type: "assistant_message",
+      content: "I can stage a tag suggestion for review.",
+      createdAt: "2026-05-02T12:00:01.000Z",
+      toolRequests: [{ tool: "stage_suggestion", input: { kind: "tag", tags: ["vhdl/timing"] } }]
+    });
+    const scope = createCodexToolRequestScope(state, "codex-tool-request-1-1", "Notes/VHDL.md");
+
+    state = applyChatEvent(state, {
+      type: "start_tool_request",
+      displayId: "codex-tool-request-1-1",
+      scope
+    });
+    state = applyChatEvent(state, { type: "active_note_changed", activePath: "Notes/Other.md" });
+
+    const unchangedState = applyChatEvent(state, {
+      type: "complete_tool_request",
+      displayId: "codex-tool-request-1-1",
+      scope,
+      result: {
+        ok: true,
+        tool: "stage_suggestion",
+        output: {
+          status: "planned",
+          message: "Staged 1 tag suggestion for review. No note was changed."
+        }
+      },
+      createdAt: "2026-05-02T12:00:02.000Z"
+    });
+
+    expect(unchangedState).toBe(state);
+    expect(unchangedState.activePath).toBe("Notes/Other.md");
+    expect(unchangedState.messages).toEqual([]);
+    expect(unchangedState.pendingToolRequests).toEqual([]);
+  });
+
   it("ignores a tool result when the active note changes before completion", () => {
     let state = createEmptyChatState("Notes/VHDL.md");
     state = applyChatEvent(state, {

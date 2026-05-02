@@ -24,6 +24,7 @@ import type { CodexChatAdapter } from "./codex-chat-adapter";
 import { buildCodexPendingToolRequestDisplayItems } from "./codex-pending-tool-request-display";
 import {
   dispatchCodexToolRequest,
+  isProposalCodexTool,
   isReadOnlyCodexTool,
   type CodexToolImplementations,
   type CodexToolResult
@@ -297,6 +298,11 @@ export class VaultseerStudioView extends ItemView {
             return;
           }
 
+          if (control.type === "stage") {
+            await this.handleToolRequestStage(control.displayId);
+            return;
+          }
+
           await this.handleToolRequestDismiss(control.displayId);
         });
       }
@@ -328,6 +334,54 @@ export class VaultseerStudioView extends ItemView {
           input: request.input
         },
         tools: this.codexTools
+      });
+    } catch (error) {
+      result = {
+        ok: false,
+        tool: request.tool,
+        message: getErrorMessage(error)
+      };
+    }
+
+    if (this.isCurrentToolRequest(scope)) {
+      this.chatState = applyChatEvent(this.chatState, {
+        type: result.ok ? "complete_tool_request" : "fail_tool_request",
+        displayId,
+        scope,
+        result,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    await this.refresh();
+  }
+
+  private async handleToolRequestStage(displayId: string): Promise<void> {
+    const activePath = this.getActivePath();
+    this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+    const request = this.chatState.pendingToolRequests.find((pendingRequest) => pendingRequest.displayId === displayId);
+    if (!request || !isProposalCodexTool(request.tool) || request.tool !== "stage_suggestion" || request.executionStatus !== undefined) {
+      await this.refresh();
+      return;
+    }
+
+    const scope = createCodexToolRequestScope(this.chatState, displayId, activePath);
+    this.chatState = applyChatEvent(this.chatState, {
+      type: "start_tool_request",
+      displayId,
+      scope
+    });
+    await this.refresh();
+
+    let result: CodexToolResult;
+    try {
+      result = await dispatchCodexToolRequest({
+        request: {
+          tool: request.tool,
+          input: request.input
+        },
+        tools: this.codexTools,
+        allowProposalTools: true
       });
     } catch (error) {
       result = {

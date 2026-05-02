@@ -2,12 +2,17 @@ import {
   formatCodexToolRequestInputPreview,
   type CodexPendingToolRequest
 } from "./codex-chat-state";
-import { isReadOnlyCodexTool } from "./codex-tool-dispatcher";
+import { isProposalCodexTool, isReadOnlyCodexTool } from "./codex-tool-dispatcher";
 
 export type CodexPendingToolRequestDisplayControl =
   | {
       type: "run";
       label: "Run";
+      displayId: string;
+    }
+  | {
+      type: "stage";
+      label: "Stage";
       displayId: string;
     }
   | {
@@ -33,6 +38,13 @@ export function buildCodexPendingToolRequestDisplayItems(
       controls.push({
         type: "run",
         label: "Run",
+        displayId: request.displayId
+      });
+    }
+    if (isProposalCodexTool(request.tool) && request.executionStatus === undefined) {
+      controls.push({
+        type: "stage",
+        label: "Stage",
         displayId: request.displayId
       });
     }

@@ -107,6 +107,174 @@ describe("createCodexReadOnlyToolImplementations", () => {
       results: [expect.objectContaining({ sourceId: "source:timer", source: "lexical" })]
     });
   });
+
+  it("stages a current-note tag proposal into guarded review without mutating content", async () => {
+    const store = new InMemoryVaultseerStore();
+    const content = ["---", "tags:", "  - vhdl", "---", "", "# VHDL Timing"].join("\n");
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => "Notes/VHDL.md",
+      readActiveNoteContent: async (path) => {
+        expect(path).toBe("Notes/VHDL.md");
+        return content;
+      },
+      now: () => "2026-05-02T12:00:00.000Z"
+    });
+
+    await expect(
+      tools.stageSuggestion({
+        kind: "tag",
+        tags: ["vhdl/timing"],
+        reason: "The note discusses timing constraints.",
+        confidence: 0.82
+      })
+    ).resolves.toMatchObject({
+      status: "planned",
+      targetPath: "Notes/VHDL.md",
+      suggestionCount: 1,
+      message: "Staged 1 tag suggestion for review. No note was changed."
+    });
+
+    await expect(store.getSuggestionRecords()).resolves.toEqual([
+      expect.objectContaining({
+        type: "note_tag",
+        targetPath: "Notes/VHDL.md"
+      })
+    ]);
+    await expect(store.getVaultWriteOperations()).resolves.toEqual([
+      expect.objectContaining({
+        type: "update_note_tags",
+        targetPath: "Notes/VHDL.md",
+        tagUpdate: expect.objectContaining({ addedTags: ["vhdl/timing"] })
+      })
+    ]);
+    expect(content).toContain("- vhdl");
+    expect(content).not.toContain("vhdl/timing");
+  });
+
+  it("stages a current-note link proposal into guarded review without mutating content", async () => {
+    const store = new InMemoryVaultseerStore();
+    const content = "# VHDL Timing\n\nSee [[Missing Timing Note]] for details.\n";
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => "Notes/VHDL.md",
+      readActiveNoteContent: async (path) => {
+        expect(path).toBe("Notes/VHDL.md");
+        return content;
+      },
+      now: () => "2026-05-02T12:00:00.000Z"
+    });
+
+    await expect(
+      tools.stageSuggestion({
+        type: "link",
+        targetPath: "Notes/VHDL.md",
+        links: [
+          {
+            rawLink: "[[Missing Timing Note]]",
+            unresolvedTarget: "Missing Timing Note",
+            suggestedPath: "Notes/Timing Closure.md",
+            suggestedTitle: "Timing Closure",
+            reason: "Title match",
+            confidence: 0.76
+          }
+        ]
+      })
+    ).resolves.toMatchObject({
+      status: "planned",
+      targetPath: "Notes/VHDL.md",
+      suggestionCount: 1,
+      message: "Staged 1 link suggestion for review. No note was changed."
+    });
+
+    await expect(store.getSuggestionRecords()).resolves.toEqual([
+      expect.objectContaining({
+        type: "note_link",
+        targetPath: "Notes/VHDL.md"
+      })
+    ]);
+    await expect(store.getVaultWriteOperations()).resolves.toEqual([
+      expect.objectContaining({
+        type: "update_note_links",
+        targetPath: "Notes/VHDL.md",
+        linkUpdate: expect.objectContaining({
+          replacements: [
+            expect.objectContaining({
+              rawLink: "[[Missing Timing Note]]",
+              suggestedPath: "Notes/Timing Closure.md"
+            })
+          ]
+        })
+      })
+    ]);
+    expect(content).toContain("[[Missing Timing Note]]");
+    expect(content).not.toContain("[[Notes/Timing Closure|Missing Timing Note]]");
+  });
+
+  it("accepts richer tag suggestion input", async () => {
+    const store = new InMemoryVaultseerStore();
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => "Notes/VHDL.md",
+      readActiveNoteContent: async () => "# VHDL Timing\n",
+      now: () => "2026-05-02T12:00:00.000Z"
+    });
+
+    await expect(
+      tools.stageSuggestion({
+        kind: "tag",
+        suggestions: [
+          {
+            tag: "vhdl/timing",
+            reason: "Nearby notes use this tag.",
+            confidence: 0.8,
+            score: 9,
+            evidence: [{ type: "tag_frequency", noteCount: 3 }]
+          }
+        ]
+      })
+    ).resolves.toMatchObject({
+      status: "planned",
+      suggestionCount: 1
+    });
+  });
+
+  it("rejects proposal staging without an active note", async () => {
+    const tools = createCodexReadOnlyToolImplementations({
+      store: new InMemoryVaultseerStore(),
+      getActivePath: () => null,
+      readActiveNoteContent: async () => "# VHDL Timing\n"
+    });
+
+    await expect(tools.stageSuggestion({ kind: "tag", tags: ["vhdl/timing"] })).rejects.toThrow("Open a note");
+  });
+
+  it("rejects proposal targetPath mismatch", async () => {
+    const tools = createCodexReadOnlyToolImplementations({
+      store: new InMemoryVaultseerStore(),
+      getActivePath: () => "Notes/VHDL.md",
+      readActiveNoteContent: async () => "# VHDL Timing\n"
+    });
+
+    await expect(
+      tools.stageSuggestion({ kind: "tag", targetPath: "Notes/Other.md", tags: ["vhdl/timing"] })
+    ).rejects.toThrow("current active note");
+  });
+
+  it.each([
+    [{ kind: "tag", tags: [" "] }, "tag"],
+    [{ kind: "tag", suggestions: [{ reason: "missing tag" }] }, "tag"],
+    [{ kind: "link", links: [{ rawLink: "[[Missing]]", suggestedPath: "Notes/Found.md" }] }, "link"],
+    [{ kind: "unknown", tags: ["vhdl/timing"] }, "kind"]
+  ])("rejects malformed stage_suggestion input %#", async (proposal, messagePart) => {
+    const tools = createCodexReadOnlyToolImplementations({
+      store: new InMemoryVaultseerStore(),
+      getActivePath: () => "Notes/VHDL.md",
+      readActiveNoteContent: async () => "# VHDL Timing\n"
+    });
+
+    await expect(tools.stageSuggestion(proposal)).rejects.toThrow(messagePart);
+  });
 });
 
 async function indexNotes(store: InMemoryVaultseerStore, noteInputs: NoteRecordInput[]): Promise<void> {
