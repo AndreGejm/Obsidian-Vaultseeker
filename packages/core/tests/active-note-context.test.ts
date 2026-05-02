@@ -184,6 +184,124 @@ describe("buildActiveNoteContextPacket", () => {
     expect(packet.noteChunks[0]?.text.length).toBeLessThanOrEqual(2);
   });
 
+  it("caps long metadata and reference strings with the field character bound", () => {
+    const longValue = "x".repeat(80);
+    const longPath = `Notes/${longValue}.md`;
+    const longNote: NoteRecord = {
+      ...note,
+      path: longPath,
+      title: longValue,
+      aliases: [longValue],
+      tags: [longValue],
+      headings: [{ level: 2, heading: longValue, path: [longValue], position: { line: 4 } }],
+      links: [{ raw: `[[${longValue}]]`, target: longValue, position: { line: 8 } }]
+    };
+    const packet = buildActiveNoteContextPacket({
+      activePath: longPath,
+      notes: [longNote],
+      chunks: [
+        {
+          id: longValue,
+          notePath: longPath,
+          headingPath: [longValue],
+          normalizedTextHash: "hash",
+          ordinal: 0,
+          text: "body text is governed separately"
+        }
+      ],
+      relatedNotes: [{ path: longPath, title: longValue, reason: longValue }],
+      sourceExcerpts: [
+        {
+          sourceId: longValue,
+          sourcePath: `Sources/${longValue}/source.md`,
+          chunkId: longValue,
+          text: "source text is governed separately",
+          evidenceLabel: longValue
+        }
+      ],
+      maxFieldCharacters: 12
+    });
+
+    expect(packet.note?.path.length).toBeLessThanOrEqual(12);
+    expect(packet.note?.title.length).toBeLessThanOrEqual(12);
+    expect(packet.note?.aliases[0]?.length).toBeLessThanOrEqual(12);
+    expect(packet.note?.tags[0]?.length).toBeLessThanOrEqual(12);
+    expect(packet.note?.headings[0]?.length).toBeLessThanOrEqual(12);
+    expect(packet.note?.links[0]?.length).toBeLessThanOrEqual(12);
+    expect(packet.noteChunks[0]?.chunkId.length).toBeLessThanOrEqual(12);
+    expect(packet.noteChunks[0]?.headingPath[0]?.length).toBeLessThanOrEqual(12);
+    expect(packet.relatedNotes[0]?.path.length).toBeLessThanOrEqual(12);
+    expect(packet.relatedNotes[0]?.title.length).toBeLessThanOrEqual(12);
+    expect(packet.relatedNotes[0]?.reason.length).toBeLessThanOrEqual(12);
+    expect(packet.sourceExcerpts[0]?.sourceId.length).toBeLessThanOrEqual(12);
+    expect(packet.sourceExcerpts[0]?.sourcePath.length).toBeLessThanOrEqual(12);
+    expect(packet.sourceExcerpts[0]?.chunkId.length).toBeLessThanOrEqual(12);
+    expect(packet.sourceExcerpts[0]?.evidenceLabel.length).toBeLessThanOrEqual(12);
+  });
+
+  it("normalizes non-finite field character bounds to the default", () => {
+    const longTitle = "x".repeat(300);
+    const packet = buildActiveNoteContextPacket({
+      activePath: "Notes/VHDL.md",
+      notes: [{ ...note, title: longTitle }],
+      chunks: [],
+      relatedNotes: [],
+      sourceExcerpts: [],
+      maxFieldCharacters: Number.POSITIVE_INFINITY
+    });
+
+    expect(packet.note?.title.length).toBeLessThanOrEqual(240);
+  });
+
+  it("normalizes fractional tiny field character bounds without throwing", () => {
+    const packet = buildActiveNoteContextPacket({
+      activePath: "Notes/VHDL.md",
+      notes: [{ ...note, title: "abcdef" }],
+      chunks: [],
+      relatedNotes: [],
+      sourceExcerpts: [],
+      maxFieldCharacters: 2.5
+    });
+
+    expect(packet.note?.title.length).toBeLessThanOrEqual(2);
+  });
+
+  it("normalizes optional item caps", () => {
+    const packet = buildActiveNoteContextPacket({
+      activePath: "Notes/VHDL.md",
+      notes: [{ ...note, aliases: ["one", "two", "three"] }],
+      chunks: Array.from({ length: 12 }, (_, index) => ({
+        id: `chunk-${index}`,
+        notePath: "Notes/VHDL.md",
+        headingPath: ["Setup time"],
+        normalizedTextHash: `hash-${index}`,
+        ordinal: index,
+        text: `Chunk ${index}`
+      })),
+      relatedNotes: Array.from({ length: 3 }, (_, index) => ({
+        path: `Notes/Related-${index}.md`,
+        title: `Related ${index}`,
+        reason: "test"
+      })),
+      sourceExcerpts: Array.from({ length: 3 }, (_, index) => ({
+        sourceId: `source-${index}`,
+        sourcePath: `Sources/${index}/source.md`,
+        chunkId: `source-chunk-${index}`,
+        text: `source ${index}`,
+        evidenceLabel: "source excerpt"
+      })),
+      maxNoteChunks: Number.POSITIVE_INFINITY,
+      maxMetadataItems: 1.5,
+      maxRelatedNotes: 0.5,
+      maxSourceExcerpts: -1
+    });
+
+    expect(packet.noteChunks).toHaveLength(8);
+    expect(packet.note?.aliases).toHaveLength(1);
+    expect(packet.relatedNotes).toHaveLength(0);
+    expect(packet.sourceExcerpts).toHaveLength(0);
+  });
+
   it("keeps truncated note chunks and source excerpts within the requested character bound", () => {
     const maxChunkCharacters = 10;
     const packet = buildActiveNoteContextPacket({
