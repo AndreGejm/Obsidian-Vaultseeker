@@ -39,6 +39,7 @@ import {
 import { MarkerSourceExtractor } from "./marker-source-extractor";
 import type { SearchModalSemanticSearch } from "./search-modal-query";
 import type { SourceSearchModalSemanticSearch } from "./source-search-modal-query";
+import { activateVaultseerStudio, VAULTSEER_STUDIO_VIEW_TYPE, VaultseerStudioView } from "./studio-view";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
@@ -111,6 +112,16 @@ export default class VaultseerPlugin extends Plugin {
             });
             return summary.message;
           }
+        )
+    );
+    this.registerView(
+      VAULTSEER_STUDIO_VIEW_TYPE,
+      (leaf) =>
+        new VaultseerStudioView(
+          leaf,
+          this.store,
+          () => this.app.workspace.getActiveFile()?.path ?? null,
+          () => "stopped"
         )
     );
 
@@ -223,6 +234,14 @@ export default class VaultseerPlugin extends Plugin {
       name: "Open read-only workbench",
       callback: async () => {
         await this.openWorkbench();
+      }
+    });
+
+    this.addCommand({
+      id: "open-studio",
+      name: "Open native Studio",
+      callback: async () => {
+        await this.openStudio();
       }
     });
 
@@ -478,6 +497,13 @@ export default class VaultseerPlugin extends Plugin {
     const leaf = await activateVaultseerWorkbench(this.app);
     if (!leaf) {
       new Notice("Vaultseer could not open the workbench.");
+    }
+  }
+
+  async openStudio(): Promise<void> {
+    const leaf = await activateVaultseerStudio(this.app);
+    if (!leaf) {
+      new Notice("Vaultseer could not open Studio.");
     }
   }
 
