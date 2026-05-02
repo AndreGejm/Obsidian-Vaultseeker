@@ -124,7 +124,8 @@ export function createCodexReadOnlyToolImplementations(
           targetPath: proposal.targetPath,
           currentContent,
           tagSuggestions: proposal.tagSuggestions,
-          now
+          now,
+          beforeCommit: () => input.getActivePath() === proposal.targetPath
         });
       }
 
@@ -133,7 +134,8 @@ export function createCodexReadOnlyToolImplementations(
         targetPath: proposal.targetPath,
         currentContent,
         linkSuggestions: proposal.linkSuggestions,
-        now
+        now,
+        beforeCommit: () => input.getActivePath() === proposal.targetPath
       });
     }
   };
@@ -203,9 +205,9 @@ function parseTagSuggestions(input: Record<string, unknown>): TagSuggestion[] {
         tagSuggestionFromParts({
           tag,
           reason: stringProperty(input, "reason"),
-          confidence: numberProperty(input, "confidence"),
-          score: numberProperty(input, "score"),
-          evidence: evidenceArray(input["evidence"])
+          confidence: clampedConfidence(input["confidence"]),
+          score: nonNegativeScore(input["score"]),
+          evidence: tagEvidenceArray(input["evidence"])
         })
       );
     if (suggestions.length > 0) {
@@ -229,9 +231,9 @@ function parseRichTagSuggestion(input: unknown): TagSuggestion | null {
   return tagSuggestionFromParts({
     tag,
     reason: stringProperty(input, "reason"),
-    confidence: numberProperty(input, "confidence"),
-    score: numberProperty(input, "score"),
-    evidence: evidenceArray(input["evidence"])
+    confidence: clampedConfidence(input["confidence"]),
+    score: nonNegativeScore(input["score"]),
+    evidence: tagEvidenceArray(input["evidence"])
   });
 }
 
@@ -282,9 +284,9 @@ function parseLinkSuggestion(input: unknown): LinkSuggestion | null {
     suggestedPath,
     suggestedTitle: stringProperty(input, "suggestedTitle")?.trim() || suggestedTitleFromPath(suggestedPath),
     reason: stringProperty(input, "reason") ?? "Codex suggested this link target.",
-    confidence: numberProperty(input, "confidence") ?? 0.5,
-    score: numberProperty(input, "score") ?? numberProperty(input, "confidence") ?? 0.5,
-    evidence: evidenceArray(input["evidence"]) as LinkSuggestion["evidence"]
+    confidence: clampedConfidence(input["confidence"]) ?? 0.5,
+    score: nonNegativeScore(input["score"]) ?? clampedConfidence(input["confidence"]) ?? 0.5,
+    evidence: linkEvidenceArray(input["evidence"])
   };
 }
 
@@ -298,13 +300,114 @@ function stringProperty(value: Record<string, unknown>, key: string): string | n
   return typeof property === "string" ? property : null;
 }
 
-function numberProperty(value: Record<string, unknown>, key: string): number | null {
-  const property = value[key];
-  return typeof property === "number" && Number.isFinite(property) ? property : null;
+function clampedConfidence(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.min(1, Math.max(0, value));
 }
 
-function evidenceArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value.filter(isRecord) : [];
+function nonNegativeScore(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.max(0, value);
+}
+
+function tagEvidenceArray(value: unknown): TagSuggestion["evidence"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map(parseTagEvidence).filter(isPresent);
+}
+
+function parseTagEvidence(value: unknown): TagSuggestion["evidence"][number] | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  switch (value["type"]) {
+    case "linked_note_tag":
+    case "backlink_note_tag": {
+      const notePath = nonblankString(value["notePath"]);
+      const tag = nonblankString(value["tag"]);
+      return notePath && tag ? { type: value["type"], notePath, tag } : null;
+    }
+    case "co_tag": {
+      const fromTag = nonblankString(value["fromTag"]);
+      const count = positiveNumber(value["count"]);
+      return fromTag && count !== null ? { type: "co_tag", fromTag, count } : null;
+    }
+    case "tag_frequency": {
+      const noteCount = nonNegativeNumber(value["noteCount"]);
+      return noteCount !== null ? { type: "tag_frequency", noteCount } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function linkEvidenceArray(value: unknown): LinkSuggestion["evidence"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map(parseLinkEvidence).filter(isPresent);
+}
+
+function parseLinkEvidence(value: unknown): LinkSuggestion["evidence"][number] | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  switch (value["type"]) {
+    case "unresolved_link": {
+      const raw = nonblankString(value["raw"]);
+      const target = nonblankString(value["target"]);
+      return raw && target ? { type: "unresolved_link", raw, target } : null;
+    }
+    case "alias_match": {
+      const alias = nonblankString(value["alias"]);
+      return alias ? { type: "alias_match", alias } : null;
+    }
+    case "title_match": {
+      const title = nonblankString(value["title"]);
+      return title ? { type: "title_match", title } : null;
+    }
+    case "token_overlap": {
+      const tokens = stringArray(value["tokens"]);
+      return tokens.length > 0 ? { type: "token_overlap", tokens } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function nonblankString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function positiveNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function nonNegativeNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function stringArray(value: unknown): string[] {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    !value.every((item) => typeof item === "string" && item.trim().length > 0)
+  ) {
+    return [];
+  }
+
+  return value.map((item) => item.trim());
 }
 
 function suggestedTitleFromPath(path: string): string {

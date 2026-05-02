@@ -13,6 +13,7 @@ export type StageNoteLinkUpdateProposalInput = {
   linkSuggestions: LinkSuggestion[];
   now: () => string;
   maxLinks?: number;
+  beforeCommit?: () => boolean | Promise<boolean>;
 };
 
 export type StageNoteLinkUpdateProposalSummary =
@@ -72,6 +73,15 @@ export async function stageNoteLinkUpdateProposal(
     input.store.getSuggestionRecords(),
     input.store.getVaultWriteOperations()
   ]);
+
+  if (input.beforeCommit && (await input.beforeCommit()) !== true) {
+    return skipped(
+      input.targetPath,
+      linkSuggestions.length,
+      "The active note changed before staging could finish. Nothing was staged."
+    );
+  }
+
   await Promise.all([
     input.store.replaceSuggestionRecords(mergeSuggestionRecords(existingSuggestions, suggestionRecords)),
     input.store.replaceVaultWriteOperations(mergeVaultWriteOperations(existingOperations, [operation]))

@@ -13,6 +13,7 @@ export type StageNoteTagUpdateProposalInput = {
   tagSuggestions: TagSuggestion[];
   now: () => string;
   maxTags?: number;
+  beforeCommit?: () => boolean | Promise<boolean>;
 };
 
 export type StageNoteTagUpdateProposalSummary =
@@ -68,6 +69,15 @@ export async function stageNoteTagUpdateProposal(
     input.store.getSuggestionRecords(),
     input.store.getVaultWriteOperations()
   ]);
+
+  if (input.beforeCommit && (await input.beforeCommit()) !== true) {
+    return skipped(
+      input.targetPath,
+      tagSuggestions.length,
+      "The active note changed before staging could finish. Nothing was staged."
+    );
+  }
+
   await Promise.all([
     input.store.replaceSuggestionRecords(mergeSuggestionRecords(existingSuggestions, suggestionRecords)),
     input.store.replaceVaultWriteOperations(mergeVaultWriteOperations(existingOperations, [operation]))

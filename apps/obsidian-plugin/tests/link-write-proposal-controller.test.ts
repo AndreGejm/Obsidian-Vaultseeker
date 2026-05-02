@@ -86,6 +86,29 @@ describe("stageNoteLinkUpdateProposal", () => {
     await expect(store.getSuggestionRecords()).resolves.toEqual([]);
     await expect(store.getVaultWriteOperations()).resolves.toEqual([]);
   });
+
+  it("skips storage when the before-commit guard reports stale state", async () => {
+    const store = new InMemoryVaultseerStore();
+
+    const summary = await stageNoteLinkUpdateProposal({
+      store,
+      targetPath: "Projects/Vaultseer Platform.md",
+      currentContent: "# Vaultseer Platform\n\nConnects to [[Missing Note]].\n",
+      linkSuggestions: [linkSuggestion({ rawLink: "[[Missing Note]]", unresolvedTarget: "Missing Note" })],
+      now: () => "2026-05-01T23:00:00.000Z",
+      beforeCommit: async () => false
+    });
+
+    expect(summary).toEqual({
+      status: "skipped",
+      targetPath: "Projects/Vaultseer Platform.md",
+      suggestionCount: 1,
+      operation: null,
+      message: "The active note changed before staging could finish. Nothing was staged."
+    });
+    await expect(store.getSuggestionRecords()).resolves.toEqual([]);
+    await expect(store.getVaultWriteOperations()).resolves.toEqual([]);
+  });
 });
 
 function linkSuggestion(overrides: Partial<LinkSuggestion>): LinkSuggestion {

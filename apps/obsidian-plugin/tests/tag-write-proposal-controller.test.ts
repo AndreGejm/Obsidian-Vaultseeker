@@ -78,6 +78,29 @@ describe("stageNoteTagUpdateProposal", () => {
     await expect(store.getSuggestionRecords()).resolves.toEqual([]);
     await expect(store.getVaultWriteOperations()).resolves.toEqual([]);
   });
+
+  it("skips storage when the before-commit guard reports stale state", async () => {
+    const store = new InMemoryVaultseerStore();
+
+    const summary = await stageNoteTagUpdateProposal({
+      store,
+      targetPath: "Literature/Mimisbrunnr Retrieval.md",
+      currentContent: "# Mimisbrunnr Retrieval\n",
+      tagSuggestions: [tagSuggestion({ tag: "project/vaultseer" })],
+      now: () => "2026-05-01T22:00:00.000Z",
+      beforeCommit: async () => false
+    });
+
+    expect(summary).toEqual({
+      status: "skipped",
+      targetPath: "Literature/Mimisbrunnr Retrieval.md",
+      suggestionCount: 1,
+      operation: null,
+      message: "The active note changed before staging could finish. Nothing was staged."
+    });
+    await expect(store.getSuggestionRecords()).resolves.toEqual([]);
+    await expect(store.getVaultWriteOperations()).resolves.toEqual([]);
+  });
 });
 
 function tagSuggestion(overrides: Partial<TagSuggestion>): TagSuggestion {

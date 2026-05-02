@@ -10,6 +10,7 @@ import {
 } from "@vaultseer/core";
 import {
   createCodexReadOnlyToolImplementations,
+  parseCodexStageSuggestionInput,
   parseCodexSearchToolInput
 } from "../src/codex-read-only-tool-implementations";
 
@@ -33,6 +34,88 @@ describe("parseCodexSearchToolInput", () => {
   it("rejects blank queries", () => {
     expect(() => parseCodexSearchToolInput(" ")).toThrow("query");
     expect(() => parseCodexSearchToolInput({ query: "" })).toThrow("query");
+  });
+});
+
+describe("parseCodexStageSuggestionInput", () => {
+  it("drops malformed tag evidence and clamps confidence and score", () => {
+    const parsed = parseCodexStageSuggestionInput(
+      {
+        kind: "tag",
+        suggestions: [
+          {
+            tag: "vhdl/timing",
+            confidence: 4,
+            score: -10,
+            evidence: [
+              { type: "linked_note_tag", notePath: "Notes/FPGA.md", tag: "vhdl" },
+              { type: "linked_note_tag", notePath: "Notes/FPGA.md" },
+              { type: "co_tag", fromTag: "fpga", count: 2 },
+              { type: "tag_frequency", noteCount: -1 },
+              { type: "unknown", value: "bad" }
+            ]
+          }
+        ]
+      },
+      "Notes/VHDL.md"
+    );
+
+    expect(parsed).toMatchObject({
+      kind: "tag",
+      tagSuggestions: [
+        {
+          tag: "vhdl/timing",
+          confidence: 1,
+          score: 0,
+          evidence: [
+            { type: "linked_note_tag", notePath: "Notes/FPGA.md", tag: "vhdl" },
+            { type: "co_tag", fromTag: "fpga", count: 2 }
+          ]
+        }
+      ]
+    });
+  });
+
+  it("drops malformed link evidence and clamps confidence and score", () => {
+    const parsed = parseCodexStageSuggestionInput(
+      {
+        kind: "link",
+        links: [
+          {
+            rawLink: "[[Missing Timing Note]]",
+            unresolvedTarget: "Missing Timing Note",
+            suggestedPath: "Notes/Timing Closure.md",
+            confidence: -2,
+            score: -4,
+            evidence: [
+              { type: "unresolved_link", raw: "[[Missing Timing Note]]", target: "Missing Timing Note" },
+              { type: "unresolved_link", raw: "[[Missing Timing Note]]" },
+              { type: "alias_match", alias: "Timing Closure" },
+              { type: "title_match", title: "" },
+              { type: "token_overlap", tokens: ["timing", "closure"] },
+              { type: "token_overlap", tokens: ["timing", 7] }
+            ]
+          }
+        ]
+      },
+      "Notes/VHDL.md"
+    );
+
+    expect(parsed).toMatchObject({
+      kind: "link",
+      linkSuggestions: [
+        {
+          rawLink: "[[Missing Timing Note]]",
+          confidence: 0,
+          score: 0,
+          evidence: [
+            { type: "unresolved_link", raw: "[[Missing Timing Note]]", target: "Missing Timing Note" },
+            { type: "alias_match", alias: "Timing Closure" },
+            { type: "token_overlap", tokens: ["timing", "closure"] }
+          ]
+        }
+      ]
+    });
   });
 });
 
@@ -152,6 +235,34 @@ describe("createCodexReadOnlyToolImplementations", () => {
     expect(content).not.toContain("vhdl/timing");
   });
 
+  it("does not store a proposal when the active note changes before commit", async () => {
+    const store = new InMemoryVaultseerStore();
+    let activePath: string | null = "Notes/VHDL.md";
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => activePath,
+      readActiveNoteContent: async () => {
+        activePath = "Notes/Other.md";
+        return "# VHDL Timing\n";
+      },
+      now: () => "2026-05-02T12:00:00.000Z"
+    });
+
+    await expect(
+      tools.stageSuggestion({
+        kind: "tag",
+        targetPath: "Notes/VHDL.md",
+        tags: ["vhdl/timing"]
+      })
+    ).resolves.toMatchObject({
+      status: "skipped",
+      message: "The active note changed before staging could finish. Nothing was staged."
+    });
+
+    await expect(store.getSuggestionRecords()).resolves.toEqual([]);
+    await expect(store.getVaultWriteOperations()).resolves.toEqual([]);
+  });
+
   it("stages a current-note link proposal into guarded review without mutating content", async () => {
     const store = new InMemoryVaultseerStore();
     const content = "# VHDL Timing\n\nSee [[Missing Timing Note]] for details.\n";
@@ -237,6 +348,45 @@ describe("createCodexReadOnlyToolImplementations", () => {
       status: "planned",
       suggestionCount: 1
     });
+  });
+
+  it("persists only validated Codex evidence and clamped confidence", async () => {
+    const store = new InMemoryVaultseerStore();
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => "Notes/VHDL.md",
+      readActiveNoteContent: async () => "# VHDL Timing\n",
+      now: () => "2026-05-02T12:00:00.000Z"
+    });
+
+    await tools.stageSuggestion({
+      kind: "tag",
+      suggestions: [
+        {
+          tag: "vhdl/timing",
+          confidence: 7,
+          evidence: [
+            { type: "linked_note_tag", notePath: "Notes/FPGA.md", tag: "vhdl" },
+            { type: "tag_frequency" },
+            { type: "unknown", value: "bad" }
+          ]
+        }
+      ]
+    });
+
+    await expect(store.getSuggestionRecords()).resolves.toEqual([
+      expect.objectContaining({
+        confidence: 1,
+        evidence: [
+          {
+            type: "note_tag_evidence",
+            relation: "linked_note",
+            notePath: "Notes/FPGA.md",
+            tag: "vhdl"
+          }
+        ]
+      })
+    ]);
   });
 
   it("rejects proposal staging without an active note", async () => {
