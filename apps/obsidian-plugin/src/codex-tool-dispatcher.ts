@@ -16,19 +16,31 @@ export type CodexToolImplementations = {
   stageSuggestion(input: unknown): Promise<unknown>;
 };
 
+async function runAllowedCodexTool(tool: AllowedCodexTool, implementation: () => Promise<unknown>): Promise<CodexToolResult> {
+  try {
+    return { ok: true, tool, output: await implementation() };
+  } catch (error) {
+    return {
+      ok: false,
+      tool,
+      message: error instanceof Error ? error.message : `Codex tool '${tool}' failed.`
+    };
+  }
+}
+
 export async function dispatchCodexToolRequest(input: {
   request: CodexToolRequest;
   tools: CodexToolImplementations;
 }): Promise<CodexToolResult> {
   switch (input.request.tool) {
     case "inspect_current_note":
-      return { ok: true, tool: "inspect_current_note", output: await input.tools.inspectCurrentNote() };
+      return runAllowedCodexTool("inspect_current_note", () => input.tools.inspectCurrentNote());
     case "search_notes":
-      return { ok: true, tool: "search_notes", output: await input.tools.searchNotes(input.request.input) };
+      return runAllowedCodexTool("search_notes", () => input.tools.searchNotes(input.request.input));
     case "search_sources":
-      return { ok: true, tool: "search_sources", output: await input.tools.searchSources(input.request.input) };
+      return runAllowedCodexTool("search_sources", () => input.tools.searchSources(input.request.input));
     case "stage_suggestion":
-      return { ok: true, tool: "stage_suggestion", output: await input.tools.stageSuggestion(input.request.input) };
+      return runAllowedCodexTool("stage_suggestion", () => input.tools.stageSuggestion(input.request.input));
     default:
       return {
         ok: false,

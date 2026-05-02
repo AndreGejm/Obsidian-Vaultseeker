@@ -1,25 +1,57 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { dispatchCodexToolRequest } from "../src/codex-tool-dispatcher";
 
 describe("dispatchCodexToolRequest", () => {
-  it("allows current note inspection", async () => {
+  it.each([
+    {
+      tool: "inspect_current_note",
+      input: { query: "ignored" },
+      implementation: "inspectCurrentNote",
+      output: { status: "ready", title: "VHDL" },
+      expectedArguments: []
+    },
+    {
+      tool: "search_notes",
+      input: { query: "vhdl timing" },
+      implementation: "searchNotes",
+      output: [{ title: "VHDL" }],
+      expectedArguments: [{ query: "vhdl timing" }]
+    },
+    {
+      tool: "search_sources",
+      input: { query: "datasheet" },
+      implementation: "searchSources",
+      output: [{ title: "FPGA Datasheet" }],
+      expectedArguments: [{ query: "datasheet" }]
+    },
+    {
+      tool: "stage_suggestion",
+      input: { kind: "tag", value: "vhdl" },
+      implementation: "stageSuggestion",
+      output: { staged: true },
+      expectedArguments: [{ kind: "tag", value: "vhdl" }]
+    }
+  ] as const)("allows $tool and delegates to $implementation", async (scenario) => {
+    const tools = {
+      inspectCurrentNote: vi.fn(async () => (scenario.implementation === "inspectCurrentNote" ? scenario.output : null)),
+      searchNotes: vi.fn(async () => (scenario.implementation === "searchNotes" ? scenario.output : [])),
+      searchSources: vi.fn(async () => (scenario.implementation === "searchSources" ? scenario.output : [])),
+      stageSuggestion: vi.fn(async () => (scenario.implementation === "stageSuggestion" ? scenario.output : { staged: false }))
+    };
+
     const result = await dispatchCodexToolRequest({
-      request: { tool: "inspect_current_note", input: {} },
-      tools: {
-        inspectCurrentNote: async () => ({ status: "ready", title: "VHDL" }),
-        searchNotes: async () => [],
-        searchSources: async () => [],
-        stageSuggestion: async () => ({ staged: true })
-      }
+      request: { tool: scenario.tool, input: scenario.input },
+      tools
     });
 
-    expect(result.ok).toBe(true);
-    expect(result.tool).toBe("inspect_current_note");
+    expect(result).toEqual({ ok: true, tool: scenario.tool, output: scenario.output });
+    expect(tools[scenario.implementation]).toHaveBeenCalledTimes(1);
+    expect(tools[scenario.implementation]).toHaveBeenCalledWith(...scenario.expectedArguments);
   });
 
-  it("rejects unknown or write-like tools", async () => {
+  it.each(["write_file", "unknown_tool"])("rejects disallowed tool %s", async (tool) => {
     const result = await dispatchCodexToolRequest({
-      request: { tool: "write_file", input: {} },
+      request: { tool, input: {} },
       tools: {
         inspectCurrentNote: async () => ({ status: "ready" }),
         searchNotes: async () => [],
@@ -29,6 +61,45 @@ describe("dispatchCodexToolRequest", () => {
     });
 
     expect(result.ok).toBe(false);
+    expect(result.tool).toBe(tool);
     expect(result.message).toContain("not allowed");
+  });
+
+  it("returns a failed result when an allowed implementation throws an Error", async () => {
+    const result = await dispatchCodexToolRequest({
+      request: { tool: "search_notes", input: { query: "vhdl" } },
+      tools: {
+        inspectCurrentNote: async () => ({ status: "ready" }),
+        searchNotes: async () => {
+          throw new Error("search unavailable");
+        },
+        searchSources: async () => [],
+        stageSuggestion: async () => ({ staged: true })
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.tool).toBe("search_notes");
+    expect(result.message).toContain("search unavailable");
+  });
+
+  it("returns a fallback failed result when an allowed implementation throws a non-Error", async () => {
+    const result = await dispatchCodexToolRequest({
+      request: { tool: "stage_suggestion", input: { kind: "tag" } },
+      tools: {
+        inspectCurrentNote: async () => ({ status: "ready" }),
+        searchNotes: async () => [],
+        searchSources: async () => [],
+        stageSuggestion: async () => {
+          throw "offline";
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      tool: "stage_suggestion",
+      message: "Codex tool 'stage_suggestion' failed."
+    });
   });
 });
