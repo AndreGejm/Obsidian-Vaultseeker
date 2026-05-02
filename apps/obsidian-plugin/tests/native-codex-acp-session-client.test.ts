@@ -3,6 +3,25 @@ import { NativeCodexAcpSessionClient, type NativeCodexAcpConnectionFactory } fro
 import type { NativeCodexProcessSettings } from "../src/codex-process-manager";
 
 describe("NativeCodexAcpSessionClient", () => {
+  it("exposes the native Codex process settings used by the client", () => {
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () =>
+        settings({
+          nativeCodexEnabled: false,
+          codexCommand: "codex --acp",
+          codexWorkingDirectory: "F:\\Workspace"
+        }),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: vi.fn()
+    });
+
+    expect(client.settings).toEqual({
+      nativeCodexEnabled: false,
+      codexCommand: "codex --acp",
+      codexWorkingDirectory: "F:\\Workspace"
+    });
+  });
+
   it("rejects disabled settings without creating a connection and marks runtime disabled", async () => {
     const createConnection = vi.fn();
     const client = new NativeCodexAcpSessionClient({
@@ -121,6 +140,7 @@ describe("NativeCodexAcpSessionClient", () => {
     ).resolves.toEqual({ outcome: { outcome: "cancelled" } });
     await expect(fake.handler.readTextFile({ path: "A.md" })).rejects.toThrow("disabled");
     await expect(fake.handler.writeTextFile({ path: "A.md", content: "nope" })).rejects.toThrow("disabled");
+    await expect(fake.handler.createTerminal({ cwd: "F:\\Vault" })).rejects.toThrow("disabled");
 
     expect(updates).toEqual([
       {
@@ -146,6 +166,42 @@ describe("NativeCodexAcpSessionClient", () => {
     expect(client.getState()).toEqual({
       status: "failed",
       message: "spawn codex-acp ENOENT",
+      processId: null
+    });
+  });
+
+  it("moves to failed state with a clear message when ACP initialize rejects", async () => {
+    const fake = createFakeConnection();
+    fake.initialize.mockRejectedValueOnce(new Error("initialize handshake failed"));
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: async () => fake.connection
+    });
+
+    await expect(client.ensureSession()).rejects.toThrow("initialize handshake failed");
+
+    expect(client.getState()).toEqual({
+      status: "failed",
+      message: "initialize handshake failed",
+      processId: null
+    });
+  });
+
+  it("moves to failed state with a clear message when ACP session creation rejects", async () => {
+    const fake = createFakeConnection();
+    fake.newSession.mockRejectedValueOnce(new Error("new session rejected"));
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: async () => fake.connection
+    });
+
+    await expect(client.ensureSession()).rejects.toThrow("new session rejected");
+
+    expect(client.getState()).toEqual({
+      status: "failed",
+      message: "new session rejected",
       processId: null
     });
   });

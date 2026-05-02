@@ -21,7 +21,7 @@ importers:
   apps/obsidian-plugin:
     dependencies:
       '@agentclientprotocol/sdk':
-        specifier: 0.14.1
+        specifier: ^0.14.1
         version: 0.14.1(zod@4.4.2)
       '@vaultseer/core':
         specifier: workspace:*

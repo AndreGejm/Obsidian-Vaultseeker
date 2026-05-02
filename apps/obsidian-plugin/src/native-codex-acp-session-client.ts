@@ -81,6 +81,15 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
 
   constructor(private readonly options: NativeCodexAcpSessionClientOptions) {}
 
+  get settings(): NativeCodexProcessSettings {
+    const settings = this.options.getSettings();
+    return {
+      nativeCodexEnabled: settings.nativeCodexEnabled,
+      codexCommand: settings.codexCommand,
+      codexWorkingDirectory: settings.codexWorkingDirectory
+    };
+  }
+
   getState(): CodexRuntimeState {
     return this.state;
   }
