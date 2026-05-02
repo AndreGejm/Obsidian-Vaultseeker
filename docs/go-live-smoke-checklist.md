@@ -22,34 +22,49 @@ Vaultseer does not create missing folders during source-note apply. If the confi
 3. Run `Vaultseer: Search read-only vault index`.
    - Expected: existing vault notes appear for normal search terms.
    - Verify: clicking a result opens the note and does not edit it.
-4. Run `Vaultseer: Open read-only workbench` on a note that has suggested tags.
+4. Run `Vaultseer: Open native Studio`.
+   - Expected: Studio opens in a side pane and shows the current note label.
+   - Verify: switch between Obsidian notes; Studio should follow the active note without writing files.
+5. In Studio, open Chat mode.
+   - Expected: chat accepts a message, but if native Codex is not wired it returns the not-connected message.
+   - Verify: no Markdown file changes occur and chat history clears when the active note changes.
+6. In Studio, open Note mode before staging any proposal.
+   - Expected: it says there are no current-note proposals to review.
+   - Verify: it does not claim an inline-reviewable change exists until a proposal is actually staged.
+7. Run `Vaultseer: Open read-only workbench` on a note that has suggested tags.
    - Expected: the workbench shows suggested tags and a `Stage tag review` button.
    - Verify: pressing `Stage tag review` stores a guarded tag-update proposal and reports that no note was changed.
-5. Run `Vaultseer: Open guarded write review queue`.
+8. Open Studio Note mode on that same note.
+   - Expected: the staged tag proposal is labeled as current-note inline-reviewable guidance.
+   - Verify: approval and apply still happen through the guarded write review queue.
+9. Run `Vaultseer: Open guarded write review queue`.
    - Expected: the tag-update proposal appears as `Update note tags`.
    - Verify: the preview diff shows the proposed frontmatter change.
-6. Approve the tag-update proposal, then press `Apply tag update`.
+10. Approve the tag-update proposal, then press `Apply tag update`.
    - Expected: Vaultseer updates the note tags and records an applied result.
    - Verify: the note frontmatter contains the added tag, the queue shows an applied record, and pressing apply again is disabled.
-7. Open a note that has an unresolved link matching an existing note title or alias, then run `Vaultseer: Open read-only workbench`.
+11. Open a note that has an unresolved link matching an existing note title or alias, then run `Vaultseer: Open read-only workbench`.
    - Expected: the workbench shows suggested links and a `Stage link review` button.
    - Verify: pressing `Stage link review` stores a guarded link-update proposal and reports that no note was changed.
-8. Run `Vaultseer: Open guarded write review queue`.
+12. Open Studio Note mode on that same note.
+   - Expected: the staged link proposal is routed to the guarded review queue, not labeled inline-safe.
+   - Verify: no inline link apply control appears.
+13. Run `Vaultseer: Open guarded write review queue`.
    - Expected: the link-update proposal appears as `Update note links`.
    - Verify: the preview diff shows the proposed wiki-link replacement, but apply is not available for this operation yet.
-9. Open or choose a text/code source file and run one source intake command:
+14. Open or choose a text/code source file and run one source intake command:
    - `Vaultseer: Import active text/code file as source workspace`
    - `Vaultseer: Choose text/code file to import as source workspace`
    - Expected: a source workspace is stored.
-10. Run `Vaultseer: Search stored source workspaces`.
+15. Run `Vaultseer: Search stored source workspaces`.
    - Expected: the imported source appears in search results.
    - Verify: opening the source preview shows extracted text and a deterministic note proposal.
-11. From the source preview, review the source-note creation proposal.
+16. From the source preview, review the source-note creation proposal.
    - Expected: the preview shows the target path, source provenance, linked suggestions, and an added-file diff.
    - Verify: no Markdown note is created at this point.
-12. Run `Vaultseer: Open guarded write review queue`.
+17. Run `Vaultseer: Open guarded write review queue`.
    - Expected: the stored source-note write proposal appears.
-13. Approve the source-note proposal, then press `Create note`.
+18. Approve the source-note proposal, then press `Create note`.
    - Expected: Vaultseer creates exactly one new Markdown note at the target path and records an applied result.
    - Verify: the note exists in Obsidian, the queue shows an applied record, and pressing create again is disabled.
 

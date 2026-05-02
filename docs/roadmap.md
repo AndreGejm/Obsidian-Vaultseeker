@@ -202,6 +202,8 @@ Exit gate:
 
 Status: started. Core now has guarded-write contracts for source-to-note creation, note tag updates, and preview-only note link updates. A source proposal can become a proposed operation with target path, expected current file hash, preview diff, source provenance, suggestion IDs, and an approval decision record shape. A note tag update can become a proposed `update_note_tags` operation with normalized frontmatter tags, preserved unrelated frontmatter fields, expected current content hash, and a preview diff. A note link update can become a proposed `update_note_links` operation with exact unresolved-link replacements, preserved display text, expected current content hash, and a preview diff, but it is not applyable yet. Proposed write operations, write decisions, and apply result records are persisted separately from suggestions and survive read-only mirror rebuilds. The plugin source preview stores the generated source-note operation and exposes a dry-run review modal for that proposed operation. The workbench can stage current-note tag suggestions and unresolved-link suggestions into the guarded write review queue as `update_note_tags` and `update_note_links` operations. The source-note target folder is configurable in plugin settings and defaults to `Source Notes`. The plugin also exposes `Vaultseer: Open guarded write review queue`, which lists stored proposals, records approval, deferral, or rejection, displays stored apply result state, creates a new Markdown note for an approved source-note operation through the guarded Obsidian write port, and applies approved tag update operations after rechecking the current file hash. The apply path fails early when the target parent folder is missing, the target file is missing, or the file changed since review; it does not create folders. No link insertion apply path, tag rename, arbitrary frontmatter cleanup, attachment copy, batch apply, or automatic apply path exists yet.
 
+Native Studio now also has a conservative inline-approval routing helper. Only active-note `update_note_tags` operations are labeled inline-reviewable. Link updates, source-note creation, multi-file changes, and proposals for a different active note remain routed to the guarded review queue. Studio Note mode currently displays proposal routing guidance only; the guarded review queue remains the actual approval/apply surface.
+
 Goal: allow explicit, safe changes after preview.
 
 Implementation steps:
@@ -223,6 +225,31 @@ Exit gate:
 - every write has preview, approval, hash check, and decision record
 - source-created notes show both the final Markdown preview and the staged attachment plan before apply
 - stale suggestions fail closed
+
+## Phase 6.5: Native Studio Codex Chat
+
+Status: started. Vaultseer Studio opens as a current-note-first Obsidian view, has ephemeral active-note-scoped chat state, a controlled Codex tool dispatcher, native Codex settings, a process-manager abstraction with injected launch/stop behavior, and an ACP-compatible chat adapter boundary. The ACP adapter is transport-injected and does not start a process by itself. It sends the user message plus the active-note context packet only when context is ready, returns a visible blocked-context message when context is not ready, and hides raw transport error details from assistant-visible chat content. The real Codex ACP stdio/session transport is not wired yet.
+
+Goal: let Vaultseer become the native place to ask Codex about the active note while preserving Obsidian as the editor and keeping all durable output behind proposals.
+
+Implementation steps:
+
+- model native Codex runtime states and settings (**implemented**)
+- keep chat history ephemeral and scoped to the active note (**implemented**)
+- define a controlled tool dispatcher for current-note inspection, note search, source search, and suggestion staging (**implemented as an allowlist; chat UI does not execute tool requests yet**)
+- study Obsidian Agent Client and Codex ACP before wiring real transport (**implemented in `docs/reuse/native-codex-acp-adaptation.md`**)
+- add an ACP-compatible adapter boundary with injected transport (**implemented**)
+- wire real Codex ACP process/session transport (**not implemented yet**)
+- execute allowed tool requests through Vaultseer and render tool status in Studio (**not implemented yet**)
+- keep vault writes out of ACP tools; staged suggestions and write proposals still use guarded Vaultseer flows (**implemented as a design boundary; full chat-to-suggestion flow remains future work**)
+
+Exit gate:
+
+- Studio chat can talk to a running Codex ACP session
+- active-note context is included without exposing direct vault write tools
+- failed transport setup shows recoverable, non-secret error text
+- tool requests are limited to the Vaultseer dispatcher allowlist
+- no Codex chat path can write a note directly
 
 ## Phase 7: Mimisbrunnr Bridge
 
