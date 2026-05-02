@@ -89,8 +89,9 @@ describe("AcpCodexChatAdapter", () => {
     const response = await adapter.send({ message: "Hello", context: readyContext() });
 
     expect(transport.send).toHaveBeenCalledTimes(1);
-    expect(response.content).toBe("Codex chat could not respond. Check the native Codex connection, then retry.");
-    expect(response.content).not.toContain(rawTransportError);
+    expect(response.content).toBe(
+      "Codex chat could not respond: stdio closed. Check the native Codex connection, then retry."
+    );
     expect(response.toolRequests).toEqual([]);
   });
 });

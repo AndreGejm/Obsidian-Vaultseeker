@@ -141,7 +141,7 @@ export function extractNativeCodexExecutable(command: string): string | null {
 
 export async function nativeCodexCommandExists(commandExecutable: string): Promise<boolean> {
   if (hasPathSeparator(commandExecutable)) {
-    return nativeCodexPathExists(commandExecutable);
+    return nativeCodexFileExists(commandExecutable);
   }
 
   const lookupCommand = process.platform === "win32" ? "where.exe" : "which";
@@ -150,6 +150,15 @@ export async function nativeCodexCommandExists(commandExecutable: string): Promi
       resolve(error === null);
     });
   });
+}
+
+async function nativeCodexFileExists(filePath: string): Promise<boolean> {
+  try {
+    const entry = await stat(filePath);
+    return entry.isFile();
+  } catch {
+    return false;
+  }
 }
 
 export async function nativeCodexPathExists(folderPath: string): Promise<boolean> {

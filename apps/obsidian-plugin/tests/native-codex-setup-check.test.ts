@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import {
   buildNativeCodexSetupSummary,
   extractNativeCodexExecutable,
   formatNativeCodexSetupNotice,
+  nativeCodexCommandExists,
   type NativeCodexSetupCheckInput
 } from "../src/native-codex-setup-check";
 import type { NativeCodexProcessSettings } from "../src/codex-process-manager";
@@ -121,6 +125,18 @@ describe("native Codex setup check", () => {
     );
 
     expect(formatNativeCodexSetupNotice(summary)).toBe("Vaultseer native Codex is ready: codex-acp in F:\\Configured.");
+  });
+
+  it("accepts an absolute executable file path as a command", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "vaultseer-codex-command-"));
+    const commandPath = path.join(tempDir, "codex-acp.cmd");
+    await writeFile(commandPath, "@echo off\r\n", "utf8");
+
+    try {
+      await expect(nativeCodexCommandExists(commandPath)).resolves.toBe(true);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   });
 });
 
