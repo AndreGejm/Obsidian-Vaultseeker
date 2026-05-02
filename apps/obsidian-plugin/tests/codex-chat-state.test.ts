@@ -20,4 +20,36 @@ describe("codex chat state", () => {
     expect(state.activePath).toBe("Notes/C++.md");
     expect(state.messages).toEqual([]);
   });
+
+  it("preserves messages and error when active note path is unchanged", () => {
+    let state = createEmptyChatState("Notes/VHDL.md");
+    state = applyChatEvent(state, { type: "user_message", content: "Hello" });
+    state = applyChatEvent(state, { type: "error", message: "Codex is unavailable" });
+
+    const unchangedState = applyChatEvent(state, { type: "active_note_changed", activePath: "Notes/VHDL.md" });
+
+    expect(unchangedState).toBe(state);
+    expect(unchangedState.activePath).toBe("Notes/VHDL.md");
+    expect(unchangedState.messages).toHaveLength(1);
+    expect(unchangedState.error).toBe("Codex is unavailable");
+  });
+
+  it("uses provided timestamps for user and assistant messages", () => {
+    let state = createEmptyChatState("Notes/VHDL.md");
+    state = applyChatEvent(state, {
+      type: "user_message",
+      content: "Suggest tags",
+      createdAt: "2026-05-02T12:00:00.000Z"
+    });
+    state = applyChatEvent(state, {
+      type: "assistant_message",
+      content: "Suggested tag: vhdl/timing",
+      createdAt: "2026-05-02T12:00:01.000Z"
+    });
+
+    expect(state.messages.map((message) => message.createdAt)).toEqual([
+      "2026-05-02T12:00:00.000Z",
+      "2026-05-02T12:00:01.000Z"
+    ]);
+  });
 });
