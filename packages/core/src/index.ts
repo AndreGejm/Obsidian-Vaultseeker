@@ -34,6 +34,7 @@ export { searchSourceSemanticVectors } from "./source/source-semantic-search";
 export { proposeSourceNote } from "./source/source-note-proposal";
 export { chunkSourceRecord, chunkSourceRecords } from "./source/chunk-source";
 export { BuiltInTextSourceExtractor, isBuiltInTextSourceExtension } from "./source/text-source-extractor";
+export { buildActiveNoteContextPacket } from "./context/active-note-context";
 export {
   cancelSourceExtractionJobs,
   claimSourceExtractionJobs,
@@ -169,6 +170,8 @@ export type {
   SourceRecord,
   SourceWorkspaceStatus
 } from "./source/types";
+export type { BuildActiveNoteContextPacketInput } from "./context/active-note-context";
+export type { ActiveNoteContextPacket, ActiveNoteContextStatus } from "./context/types";
 export type {
   CreateVaultWriteDecisionRecordInput,
   GuardedVaultWriteOperation,
