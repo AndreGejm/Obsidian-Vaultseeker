@@ -44,6 +44,84 @@ export class VaultseerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Native Codex enabled")
+      .setDesc("Experimental Windows desktop process launching for local Codex sessions. Writes still require approval.")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.nativeCodexEnabled).onChange(async (value) => {
+          this.plugin.settings.nativeCodexEnabled = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Codex command")
+      .setDesc("Command used by the experimental Windows desktop launcher. It does not bypass approval for writes.")
+      .addText((text) =>
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.codexCommand)
+          .setValue(this.plugin.settings.codexCommand)
+          .onChange(async (value) => {
+            this.plugin.settings.codexCommand = value.trim() || DEFAULT_SETTINGS.codexCommand;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Codex working directory")
+      .setDesc("Windows folder where experimental desktop Codex sessions start. Writes still require explicit approval.")
+      .addText((text) =>
+        text
+          .setPlaceholder("F:\\Dev\\Obsidian")
+          .setValue(this.plugin.settings.codexWorkingDirectory)
+          .onChange(async (value) => {
+            this.plugin.settings.codexWorkingDirectory = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Managed source folder")
+      .setDesc("Vault folder for approved managed sources created by native Studio workflows.")
+      .addText((text) =>
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.managedSourceFolder)
+          .setValue(this.plugin.settings.managedSourceFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.managedSourceFolder = normalizeVaultFolderPath(
+              value,
+              DEFAULT_SETTINGS.managedSourceFolder
+            );
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Plan folder")
+      .setDesc("Vault folder for approved plans created by native Studio workflows.")
+      .addText((text) =>
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.planFolder)
+          .setValue(this.plugin.settings.planFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.planFolder = normalizeVaultFolderPath(value, DEFAULT_SETTINGS.planFolder);
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Release folder")
+      .setDesc("Vault folder for approved release notes created by native Studio workflows.")
+      .addText((text) =>
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.releaseFolder)
+          .setValue(this.plugin.settings.releaseFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.releaseFolder = normalizeVaultFolderPath(value, DEFAULT_SETTINGS.releaseFolder);
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
       .setName("Semantic search")
       .setDesc("Use stored vectors and the local embedding endpoint for optional semantic results in Vaultseer search.")
       .addToggle((toggle) =>

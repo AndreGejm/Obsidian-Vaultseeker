@@ -79,7 +79,17 @@ function normalizeSettings(raw: unknown): VaultseerSettings {
     embeddingModelId: normalizeNonEmptyString(raw.embeddingModelId, DEFAULT_SETTINGS.embeddingModelId),
     embeddingDimensions: normalizePositiveInteger(raw.embeddingDimensions, DEFAULT_SETTINGS.embeddingDimensions),
     embeddingBatchSize: normalizeBoundedInteger(raw.embeddingBatchSize, DEFAULT_SETTINGS.embeddingBatchSize, 1, 32),
-    sourceNoteFolder: normalizeVaultFolderPath(raw.sourceNoteFolder, DEFAULT_SETTINGS.sourceNoteFolder)
+    sourceNoteFolder: normalizeVaultFolderPath(raw.sourceNoteFolder, DEFAULT_SETTINGS.sourceNoteFolder),
+    nativeCodexEnabled:
+      typeof raw.nativeCodexEnabled === "boolean" ? raw.nativeCodexEnabled : DEFAULT_SETTINGS.nativeCodexEnabled,
+    codexCommand: normalizeNonEmptyString(raw.codexCommand, DEFAULT_SETTINGS.codexCommand),
+    codexWorkingDirectory:
+      typeof raw.codexWorkingDirectory === "string"
+        ? raw.codexWorkingDirectory.trim()
+        : DEFAULT_SETTINGS.codexWorkingDirectory,
+    managedSourceFolder: normalizeVaultFolderPath(raw.managedSourceFolder, DEFAULT_SETTINGS.managedSourceFolder),
+    planFolder: normalizeVaultFolderPath(raw.planFolder, DEFAULT_SETTINGS.planFolder),
+    releaseFolder: normalizeVaultFolderPath(raw.releaseFolder, DEFAULT_SETTINGS.releaseFolder)
   };
 }
 

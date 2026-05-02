@@ -12,7 +12,13 @@ const defaultSettings = {
   embeddingModelId: "nomic-embed-text",
   embeddingDimensions: 768,
   embeddingBatchSize: 8,
-  sourceNoteFolder: "Source Notes"
+  sourceNoteFolder: "Source Notes",
+  nativeCodexEnabled: false,
+  codexCommand: "codex",
+  codexWorkingDirectory: "",
+  managedSourceFolder: "Sources",
+  planFolder: "Plans",
+  releaseFolder: "Releases"
 };
 
 const storedIndex: StoredVaultIndex = {
@@ -132,6 +138,23 @@ describe("VaultseerPluginDataStore", () => {
     });
 
     await expect(store.loadSettings()).resolves.toEqual(defaultSettings);
+  });
+
+  it("normalizes native Codex settings", async () => {
+    const { store } = createHarness({
+      settings: {
+        nativeCodexEnabled: true,
+        codexCommand: "codex",
+        codexWorkingDirectory: "F:\\Dev\\Obsidian"
+      },
+      index: null
+    });
+
+    const settings = await store.loadSettings();
+
+    expect(settings.nativeCodexEnabled).toBe(true);
+    expect(settings.codexCommand).toBe("codex");
+    expect(settings.codexWorkingDirectory).toBe("F:\\Dev\\Obsidian");
   });
 
   it("saves settings without dropping the persisted index", async () => {
