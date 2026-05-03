@@ -90,6 +90,30 @@ describe("buildCodexPromptPacket", () => {
     expect(packet.contextSummary.truncated).toBe(true);
   });
 
+  it("uses a compact default prompt budget for fast note-helper turns", () => {
+    const packet = buildCodexPromptPacket({
+      message: "Review this note quickly",
+      context: {
+        ...readyContext(),
+        noteChunks: Array.from({ length: 20 }, (_value, index) => ({
+          chunkId: `long-note#${index}`,
+          headingPath: ["Long"],
+          text: "A".repeat(1200)
+        })),
+        sourceExcerpts: Array.from({ length: 20 }, (_value, index) => ({
+          sourceId: `source-${index}`,
+          sourcePath: "Sources/Long.md",
+          chunkId: `source-${index}#0`,
+          text: "B".repeat(1200),
+          evidenceLabel: "long source"
+        }))
+      }
+    });
+
+    expect(packet.agentContent.length).toBeLessThanOrEqual(8_000);
+    expect(packet.agentContent).toContain("Review this note quickly");
+  });
+
   it("serializes injection-shaped note and source content as untrusted evidence", () => {
     const packet = buildCodexPromptPacket({
       message: "Use the active evidence",

@@ -11,9 +11,9 @@ describe("buildStudioChatShellState", () => {
       codexReasoningEffort: "medium"
     });
 
-    expect(state.title).toBe("Codex");
-    expect(state.emptyStateText).toBe("Start a conversation with Codex...");
-    expect(state.composerPlaceholder).toBe("Message Codex - @ to mention notes, / for commands");
+    expect(state.title).toBe("Vaultseer");
+    expect(state.emptyStateText).toBe("Ask Vaultseer to review, search, tag, or create notes.");
+    expect(state.composerPlaceholder).toBe("Ask Vaultseer - @ for notes, / for actions");
     expect(state.activeNoteMention).toBe("@CLAUDE");
     expect(state.activeNoteTitle).toBe("CLAUDE.md");
     expect(state.runtimeLabel).toBe("Connected");

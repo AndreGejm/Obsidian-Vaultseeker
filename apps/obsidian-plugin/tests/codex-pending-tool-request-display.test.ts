@@ -73,6 +73,35 @@ describe("codex pending tool request display", () => {
     expect(items[0]?.controls.map((control) => control.label)).not.toContain("Apply");
   });
 
+  it("renders Run and Dismiss controls for Vaultseer command requests", () => {
+    const items = buildCodexPendingToolRequestDisplayItems([
+      {
+        displayId: "codex-tool-request-1-1",
+        toolCallId: "tool-call-1",
+        sessionId: "session-a",
+        tool: "run_vaultseer_command",
+        input: { commandId: "rebuild-index" },
+        createdAt: "2026-05-02T12:00:01.000Z",
+        reviewStatus: "pending_review",
+        status: "requested",
+        kind: "command"
+      }
+    ]);
+
+    expect(items[0]?.controls).toEqual([
+      {
+        type: "run",
+        label: "Run",
+        displayId: "codex-tool-request-1-1"
+      },
+      {
+        type: "dismiss",
+        label: "Dismiss",
+        displayId: "codex-tool-request-1-1"
+      }
+    ]);
+  });
+
   it("renders Dismiss only for unknown or arbitrary write tool requests", () => {
     const items = buildCodexPendingToolRequestDisplayItems([
       {

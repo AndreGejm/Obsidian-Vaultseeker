@@ -16,8 +16,8 @@ const defaultSettings = {
   nativeCodexEnabled: false,
   codexCommand: "codex-acp",
   codexWorkingDirectory: "",
-  codexModel: "gpt-5.5",
-  codexReasoningEffort: "xhigh",
+  codexModel: "gpt-5.3-codex-spark",
+  codexReasoningEffort: "medium",
   managedSourceFolder: "Sources",
   planFolder: "Plans",
   releaseFolder: "Releases"

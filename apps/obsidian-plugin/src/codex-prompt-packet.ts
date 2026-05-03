@@ -1,7 +1,7 @@
 import type { ActiveNoteContextPacket } from "@vaultseer/core";
 import { VAULTSEER_STUDIO_COMMAND_DEFINITIONS } from "./studio-command-catalog";
 
-const DEFAULT_MAX_CONTEXT_CHARACTERS = 12_000;
+const DEFAULT_MAX_CONTEXT_CHARACTERS = 8_000;
 const MIN_CONTROL_SURFACE_CONTEXT_CHARACTERS = 1_500;
 const TRUNCATION_MARKER = "\n[truncated]";
 

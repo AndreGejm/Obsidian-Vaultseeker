@@ -22,9 +22,9 @@ export type BuildStudioChatShellStateInput = {
 
 export function buildStudioChatShellState(input: BuildStudioChatShellStateInput): StudioChatShellState {
   return {
-    title: "Codex",
-    emptyStateText: "Start a conversation with Codex...",
-    composerPlaceholder: "Message Codex - @ to mention notes, / for commands",
+    title: "Vaultseer",
+    emptyStateText: "Ask Vaultseer to review, search, tag, or create notes.",
+    composerPlaceholder: "Ask Vaultseer - @ for notes, / for actions",
     activeNoteMention: input.activeNotePath === null ? null : `@${input.activeNoteLabel}`,
     activeNoteTitle: input.activeNotePath ?? "Open a note",
     runtimeLabel: runtimeLabel(input.codexRuntimeStatus),

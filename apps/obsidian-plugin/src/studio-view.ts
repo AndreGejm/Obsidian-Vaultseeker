@@ -25,7 +25,7 @@ import { buildCodexPendingToolRequestDisplayItems } from "./codex-pending-tool-r
 import {
   dispatchCodexToolRequest,
   isProposalCodexTool,
-  isReadOnlyCodexTool,
+  isRunnableCodexTool,
   type CodexToolImplementations,
   type CodexToolResult
 } from "./codex-tool-dispatcher";
@@ -34,6 +34,7 @@ import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 import { CODEX_MODEL_OPTIONS, CODEX_REASONING_EFFORT_OPTIONS, type CodexReasoningEffort } from "./settings-model";
 import type { VaultseerStudioCommand } from "./studio-command-catalog";
+import { buildVaultseerChatActionPlan } from "./vaultseer-chat-action-plan";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 
@@ -325,6 +326,15 @@ export class VaultseerStudioView extends ItemView {
         content: message,
         createdAt: new Date().toISOString()
       });
+      const actionPlan = buildVaultseerChatActionPlan({ message, activePath });
+      if (actionPlan.content !== null || actionPlan.toolRequests.length > 0) {
+        this.chatState = applyChatEvent(this.chatState, {
+          type: "assistant_message",
+          content: actionPlan.content ?? "Vaultseer prepared actions for this request.",
+          createdAt: new Date().toISOString(),
+          toolRequests: actionPlan.toolRequests
+        });
+      }
       await this.refresh();
 
       try {
@@ -397,7 +407,7 @@ export class VaultseerStudioView extends ItemView {
     const activePath = this.getActivePath();
     this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
     const request = this.chatState.pendingToolRequests.find((pendingRequest) => pendingRequest.displayId === displayId);
-    if (!request || !isReadOnlyCodexTool(request.tool) || request.executionStatus !== undefined) {
+    if (!request || !isRunnableCodexTool(request.tool) || request.executionStatus !== undefined) {
       await this.refresh();
       return;
     }

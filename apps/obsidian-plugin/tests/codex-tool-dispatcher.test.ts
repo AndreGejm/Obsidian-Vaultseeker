@@ -4,7 +4,8 @@ import {
   getCodexToolRequestClass,
   isAllowedCodexTool,
   isProposalCodexTool,
-  isReadOnlyCodexTool
+  isReadOnlyCodexTool,
+  isRunnableCodexTool
 } from "../src/codex-tool-dispatcher";
 
 describe("dispatchCodexToolRequest", () => {
@@ -31,6 +32,15 @@ describe("dispatchCodexToolRequest", () => {
     expect(getCodexToolRequestClass("run_vaultseer_command")).toBe("command");
     expect(getCodexToolRequestClass("stage_suggestion")).toBe("proposal");
     expect(getCodexToolRequestClass("write_file")).toBeNull();
+  });
+
+  it("treats read-only and Vaultseer command requests as runnable chat actions", () => {
+    expect(isRunnableCodexTool("inspect_current_note")).toBe(true);
+    expect(isRunnableCodexTool("search_notes")).toBe(true);
+    expect(isRunnableCodexTool("search_sources")).toBe(true);
+    expect(isRunnableCodexTool("run_vaultseer_command")).toBe(true);
+    expect(isRunnableCodexTool("stage_suggestion")).toBe(false);
+    expect(isRunnableCodexTool("write_file")).toBe(false);
   });
 
   it("delegates approved Vaultseer command requests", async () => {

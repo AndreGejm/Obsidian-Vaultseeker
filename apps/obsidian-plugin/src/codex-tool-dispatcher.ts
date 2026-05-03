@@ -50,6 +50,10 @@ export function isCommandCodexTool(tool: string): tool is CodexCommandTool {
   return COMMAND_CODEX_TOOLS.has(tool);
 }
 
+export function isRunnableCodexTool(tool: string): tool is CodexReadOnlyTool | CodexCommandTool {
+  return isReadOnlyCodexTool(tool) || isCommandCodexTool(tool);
+}
+
 export function getCodexToolRequestClass(tool: string): CodexToolRequestClass | null {
   if (isReadOnlyCodexTool(tool)) {
     return "read-only";

@@ -21,4 +21,18 @@ describe("VaultseerPluginDataStore settings", () => {
       })
     );
   });
+
+  it("defaults native Codex chat to the fast Vaultseer helper profile", async () => {
+    const store = new VaultseerPluginDataStore({
+      loadData: async () => null,
+      saveData: vi.fn()
+    });
+
+    await expect(store.loadSettings()).resolves.toEqual(
+      expect.objectContaining({
+        codexModel: "gpt-5.3-codex-spark",
+        codexReasoningEffort: "medium"
+      })
+    );
+  });
 });
