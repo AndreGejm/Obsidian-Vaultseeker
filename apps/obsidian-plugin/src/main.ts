@@ -11,6 +11,7 @@ import {
   type VaultseerSettings
 } from "./settings";
 import { VaultseerPluginDataStore } from "./plugin-data-store";
+import { getVaultseerIndexFilePath, NodeVaultseerIndexFileHost } from "./plugin-index-file-host";
 import { formatIndexHealthNotice } from "./health-message";
 import { VaultseerSearchModal } from "./search-modal";
 import { VaultseerSourceFilePickerModal } from "./source-file-picker-modal";
@@ -71,12 +72,19 @@ const SOURCE_EXTRACTION_MAX_ATTEMPTS = 3;
 
 export default class VaultseerPlugin extends Plugin {
   settings: VaultseerSettings = { ...DEFAULT_SETTINGS };
-  private readonly dataStore = new VaultseerPluginDataStore(this);
+  private dataStore!: VaultseerPluginDataStore;
   private store!: VaultseerStore;
   private health: IndexHealth | null = null;
   private nativeCodexClient: NativeCodexAcpSessionClient | null = null;
 
   async onload(): Promise<void> {
+    const vaultBasePath = getVaultBasePath(this.app);
+    this.dataStore = new VaultseerPluginDataStore(
+      this,
+      vaultBasePath === null
+        ? undefined
+        : new NodeVaultseerIndexFileHost(getVaultseerIndexFilePath(vaultBasePath, this.manifest.id))
+    );
     this.settings = await this.dataStore.loadSettings();
     this.store = await PersistentVaultseerStore.create(this.dataStore.createIndexBackend());
     this.health = await this.store.getHealth();

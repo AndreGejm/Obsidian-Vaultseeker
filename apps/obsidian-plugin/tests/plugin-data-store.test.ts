@@ -72,6 +72,36 @@ function createHarness(initialData: unknown = null): {
   };
 }
 
+function createExternalIndexHarness(initialData: unknown = null, initialIndexData: unknown = null): {
+  store: VaultseerPluginDataStore;
+  saved: () => unknown;
+  savedIndex: () => unknown;
+} {
+  let data = initialData;
+  let indexData = initialIndexData;
+  return {
+    store: new VaultseerPluginDataStore(
+      {
+        loadData: async () => data,
+        saveData: async (next) => {
+          data = structuredClone(next);
+        }
+      },
+      {
+        loadIndexData: async () => indexData,
+        saveIndexData: async (next) => {
+          indexData = structuredClone(next);
+        },
+        clearIndexData: async () => {
+          indexData = null;
+        }
+      }
+    ),
+    saved: () => data,
+    savedIndex: () => indexData
+  };
+}
+
 describe("VaultseerPluginDataStore", () => {
   it("loads legacy root settings without requiring an index wrapper", async () => {
     const legacySettings = {
@@ -202,6 +232,89 @@ describe("VaultseerPluginDataStore", () => {
     expect(saved()).toEqual({
       settings: defaultSettings,
       index: null
+    });
+  });
+
+  it("stores index data in the external index host when one is available", async () => {
+    const { store, saved, savedIndex } = createExternalIndexHarness({
+      settings: defaultSettings,
+      index: null
+    });
+    const backend = store.createIndexBackend();
+
+    await backend.save(storedIndex);
+    await expect(backend.load()).resolves.toEqual(storedIndex);
+
+    expect(savedIndex()).toEqual(storedIndex);
+    expect(saved()).toEqual({
+      settings: defaultSettings
+    });
+
+    await backend.clear();
+    await expect(backend.load()).resolves.toBeNull();
+    expect(savedIndex()).toBeNull();
+    expect(saved()).toEqual({
+      settings: defaultSettings
+    });
+  });
+
+  it("migrates a legacy data.json index to the external index host on first load", async () => {
+    const { store, saved, savedIndex } = createExternalIndexHarness({
+      settings: defaultSettings,
+      index: storedIndex
+    });
+    const backend = store.createIndexBackend();
+
+    await expect(backend.load()).resolves.toEqual(storedIndex);
+
+    expect(savedIndex()).toEqual(storedIndex);
+    expect(saved()).toEqual({
+      settings: defaultSettings
+    });
+  });
+
+  it("migrates a legacy data.json index before saving settings to external-index data", async () => {
+    const { store, saved, savedIndex } = createExternalIndexHarness({
+      settings: defaultSettings,
+      index: storedIndex
+    });
+
+    await store.saveSettings({
+      ...defaultSettings,
+      excludedFolders: ["Archive"]
+    });
+
+    expect(savedIndex()).toEqual(storedIndex);
+    expect(saved()).toEqual({
+      settings: {
+        ...defaultSettings,
+        excludedFolders: ["Archive"]
+      }
+    });
+  });
+
+  it("prefers the external index host over stale legacy data.json index data", async () => {
+    const externalIndex = {
+      ...storedIndex,
+      health: {
+        ...storedIndex.health,
+        noteCount: 42
+      }
+    };
+    const { store, saved, savedIndex } = createExternalIndexHarness(
+      {
+        settings: defaultSettings,
+        index: storedIndex
+      },
+      externalIndex
+    );
+    const backend = store.createIndexBackend();
+
+    await expect(backend.load()).resolves.toEqual(externalIndex);
+
+    expect(savedIndex()).toEqual(externalIndex);
+    expect(saved()).toEqual({
+      settings: defaultSettings
     });
   });
 

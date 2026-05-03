@@ -82,6 +82,16 @@ Tests pair these Markdown files with normalized adapter records. This is intenti
 - Unsupported persistent index schemas fail closed with `error` health.
 - Clear index plus rebuild index is the recovery path.
 
+## Plugin Storage Guarantees
+
+- Obsidian plugin `data.json` stores lightweight Vaultseer settings.
+- Desktop vaults store the heavy rebuildable index in `.obsidian/plugins/vaultseer/vaultseer-index.json`.
+- The external index file contains the persisted mirror: note records, file versions, note chunks, lexical records, vectors, embedding jobs, source workspaces, source chunks, source extraction jobs, suggestions, decisions, guarded write operations, write decisions, write apply results, and index health.
+- When the plugin sees a legacy `data.json` with an embedded index and no external index file, it writes the legacy index to `vaultseer-index.json` before trimming `data.json` to settings.
+- When both an external index file and a stale legacy embedded index exist, the external file wins and `data.json` is trimmed.
+- If desktop filesystem access is unavailable, the data store falls back to the legacy single-file behavior so tests and nonstandard hosts still work.
+- Deleting `vaultseer-index.json` deletes only rebuildable Vaultseer state. Markdown notes remain the source of truth, but source workspaces, vectors, queued jobs, suggestions, and guarded write review state must be recreated if still needed.
+
 ## Phase 2 Chunking Guarantees
 
 - Chunking is read-only.

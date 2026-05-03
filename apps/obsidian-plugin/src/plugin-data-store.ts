@@ -12,13 +12,27 @@ export type VaultseerPluginData = {
   index: StoredVaultIndex | null;
 };
 
+export type VaultseerPluginPersistedData = {
+  settings: VaultseerSettings;
+  index?: StoredVaultIndex | null;
+};
+
 export type VaultseerPluginDataHost = {
   loadData(): Promise<unknown>;
-  saveData(data: VaultseerPluginData): Promise<void>;
+  saveData(data: VaultseerPluginPersistedData): Promise<void>;
+};
+
+export type VaultseerPluginIndexDataHost = {
+  loadIndexData(): Promise<unknown>;
+  saveIndexData(data: StoredVaultIndex): Promise<void>;
+  clearIndexData(): Promise<void>;
 };
 
 export class VaultseerPluginDataStore {
-  constructor(private readonly host: VaultseerPluginDataHost) {}
+  constructor(
+    private readonly host: VaultseerPluginDataHost,
+    private readonly indexHost?: VaultseerPluginIndexDataHost
+  ) {}
 
   async loadSettings(): Promise<VaultseerSettings> {
     return normalizePluginData(await this.host.loadData()).settings;
@@ -26,30 +40,103 @@ export class VaultseerPluginDataStore {
 
   async saveSettings(settings: VaultseerSettings): Promise<void> {
     const data = normalizePluginData(await this.host.loadData());
-    await this.host.saveData({
-      ...data,
-      settings: normalizeSettings(settings)
+    if (data.index !== null && this.indexHost !== undefined && (await this.loadExternalIndex()) === null) {
+      await this.indexHost.saveIndexData(data.index);
+    }
+
+    await this.savePluginData({
+      settings: normalizeSettings(settings),
+      index: data.index
     });
   }
 
   createIndexBackend(): VaultseerStorageBackend {
     return {
-      load: async () => normalizePluginData(await this.host.loadData()).index,
-      save: async (value) => {
-        const data = normalizePluginData(await this.host.loadData());
-        await this.host.saveData({
-          ...data,
-          index: value
-        });
-      },
-      clear: async () => {
-        const data = normalizePluginData(await this.host.loadData());
-        await this.host.saveData({
-          ...data,
+      load: async () => this.loadIndex(),
+      save: async (value) => this.saveIndex(value),
+      clear: async () => this.clearIndex()
+    };
+  }
+
+  private async loadIndex(): Promise<StoredVaultIndex | null> {
+    const data = normalizePluginData(await this.host.loadData());
+    const externalIndex = await this.loadExternalIndex();
+
+    if (externalIndex !== null) {
+      if (data.index !== null) {
+        await this.savePluginData({
+          settings: data.settings,
           index: null
         });
       }
-    };
+      return externalIndex;
+    }
+
+    if (data.index !== null && this.indexHost !== undefined) {
+      await this.indexHost.saveIndexData(data.index);
+      await this.savePluginData({
+        settings: data.settings,
+        index: null
+      });
+    }
+
+    return data.index;
+  }
+
+  private async saveIndex(value: StoredVaultIndex): Promise<void> {
+    const data = normalizePluginData(await this.host.loadData());
+
+    if (this.indexHost !== undefined) {
+      await this.indexHost.saveIndexData(value);
+      await this.savePluginData({
+        settings: data.settings,
+        index: null
+      });
+      return;
+    }
+
+    await this.savePluginData({
+      settings: data.settings,
+      index: value
+    });
+  }
+
+  private async clearIndex(): Promise<void> {
+    const data = normalizePluginData(await this.host.loadData());
+
+    if (this.indexHost !== undefined) {
+      await this.indexHost.clearIndexData();
+      await this.savePluginData({
+        settings: data.settings,
+        index: null
+      });
+      return;
+    }
+
+    await this.savePluginData({
+      settings: data.settings,
+      index: null
+    });
+  }
+
+  private async loadExternalIndex(): Promise<StoredVaultIndex | null> {
+    if (this.indexHost === undefined) {
+      return null;
+    }
+
+    const index = await this.indexHost.loadIndexData();
+    return isStoredIndexLike(index) ? index : null;
+  }
+
+  private async savePluginData(data: VaultseerPluginData): Promise<void> {
+    if (this.indexHost !== undefined) {
+      await this.host.saveData({
+        settings: data.settings
+      });
+      return;
+    }
+
+    await this.host.saveData(data);
   }
 }
 
