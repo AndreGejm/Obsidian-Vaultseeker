@@ -33,12 +33,17 @@ Approved source notes are created in the configured source note folder. The defa
 - `Vaultseer: Recover interrupted source extraction jobs`
 - `Vaultseer: Cancel active source extraction jobs`
 - `Vaultseer: Open read-only workbench`
+- `Vaultseer: Open native Studio`
+- `Vaultseer: Check native Codex setup`
+- `Vaultseer: Reset native Codex session`
 - `Vaultseer: Plan semantic indexing queue`
 - `Vaultseer: Run one semantic indexing batch`
 - `Vaultseer: Cancel active semantic indexing jobs`
 - `Vaultseer: Plan source semantic indexing queue`
 - `Vaultseer: Run one source semantic indexing batch`
 - `Vaultseer: Cancel active source semantic indexing jobs`
+
+Studio chat also exposes a `Commands` button. Selecting a Vaultseer command from that menu queues the command as a chat requested action; it does not run until the user presses `Run`.
 
 ## Design Documents
 

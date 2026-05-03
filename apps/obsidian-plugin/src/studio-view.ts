@@ -41,6 +41,7 @@ import {
   splitVaultseerChatActionPlan
 } from "./vaultseer-chat-action-execution";
 import { formatCodexToolResultMessage } from "./codex-tool-result-message";
+import { queueVaultseerStudioCommandRequest } from "./vaultseer-studio-command-request";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 
@@ -574,7 +575,9 @@ export class VaultseerStudioView extends ItemView {
       menu.addItem((item) => {
         item.setTitle(command.name);
         item.onClick(async () => {
-          await command.run();
+          const activePath = this.getActivePath();
+          this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+          this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
           await this.refresh();
         });
       });
