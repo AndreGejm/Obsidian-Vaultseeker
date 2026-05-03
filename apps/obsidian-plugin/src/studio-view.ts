@@ -16,6 +16,7 @@ import {
   createEmptyChatState,
   isCurrentCodexToolRequestScope,
   isCurrentCodexChatSend,
+  type CodexChatToolRequest,
   type CodexChatSendScope,
   type CodexChatState,
   type CodexToolRequestScope
@@ -35,6 +36,11 @@ import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 import { CODEX_MODEL_OPTIONS, CODEX_REASONING_EFFORT_OPTIONS, type CodexReasoningEffort } from "./settings-model";
 import type { VaultseerStudioCommand } from "./studio-command-catalog";
 import { buildVaultseerChatActionPlan } from "./vaultseer-chat-action-plan";
+import {
+  buildVaultseerActionEvidenceMessage,
+  splitVaultseerChatActionPlan
+} from "./vaultseer-chat-action-execution";
+import { formatCodexToolResultMessage } from "./codex-tool-result-message";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 
@@ -327,19 +333,36 @@ export class VaultseerStudioView extends ItemView {
         createdAt: new Date().toISOString()
       });
       const actionPlan = buildVaultseerChatActionPlan({ message, activePath });
-      if (actionPlan.content !== null || actionPlan.toolRequests.length > 0) {
+      const actionPlanSplit = splitVaultseerChatActionPlan(actionPlan);
+      if (actionPlan.content !== null || actionPlanSplit.approvalToolRequests.length > 0) {
         this.chatState = applyChatEvent(this.chatState, {
           type: "assistant_message",
           content: actionPlan.content ?? "Vaultseer prepared actions for this request.",
           createdAt: new Date().toISOString(),
-          toolRequests: actionPlan.toolRequests
+          toolRequests: actionPlanSplit.approvalToolRequests
         });
       }
       await this.refresh();
 
       try {
+        const automaticToolResults = await this.runAutomaticToolRequests(actionPlanSplit.autoRunToolRequests);
+        if (automaticToolResults.length > 0 && this.isCurrentChatSend(sendScope)) {
+          this.chatState = applyChatEvent(this.chatState, {
+            type: "assistant_message",
+            content: [
+              "Vaultseer checked read-only context automatically.",
+              ...automaticToolResults.map((result) => formatCodexToolResultMessage(result))
+            ].join("\n\n"),
+            createdAt: new Date().toISOString()
+          });
+          await this.refresh();
+        }
+
         const context = await this.buildActiveNoteContext();
-        const response = await this.chatAdapter.send({ message, context });
+        const response = await this.chatAdapter.send({
+          message: buildVaultseerActionEvidenceMessage(message, automaticToolResults),
+          context
+        });
         if (this.isCurrentChatSend(sendScope)) {
           this.chatState = applyChatEvent(this.chatState, {
             type: "assistant_message",
@@ -362,6 +385,24 @@ export class VaultseerStudioView extends ItemView {
         await this.refresh();
       }
     });
+  }
+
+  private async runAutomaticToolRequests(requests: CodexChatToolRequest[]): Promise<CodexToolResult[]> {
+    const results: CodexToolResult[] = [];
+
+    for (const request of requests) {
+      results.push(
+        await dispatchCodexToolRequest({
+          request: {
+            tool: request.tool,
+            input: request.input
+          },
+          tools: this.codexTools
+        })
+      );
+    }
+
+    return results;
   }
 
   private renderPendingToolRequests(containerEl: HTMLElement): void {
