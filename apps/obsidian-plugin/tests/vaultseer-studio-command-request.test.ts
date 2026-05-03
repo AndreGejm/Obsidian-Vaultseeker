@@ -9,6 +9,7 @@ import type { VaultseerStudioCommand } from "../src/studio-command-catalog";
 const command: VaultseerStudioCommand = {
   id: "rebuild-index",
   name: "Rebuild read-only vault index",
+  group: "notes",
   run: async () => undefined
 };
 const commands: VaultseerStudioCommand[] = [
@@ -16,6 +17,7 @@ const commands: VaultseerStudioCommand[] = [
   {
     id: "plan-semantic-index",
     name: "Plan semantic indexing queue",
+    group: "semantic",
     run: async () => undefined
   }
 ];
@@ -125,7 +127,11 @@ describe("queueVaultseerStudioCommandRequest", () => {
         role: "assistant",
         content: [
           "Vaultseer commands available in chat:",
+          "",
+          "Notes and search:",
           "- /rebuild-index - Rebuild read-only vault index",
+          "",
+          "Semantic indexing:",
           "- /plan-semantic-index - Plan semantic indexing queue",
           "",
           "You can also use the Commands button to queue these actions."

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { VAULTSEER_STUDIO_COMMAND_DEFINITIONS } from "../src/studio-command-catalog";
+import {
+  getVaultseerQuickCommands,
+  groupVaultseerStudioCommands,
+  VAULTSEER_STUDIO_COMMAND_DEFINITIONS
+} from "../src/studio-command-catalog";
 
 describe("VAULTSEER_STUDIO_COMMAND_DEFINITIONS", () => {
   it("exposes the current Vaultseer command surface for Studio chat selection", () => {
@@ -34,5 +38,35 @@ describe("VAULTSEER_STUDIO_COMMAND_DEFINITIONS", () => {
     const ids = VAULTSEER_STUDIO_COMMAND_DEFINITIONS.map((command) => command.id);
 
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("groups commands by user workflow for chat help and menus", () => {
+    const groups = groupVaultseerStudioCommands(VAULTSEER_STUDIO_COMMAND_DEFINITIONS);
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Notes and search",
+      "Sources and extraction",
+      "Review and writes",
+      "Semantic indexing",
+      "Studio and Codex"
+    ]);
+    expect(groups[0]?.commands.map((command) => command.id)).toEqual([
+      "rebuild-index",
+      "clear-index",
+      "show-index-health",
+      "search-index",
+      "search-source-workspaces",
+      "open-workbench"
+    ]);
+  });
+
+  it("marks a small current-note-first quick action set", () => {
+    expect(getVaultseerQuickCommands(VAULTSEER_STUDIO_COMMAND_DEFINITIONS).map((command) => command.id)).toEqual([
+      "rebuild-index",
+      "search-index",
+      "search-source-workspaces",
+      "open-write-review-queue",
+      "plan-semantic-index"
+    ]);
   });
 });

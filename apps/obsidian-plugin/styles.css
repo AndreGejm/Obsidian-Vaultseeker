@@ -125,6 +125,33 @@
   line-height: 1.2;
 }
 
+.vaultseer-codex-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vaultseer-codex-quick-action {
+  height: 28px;
+  max-width: 180px;
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vaultseer-codex-quick-action:hover,
+.vaultseer-codex-quick-action:focus-visible {
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+}
+
 .vaultseer-codex-composer textarea {
   width: 100%;
   min-height: 74px;

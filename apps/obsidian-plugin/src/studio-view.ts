@@ -34,7 +34,7 @@ import { buildStudioChatShellState } from "./studio-chat-shell-state";
 import { buildInlineApprovalState } from "./inline-approval-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 import { CODEX_MODEL_OPTIONS, CODEX_REASONING_EFFORT_OPTIONS, type CodexReasoningEffort } from "./settings-model";
-import type { VaultseerStudioCommand } from "./studio-command-catalog";
+import { getVaultseerQuickCommands, type VaultseerStudioCommand } from "./studio-command-catalog";
 import { buildVaultseerChatActionPlan } from "./vaultseer-chat-action-plan";
 import {
   buildVaultseerActionEvidenceMessage,
@@ -264,6 +264,29 @@ export class VaultseerStudioView extends ItemView {
     if (shellState.activeNoteMention !== null) {
       composerBodyEl.createEl("span", { text: shellState.activeNoteMention, cls: "vaultseer-codex-note-pill" });
     }
+
+    const quickCommands = getVaultseerQuickCommands(this.getVaultseerCommands());
+    if (quickCommands.length > 0) {
+      const quickActionsEl = composerBodyEl.createDiv({ cls: "vaultseer-codex-quick-actions" });
+      for (const command of quickCommands) {
+        const quickButton = quickActionsEl.createEl("button", {
+          text: command.quickActionLabel ?? command.name,
+          title: `/${command.id} - ${command.name}`,
+          attr: {
+            type: "button"
+          },
+          cls: "vaultseer-codex-quick-action"
+        });
+        quickButton.disabled = this.chatSending;
+        quickButton.addEventListener("click", async () => {
+          const activePath = this.getActivePath();
+          this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+          this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
+          await this.refresh();
+        });
+      }
+    }
+
     const input = composerBodyEl.createEl("textarea", {
       attr: {
         rows: "3",

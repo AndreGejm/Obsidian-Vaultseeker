@@ -1,5 +1,5 @@
 import { applyChatEvent, type CodexChatState } from "./codex-chat-state";
-import type { VaultseerStudioCommand } from "./studio-command-catalog";
+import { groupVaultseerStudioCommands, type VaultseerStudioCommand } from "./studio-command-catalog";
 
 export function queueVaultseerStudioCommandRequest(
   state: CodexChatState,
@@ -73,9 +73,15 @@ export function applyVaultseerSlashCommandMessage(
 }
 
 export function buildVaultseerCommandListMessage(commands: VaultseerStudioCommand[]): string {
+  const groupedCommandLines = groupVaultseerStudioCommands(commands).flatMap((group) => [
+    "",
+    `${group.label}:`,
+    ...group.commands.map((command) => `- /${command.id} - ${command.name}`)
+  ]);
+
   return [
     "Vaultseer commands available in chat:",
-    ...commands.map((command) => `- /${command.id} - ${command.name}`),
+    ...groupedCommandLines,
     "",
     "You can also use the Commands button to queue these actions."
   ].join("\n");
