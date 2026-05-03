@@ -42,6 +42,18 @@ export function applyVaultseerSlashCommandMessage(
     content: message,
     createdAt
   });
+
+  if (isCommandHelpSlash(slashText)) {
+    return {
+      handled: true,
+      state: applyChatEvent(stateWithUserMessage, {
+        type: "assistant_message",
+        content: buildVaultseerCommandListMessage(commands),
+        createdAt
+      })
+    };
+  }
+
   const command = findSlashCommand(commands, slashText);
   if (command === null) {
     return {
@@ -60,6 +72,15 @@ export function applyVaultseerSlashCommandMessage(
   };
 }
 
+export function buildVaultseerCommandListMessage(commands: VaultseerStudioCommand[]): string {
+  return [
+    "Vaultseer commands available in chat:",
+    ...commands.map((command) => `- /${command.id} - ${command.name}`),
+    "",
+    "You can also use the Commands button to queue these actions."
+  ].join("\n");
+}
+
 function parseSlashText(message: string): string | null {
   const trimmed = message.trim();
   if (!trimmed.startsWith("/")) {
@@ -68,6 +89,11 @@ function parseSlashText(message: string): string | null {
 
   const slashText = trimmed.slice(1).trim();
   return slashText.length > 0 ? slashText : "";
+}
+
+function isCommandHelpSlash(slashText: string): boolean {
+  const normalized = normalizeCommandText(slashText);
+  return normalized === "commands" || normalized === "help";
 }
 
 function findSlashCommand(commands: VaultseerStudioCommand[], slashText: string): VaultseerStudioCommand | null {

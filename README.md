@@ -43,7 +43,7 @@ Approved source notes are created in the configured source note folder. The defa
 - `Vaultseer: Run one source semantic indexing batch`
 - `Vaultseer: Cancel active source semantic indexing jobs`
 
-Studio chat also exposes a `Commands` button. Selecting a Vaultseer command from that menu queues the command as a chat requested action; it does not run until the user presses `Run`. The composer also accepts command ids as slash actions, such as `/rebuild-index` or `/plan-semantic-index`, and queues the same approval-gated action without sending the slash text to Codex.
+Studio chat also exposes a `Commands` button. Selecting a Vaultseer command from that menu queues the command as a chat requested action; it does not run until the user presses `Run`. The composer also accepts command ids as slash actions, such as `/rebuild-index` or `/plan-semantic-index`, and queues the same approval-gated action without sending the slash text to Codex. Use `/commands` or `/help` to list the available Vaultseer slash actions inside the chat.
 
 ## Design Documents
 

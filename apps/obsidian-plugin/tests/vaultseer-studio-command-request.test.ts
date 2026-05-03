@@ -106,6 +106,49 @@ describe("queueVaultseerStudioCommandRequest", () => {
     expect(result.state.pendingToolRequests).toEqual([]);
   });
 
+  it("handles /commands locally by listing available Vaultseer slash actions", () => {
+    const result = applyVaultseerSlashCommandMessage(
+      createEmptyChatState("Notes/VHDL.md"),
+      "/commands",
+      commands,
+      "2026-05-03T12:00:00.000Z"
+    );
+
+    expect(result.handled).toBe(true);
+    expect(result.state.messages).toEqual([
+      {
+        role: "user",
+        content: "/commands",
+        createdAt: "2026-05-03T12:00:00.000Z"
+      },
+      {
+        role: "assistant",
+        content: [
+          "Vaultseer commands available in chat:",
+          "- /rebuild-index - Rebuild read-only vault index",
+          "- /plan-semantic-index - Plan semantic indexing queue",
+          "",
+          "You can also use the Commands button to queue these actions."
+        ].join("\n"),
+        createdAt: "2026-05-03T12:00:00.000Z"
+      }
+    ]);
+    expect(result.state.pendingToolRequests).toEqual([]);
+  });
+
+  it("handles /help locally as the Vaultseer command list", () => {
+    const result = applyVaultseerSlashCommandMessage(
+      createEmptyChatState("Notes/VHDL.md"),
+      "/help",
+      commands,
+      "2026-05-03T12:00:00.000Z"
+    );
+
+    expect(result.handled).toBe(true);
+    expect(result.state.messages[1]?.content).toContain("/rebuild-index - Rebuild read-only vault index");
+    expect(result.state.pendingToolRequests).toEqual([]);
+  });
+
   it("ignores normal chat messages", () => {
     const state = createEmptyChatState("Notes/VHDL.md");
     const result = applyVaultseerSlashCommandMessage(
