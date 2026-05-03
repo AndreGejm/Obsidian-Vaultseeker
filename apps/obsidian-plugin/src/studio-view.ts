@@ -41,7 +41,10 @@ import {
   splitVaultseerChatActionPlan
 } from "./vaultseer-chat-action-execution";
 import { formatCodexToolResultMessage } from "./codex-tool-result-message";
-import { queueVaultseerStudioCommandRequest } from "./vaultseer-studio-command-request";
+import {
+  applyVaultseerSlashCommandMessage,
+  queueVaultseerStudioCommandRequest
+} from "./vaultseer-studio-command-request";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 
@@ -323,10 +326,22 @@ export class VaultseerStudioView extends ItemView {
       const message = input.value.trim();
       if (!message) return;
 
-      const sendId = ++this.chatSendId;
       const activePath = this.getActivePath();
-      this.chatSending = true;
       this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+      const slashResult = applyVaultseerSlashCommandMessage(
+        this.chatState,
+        message,
+        this.getVaultseerCommands(),
+        new Date().toISOString()
+      );
+      if (slashResult.handled) {
+        this.chatState = slashResult.state;
+        await this.refresh();
+        return;
+      }
+
+      const sendId = ++this.chatSendId;
+      this.chatSending = true;
       const sendScope = createCodexChatSendScope(this.chatState, sendId, activePath);
       this.chatState = applyChatEvent(this.chatState, {
         type: "user_message",
