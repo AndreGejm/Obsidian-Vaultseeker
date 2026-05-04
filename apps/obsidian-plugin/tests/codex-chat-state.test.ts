@@ -78,6 +78,22 @@ describe("codex chat state", () => {
     ]);
   });
 
+  it("records native agent tool events as visible system messages", () => {
+    const state = applyChatEvent(createEmptyChatState("Notes/VHDL.md"), {
+      type: "system_message",
+      content: "Tool result (stage_suggestion) Staged 1 note rewrite for review.",
+      createdAt: "2026-05-02T12:00:03.000Z"
+    });
+
+    expect(state.messages).toEqual([
+      {
+        role: "system",
+        content: "Tool result (stage_suggestion) Staged 1 note rewrite for review.",
+        createdAt: "2026-05-02T12:00:03.000Z"
+      }
+    ]);
+  });
+
   it("does not synthesize timestamps for malformed message events", () => {
     const state = applyChatEvent(
       createEmptyChatState("Notes/VHDL.md"),

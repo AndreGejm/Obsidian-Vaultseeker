@@ -285,6 +285,8 @@ function suggestionEvidenceKey(evidence: SuggestionEvidence): string {
       return `4:${evidence.text}`;
     case "link_suggestion_token_overlap":
       return `5:${evidence.notePath}:${evidence.tokens.join(" ")}`;
+    case "assistant_note_rewrite":
+      return `6:${evidence.reason}`;
     default:
       return `9:${JSON.stringify(evidence)}`;
   }

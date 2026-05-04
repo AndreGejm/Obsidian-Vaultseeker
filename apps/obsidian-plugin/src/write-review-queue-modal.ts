@@ -2,9 +2,17 @@ import { App, Modal, Notice } from "obsidian";
 import type { GuardedVaultWriteOperation, VaultseerStore, VaultWriteDecision, VaultWritePort } from "@vaultseer/core";
 import { applyApprovedVaultWriteOperation } from "./write-apply-controller";
 import { recordWriteReviewQueueDecision } from "./write-review-queue-controller";
-import { buildWriteReviewQueueState, type WriteReviewQueueItem, type WriteReviewQueueState } from "./write-review-queue-state";
+import {
+  buildWriteReviewQueueState,
+  getDefaultWriteReviewQueueOperationId,
+  getNextWriteReviewQueueOperationId,
+  type WriteReviewQueueItem,
+  type WriteReviewQueueState
+} from "./write-review-queue-state";
 
 export class VaultseerWriteReviewQueueModal extends Modal {
+  private focusedOperationId: string | null = null;
+
   constructor(
     app: App,
     private readonly store: VaultseerStore,
@@ -63,22 +71,73 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     summaryEl.createEl("div", { text: `Rejected: ${state.rejectedCount}` });
     summaryEl.createEl("div", { text: `Apply failures: ${state.failedApplyCount}` });
     summaryEl.createEl("div", { text: `Applied records: ${state.appliedCount}` });
+    summaryEl.createEl("div", { text: `Needs review: ${state.activeCount}` });
+    summaryEl.createEl("div", { text: `History: ${state.historyCount}` });
     summaryEl.createEl("p", {
       text: "Decision buttons update Vaultseer review metadata only. Apply actions re-check the target before writing."
     });
 
+    this.focusedOperationId = normalizeFocusedOperationId(state, this.focusedOperationId);
+    const focusedItem = state.items.find((item) => item.operationId === this.focusedOperationId) ?? null;
+    this.renderNavigator(contentEl, state, operations, focusedItem);
+
     const operationById = new Map(operations.map((operation) => [operation.id, operation]));
     const listEl = contentEl.createEl("section", { cls: "vaultseer-write-review-queue-items" });
-    listEl.createEl("h3", { text: "Proposals" });
-    for (const item of state.items) {
-      const operation = operationById.get(item.operationId);
-      this.renderItem(listEl, item, operation);
+    listEl.createEl("h3", { text: focusedItem ? "Selected Proposal" : "Proposals" });
+    if (!focusedItem) {
+      listEl.createEl("p", { text: "No proposal is selected." });
+    } else {
+      this.renderItem(listEl, focusedItem, operationById.get(focusedItem.operationId));
     }
+  }
+
+  private renderNavigator(
+    parent: HTMLElement,
+    state: WriteReviewQueueState,
+    operations: GuardedVaultWriteOperation[],
+    focusedItem: WriteReviewQueueItem | null
+  ): void {
+    const navEl = parent.createEl("section", { cls: "vaultseer-write-review-queue-navigation" });
+    navEl.createEl("h3", { text: "Queue Navigation" });
+
+    if (!focusedItem) {
+      navEl.createEl("p", { text: "No guarded write proposals are available." });
+      return;
+    }
+
+    const focusedIndex = state.items.findIndex((item) => item.operationId === focusedItem.operationId);
+    navEl.createEl("div", {
+      text: `Proposal ${focusedIndex + 1} of ${state.items.length} - ${focusedItem.queueSectionLabel}`
+    });
+
+    const actionsEl = navEl.createEl("div", { cls: "vaultseer-write-review-queue-navigation-actions" });
+    const previousButton = actionsEl.createEl("button", { text: "Previous proposal" });
+    previousButton.disabled = state.items.length < 2;
+    previousButton.addEventListener("click", () => {
+      this.focusedOperationId = getNextWriteReviewQueueOperationId(state, focusedItem.operationId, "previous");
+      this.renderState(state, operations);
+    });
+
+    const nextButton = actionsEl.createEl("button", { text: "Next proposal" });
+    nextButton.disabled = state.items.length < 2;
+    nextButton.addEventListener("click", () => {
+      this.focusedOperationId = getNextWriteReviewQueueOperationId(state, focusedItem.operationId, "next");
+      this.renderState(state, operations);
+    });
+
+    const firstActiveOperationId = getDefaultWriteReviewQueueOperationId(state);
+    const firstActiveButton = actionsEl.createEl("button", { text: "First needing review" });
+    firstActiveButton.disabled = state.activeCount === 0 || focusedItem.operationId === firstActiveOperationId;
+    firstActiveButton.addEventListener("click", () => {
+      this.focusedOperationId = getDefaultWriteReviewQueueOperationId(state);
+      this.renderState(state, operations);
+    });
   }
 
   private renderItem(parent: HTMLElement, item: WriteReviewQueueItem, operation: GuardedVaultWriteOperation | undefined): void {
     const itemEl = parent.createEl("article", { cls: "vaultseer-write-review-queue-item" });
     itemEl.createEl("h4", { text: item.targetPath });
+    itemEl.createEl("div", { text: `Queue section: ${item.queueSectionLabel}` });
     itemEl.createEl("div", { text: `Operation: ${item.operationTypeLabel}` });
     itemEl.createEl("div", { text: `Decision: ${item.decisionLabel}` });
     itemEl.createEl("div", { text: `Apply result: ${item.applyLabel}` });
@@ -156,6 +215,14 @@ export class VaultseerWriteReviewQueueModal extends Modal {
   }
 }
 
+function normalizeFocusedOperationId(state: WriteReviewQueueState, currentOperationId: string | null): string | null {
+  if (currentOperationId && state.items.some((item) => item.operationId === currentOperationId)) {
+    const currentItem = state.items.find((item) => item.operationId === currentOperationId);
+    if (currentItem?.queueSection === "active" || state.activeCount === 0) return currentOperationId;
+  }
+  return getDefaultWriteReviewQueueOperationId(state);
+}
+
 function decisionButtonLabel(decision: VaultWriteDecision): string {
   switch (decision) {
     case "approved":
@@ -175,6 +242,11 @@ function applyButtonLabel(item: WriteReviewQueueItem): string {
   }
   if (item.operationType === "update_note_links") {
     return "Link update preview only";
+  }
+  if (item.operationType === "rewrite_note_content") {
+    if (item.applyState === "applied") return "Note rewrite applied";
+    if (item.applyState === "failed" && item.canApply) return "Retry note rewrite";
+    return "Apply note rewrite";
   }
   if (item.applyState === "applied") return "Already created";
   if (item.applyState === "failed" && item.canApply) return "Retry create note";

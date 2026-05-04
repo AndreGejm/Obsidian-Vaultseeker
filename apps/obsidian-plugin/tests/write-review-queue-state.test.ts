@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { GuardedVaultWriteOperation, VaultWriteApplyResultRecord, VaultWriteDecisionRecord } from "@vaultseer/core";
-import { planNoteLinkUpdateOperation, planNoteTagUpdateOperation } from "@vaultseer/core";
-import { buildWriteReviewQueueState } from "../src/write-review-queue-state";
+import { planNoteContentRewriteOperation, planNoteLinkUpdateOperation, planNoteTagUpdateOperation } from "@vaultseer/core";
+import {
+  buildWriteReviewQueueState,
+  getDefaultWriteReviewQueueOperationId,
+  getNextWriteReviewQueueOperationId
+} from "../src/write-review-queue-state";
 
 describe("buildWriteReviewQueueState", () => {
   it("returns an empty read-only queue state when there are no proposed operations", () => {
@@ -16,6 +20,8 @@ describe("buildWriteReviewQueueState", () => {
       rejectedCount: 0,
       failedApplyCount: 0,
       appliedCount: 0,
+      activeCount: 0,
+      historyCount: 0,
       items: []
     });
   });
@@ -234,6 +240,30 @@ describe("buildWriteReviewQueueState", () => {
     ]);
   });
 
+  it("marks approved note rewrites as ready for guarded apply", () => {
+    const operation = rewriteOperation();
+
+    const state = buildWriteReviewQueueState({
+      operations: [operation],
+      decisions: [writeDecision({ operationId: operation.id, targetPath: operation.targetPath, decision: "approved" })],
+      applyResults: []
+    });
+
+    expect(state.items).toEqual([
+      expect.objectContaining({
+        operationId: operation.id,
+        operationType: "rewrite_note_content",
+        operationTypeLabel: "Rewrite note content",
+        targetPath: "Electronics/Resistor Types.md",
+        sourcePath: null,
+        sourceContentHash: null,
+        decisionState: "approved",
+        canApply: true,
+        previewDiff: expect.stringContaining("+++ b/Electronics/Resistor Types.md")
+      })
+    ]);
+  });
+
   it("does not allow already-applied note tag updates to be applied again", () => {
     const operation = tagUpdateOperation();
 
@@ -258,6 +288,79 @@ describe("buildWriteReviewQueueState", () => {
         canApply: false
       })
     ]);
+  });
+
+  it("treats already-applied approved proposals as history instead of the default queue focus", () => {
+    const applied = tagUpdateOperation({
+      id: "vault-write:update-note-tags:applied",
+      createdAt: "2026-05-01T23:00:00.000Z"
+    });
+    const pending = tagUpdateOperation({
+      id: "vault-write:update-note-tags:pending",
+      createdAt: "2026-05-01T20:00:00.000Z"
+    });
+
+    const state = buildWriteReviewQueueState({
+      operations: [applied, pending],
+      decisions: [writeDecision({ operationId: applied.id, targetPath: applied.targetPath, decision: "approved" })],
+      applyResults: [
+        applyResult({
+          operationId: applied.id,
+          targetPath: applied.targetPath,
+          status: "applied",
+          beforeHash: applied.expectedCurrentHash,
+          afterHash: applied.preview.afterHash,
+          appliedAt: "2026-05-01T23:30:00.000Z"
+        })
+      ]
+    });
+
+    expect(state.activeCount).toBe(1);
+    expect(state.historyCount).toBe(1);
+    expect(state.items.map((item) => [item.operationId, item.queueSection])).toEqual([
+      [pending.id, "active"],
+      [applied.id, "history"]
+    ]);
+    expect(getDefaultWriteReviewQueueOperationId(state)).toBe(pending.id);
+  });
+
+  it("cycles queue focus through active proposals before completed history", () => {
+    const pending = tagUpdateOperation({
+      id: "vault-write:update-note-tags:pending",
+      createdAt: "2026-05-01T20:00:00.000Z"
+    });
+    const approved = tagUpdateOperation({
+      id: "vault-write:update-note-tags:approved",
+      createdAt: "2026-05-01T21:00:00.000Z"
+    });
+    const applied = tagUpdateOperation({
+      id: "vault-write:update-note-tags:applied",
+      createdAt: "2026-05-01T22:00:00.000Z"
+    });
+
+    const state = buildWriteReviewQueueState({
+      operations: [applied, approved, pending],
+      decisions: [
+        writeDecision({ operationId: approved.id, targetPath: approved.targetPath, decision: "approved" }),
+        writeDecision({ operationId: applied.id, targetPath: applied.targetPath, decision: "approved" })
+      ],
+      applyResults: [
+        applyResult({
+          operationId: applied.id,
+          targetPath: applied.targetPath,
+          status: "applied",
+          beforeHash: applied.expectedCurrentHash,
+          afterHash: applied.preview.afterHash,
+          appliedAt: "2026-05-01T22:30:00.000Z"
+        })
+      ]
+    });
+
+    expect(state.items.map((item) => item.operationId)).toEqual([pending.id, approved.id, applied.id]);
+    expect(getNextWriteReviewQueueOperationId(state, pending.id, "next")).toBe(approved.id);
+    expect(getNextWriteReviewQueueOperationId(state, approved.id, "next")).toBe(applied.id);
+    expect(getNextWriteReviewQueueOperationId(state, applied.id, "next")).toBe(pending.id);
+    expect(getNextWriteReviewQueueOperationId(state, pending.id, "previous")).toBe(applied.id);
   });
 
   it("shows note link updates as reviewable but not applyable yet", () => {
@@ -351,14 +454,17 @@ function applyResult(overrides: Partial<VaultWriteApplyResultRecord>): VaultWrit
   };
 }
 
-function tagUpdateOperation(): GuardedVaultWriteOperation {
-  return planNoteTagUpdateOperation({
+function tagUpdateOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): GuardedVaultWriteOperation {
+  return {
+    ...planNoteTagUpdateOperation({
     targetPath: "Electronics/Precision Timer.md",
     currentContent: "# Precision Timer\n",
     tagsToAdd: ["electronics/timing"],
     suggestionIds: ["suggestion:note-tag:Electronics/Precision Timer.md:electronics/timing"],
     createdAt: "2026-05-01T21:00:00.000Z"
-  });
+    }),
+    ...overrides
+  };
 }
 
 function linkUpdateOperation(): GuardedVaultWriteOperation {
@@ -375,4 +481,18 @@ function linkUpdateOperation(): GuardedVaultWriteOperation {
     suggestionIds: ["suggestion:note-link:Projects/Vaultseer Platform.md:Missing Note:Literature/Actually Missing Note.md"],
     createdAt: "2026-05-01T23:00:00.000Z"
   });
+}
+
+function rewriteOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): GuardedVaultWriteOperation {
+  return {
+    ...planNoteContentRewriteOperation({
+      targetPath: "Electronics/Resistor Types.md",
+      currentContent: "# Resistor Types\n\nCarbon film and metal film are common.\n",
+      proposedContent: "# Resistor Types\n\n## Fixed Resistors\n\nMetal film resistors are stable.\n",
+      reason: "Improve note structure.",
+      suggestionIds: ["suggestion:note-rewrite:Electronics/Resistor Types.md:codex"],
+      createdAt: "2026-05-03T10:00:00.000Z"
+    }),
+    ...overrides
+  };
 }

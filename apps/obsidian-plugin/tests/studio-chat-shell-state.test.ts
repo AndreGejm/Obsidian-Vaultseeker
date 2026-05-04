@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildStudioChatShellState } from "../src/studio-chat-shell-state";
+import { buildStudioChatComposerState, buildStudioChatShellState } from "../src/studio-chat-shell-state";
 
 describe("buildStudioChatShellState", () => {
   it("builds a note-first Codex chat shell around the active note", () => {
@@ -20,6 +20,14 @@ describe("buildStudioChatShellState", () => {
     expect(state.modelLabel).toBe("gpt-5.4");
     expect(state.reasoningLabel).toBe("Medium");
     expect(state.modeLabel).toBe("Commands");
+    expect(state.quickPrompts).toEqual([
+      {
+        id: "draft-suggestions",
+        label: "Draft suggestions",
+        prompt: "draft suggestions for this note",
+        title: "Draft tag, link, and cleanup suggestions for the active note"
+      }
+    ]);
   });
 
   it("uses a gentle disabled composer label when no note is active", () => {
@@ -34,5 +42,20 @@ describe("buildStudioChatShellState", () => {
     expect(state.activeNoteMention).toBeNull();
     expect(state.activeNoteTitle).toBe("Open a note");
     expect(state.runtimeLabel).toBe("Needs attention");
+    expect(state.quickPrompts).toEqual([]);
+  });
+
+  it("keeps the composer selectable while a Codex turn is running", () => {
+    expect(
+      buildStudioChatComposerState({
+        chatSending: true,
+        draft: "next note idea"
+      })
+    ).toEqual({
+      inputValue: "next note idea",
+      inputDisabled: false,
+      sendDisabled: true,
+      sendLabel: "..."
+    });
   });
 });

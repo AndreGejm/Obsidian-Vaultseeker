@@ -10,6 +10,21 @@ export type StudioChatShellState = {
   modelLabel: string;
   modeLabel: string;
   reasoningLabel: string;
+  quickPrompts: StudioChatQuickPrompt[];
+};
+
+export type StudioChatQuickPrompt = {
+  id: string;
+  label: string;
+  prompt: string;
+  title: string;
+};
+
+export type StudioChatComposerState = {
+  inputValue: string;
+  inputDisabled: boolean;
+  sendDisabled: boolean;
+  sendLabel: string;
 };
 
 export type BuildStudioChatShellStateInput = {
@@ -30,8 +45,36 @@ export function buildStudioChatShellState(input: BuildStudioChatShellStateInput)
     runtimeLabel: runtimeLabel(input.codexRuntimeStatus),
     modelLabel: input.codexModel,
     modeLabel: "Commands",
-    reasoningLabel: titleCase(input.codexReasoningEffort)
+    reasoningLabel: titleCase(input.codexReasoningEffort),
+    quickPrompts: buildQuickPrompts(input.activeNotePath)
   };
+}
+
+export function buildStudioChatComposerState(input: {
+  chatSending: boolean;
+  draft: string;
+}): StudioChatComposerState {
+  return {
+    inputValue: input.draft,
+    inputDisabled: false,
+    sendDisabled: input.chatSending,
+    sendLabel: input.chatSending ? "..." : ">"
+  };
+}
+
+function buildQuickPrompts(activeNotePath: string | null): StudioChatQuickPrompt[] {
+  if (activeNotePath === null) {
+    return [];
+  }
+
+  return [
+    {
+      id: "draft-suggestions",
+      label: "Draft suggestions",
+      prompt: "draft suggestions for this note",
+      title: "Draft tag, link, and cleanup suggestions for the active note"
+    }
+  ];
 }
 
 function runtimeLabel(status: CodexRuntimeStatus): string {

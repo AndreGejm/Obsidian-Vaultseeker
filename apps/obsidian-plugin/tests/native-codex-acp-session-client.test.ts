@@ -34,16 +34,44 @@ describe("NativeCodexAcpSessionClient", () => {
     });
   });
 
-  it("builds a Codex ACP command with model and reasoning overrides", () => {
+  it("builds a Codex ACP argv launch command with model and reasoning overrides", () => {
     expect(
       buildCodexAcpLaunchCommand(
         settings({
-          codexCommand: "codex-acp",
+          codexCommand: '"C:\\Program Files\\Codex\\codex-acp.exe" --stdio',
           codexModel: "gpt-5.4",
           codexReasoningEffort: "medium"
         })
       )
-    ).toBe('codex-acp -c model="gpt-5.4" -c model_reasoning_effort="medium"');
+    ).toEqual({
+      command: "C:\\Program Files\\Codex\\codex-acp.exe",
+      args: ["--stdio", "-c", 'model="gpt-5.4"', "-c", 'model_reasoning_effort="medium"']
+    });
+  });
+
+  it("keeps shell metacharacters as arguments instead of flattening them into a shell command", () => {
+    expect(
+      buildCodexAcpLaunchCommand(
+        settings({
+          codexCommand: "codex-acp ; calc",
+          codexModel: "gpt-5.4",
+          codexReasoningEffort: "medium"
+        })
+      )
+    ).toEqual({
+      command: "codex-acp",
+      args: [";", "calc", "-c", 'model="gpt-5.4"', "-c", 'model_reasoning_effort="medium"']
+    });
+  });
+
+  it("rejects non-Codex executables before launching a native process", () => {
+    expect(() =>
+      buildCodexAcpLaunchCommand(
+        settings({
+          codexCommand: "powershell -NoProfile"
+        })
+      )
+    ).toThrow("Native Codex command must launch codex or codex-acp");
   });
 
   it("rejects disabled settings without creating a connection and marks runtime disabled", async () => {
@@ -81,7 +109,8 @@ describe("NativeCodexAcpSessionClient", () => {
     expect(createConnection).toHaveBeenCalledTimes(1);
     expect(createConnection).toHaveBeenCalledWith(
       expect.objectContaining({
-        command: 'codex-acp -c model="gpt-5.5" -c model_reasoning_effort="xhigh"',
+        command: "codex-acp",
+        args: ["-c", 'model="gpt-5.5"', "-c", 'model_reasoning_effort="xhigh"'],
         cwd: "F:\\Vault"
       })
     );

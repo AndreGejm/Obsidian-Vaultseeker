@@ -20,6 +20,7 @@ describe("buildCodexPromptPacket", () => {
       noteChunkCount: 1,
       relatedNoteCount: 1,
       sourceExcerptCount: 1,
+      liveNoteAvailable: false,
       truncated: false
     });
     expect(packet.agentContent).toContain("Vaultseer Codex Prompt Packet");
@@ -27,13 +28,23 @@ describe("buildCodexPromptPacket", () => {
     expect(packet.agentContent).toContain("must not write files directly");
     expect(packet.agentContent).toContain("Vaultseer Control Surface");
     expect(packet.agentContent).toContain("inspect_current_note");
+    expect(packet.agentContent).toContain("inspect_index_health");
+    expect(packet.agentContent).toContain("inspect_current_note_chunks");
     expect(packet.agentContent).toContain("search_notes");
+    expect(packet.agentContent).toContain("semantic_search_notes");
     expect(packet.agentContent).toContain("search_sources");
+    expect(packet.agentContent).toContain("suggest_current_note_tags");
+    expect(packet.agentContent).toContain("suggest_current_note_links");
+    expect(packet.agentContent).toContain("inspect_note_quality");
+    expect(packet.agentContent).toContain("rebuild_note_index");
+    expect(packet.agentContent).toContain("plan_semantic_index");
+    expect(packet.agentContent).toContain("run_semantic_index_batch");
     expect(packet.agentContent).toContain("run_vaultseer_command");
     expect(packet.agentContent).toContain("stage_suggestion");
     expect(packet.agentContent).toContain("Vaultseer Studio commands");
     expect(packet.agentContent).toContain("rebuild-index");
     expect(packet.agentContent).toContain("run-source-extraction-batch");
+    expect(packet.agentContent).toContain("Never say Vaultseer tools are unavailable");
     expect(packet.agentContent).toContain('"path": "Notes/VHDL.md"');
     expect(packet.agentContent).toContain('"title": "VHDL"');
     expect(packet.agentContent).toContain('"#vhdl"');
@@ -112,6 +123,37 @@ describe("buildCodexPromptPacket", () => {
 
     expect(packet.agentContent.length).toBeLessThanOrEqual(8_000);
     expect(packet.agentContent).toContain("Review this note quickly");
+  });
+
+  it("includes live active note text so current-note review does not depend on indexed chunks", () => {
+    const packet = buildCodexPromptPacket({
+      message: "review this note and make it more readable",
+      context: {
+        status: "ready",
+        message: "Active note context is ready from the open Obsidian note.",
+        note: {
+          path: "Electronics/Resistor Types.md",
+          title: "Resistor Types",
+          aliases: [],
+          tags: ["electronics"],
+          headings: ["Resistor Types"],
+          links: []
+        },
+        liveNote: {
+          source: "active_file",
+          contentHash: "hash-live",
+          text: "# Resistor Types\n\nThis note needs better headers.",
+          truncated: false
+        },
+        noteChunks: [],
+        relatedNotes: [],
+        sourceExcerpts: []
+      }
+    });
+
+    expect(packet.agentContent).toContain('"liveNote"');
+    expect(packet.agentContent).toContain("This note needs better headers.");
+    expect(packet.contextSummary.liveNoteAvailable).toBe(true);
   });
 
   it("serializes injection-shaped note and source content as untrusted evidence", () => {

@@ -3,6 +3,7 @@ import type { GuardedVaultWriteOperation, VaultWriteApplyResultRecord, VaultWrit
 export type WriteReviewQueueStatus = "empty" | "ready";
 export type WriteReviewQueueDecisionState = "pending" | VaultWriteDecisionRecord["decision"];
 export type WriteReviewQueueApplyState = "not_applied" | VaultWriteApplyResultRecord["status"];
+export type WriteReviewQueueSection = "active" | "history";
 
 export type WriteReviewQueueItem = {
   operationId: string;
@@ -21,6 +22,8 @@ export type WriteReviewQueueItem = {
   applyResult: VaultWriteApplyResultRecord | null;
   applyState: WriteReviewQueueApplyState;
   applyLabel: string;
+  queueSection: WriteReviewQueueSection;
+  queueSectionLabel: string;
   canApply: boolean;
   previewDiff: string;
 };
@@ -36,6 +39,8 @@ export type WriteReviewQueueState = {
   rejectedCount: number;
   failedApplyCount: number;
   appliedCount: number;
+  activeCount: number;
+  historyCount: number;
   items: WriteReviewQueueItem[];
 };
 
@@ -58,6 +63,8 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
       rejectedCount: 0,
       failedApplyCount: 0,
       appliedCount: 0,
+      activeCount: 0,
+      historyCount: 0,
       items: []
     };
   }
@@ -69,6 +76,7 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
     const decisionState = decision?.decision ?? "pending";
     const applyResult = applyResultsByOperationId.get(operation.id) ?? null;
     const applyState = applyResult?.status ?? "not_applied";
+    const queueSection = getQueueSection(decisionState, applyState);
     return {
       operationId: operation.id,
       operationType: operation.type,
@@ -86,6 +94,8 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
       applyResult,
       applyState,
       applyLabel: formatApplyState(applyResult),
+      queueSection,
+      queueSectionLabel: formatQueueSection(queueSection),
       canApply: canApplyOperation(operation, decisionState, applyResult),
       previewDiff: operation.preview.diff
     };
@@ -98,6 +108,8 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
   const rejectedCount = sortedItems.filter((item) => item.decisionState === "rejected").length;
   const failedApplyCount = sortedItems.filter((item) => item.applyState === "failed").length;
   const appliedCount = sortedItems.filter((item) => item.applyState === "applied").length;
+  const activeCount = sortedItems.filter((item) => item.queueSection === "active").length;
+  const historyCount = sortedItems.filter((item) => item.queueSection === "history").length;
 
   return {
     status: "ready",
@@ -110,8 +122,31 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
     rejectedCount,
     failedApplyCount,
     appliedCount,
+    activeCount,
+    historyCount,
     items: sortedItems
   };
+}
+
+export function getDefaultWriteReviewQueueOperationId(state: WriteReviewQueueState): string | null {
+  if (state.items.length === 0) return null;
+  return state.items.find((item) => item.queueSection === "active")?.operationId ?? state.items[0]?.operationId ?? null;
+}
+
+export function getNextWriteReviewQueueOperationId(
+  state: WriteReviewQueueState,
+  currentOperationId: string | null,
+  direction: "next" | "previous"
+): string | null {
+  if (state.items.length === 0) return null;
+  if (!currentOperationId) return getDefaultWriteReviewQueueOperationId(state);
+
+  const currentIndex = state.items.findIndex((item) => item.operationId === currentOperationId);
+  if (currentIndex === -1) return getDefaultWriteReviewQueueOperationId(state);
+
+  const offset = direction === "next" ? 1 : -1;
+  const nextIndex = (currentIndex + offset + state.items.length) % state.items.length;
+  return state.items[nextIndex]?.operationId ?? getDefaultWriteReviewQueueOperationId(state);
 }
 
 function latestDecisionsByOperationId(decisions: VaultWriteDecisionRecord[]): Map<string, VaultWriteDecisionRecord> {
@@ -137,6 +172,9 @@ function latestApplyResultsByOperationId(results: VaultWriteApplyResultRecord[])
 }
 
 function compareQueueItems(left: WriteReviewQueueItem, right: WriteReviewQueueItem): number {
+  const sectionOrder = queueSectionSortOrder(left.queueSection) - queueSectionSortOrder(right.queueSection);
+  if (sectionOrder !== 0) return sectionOrder;
+
   const decisionOrder = decisionSortOrder(left.decisionState) - decisionSortOrder(right.decisionState);
   if (decisionOrder !== 0) return decisionOrder;
 
@@ -144,6 +182,15 @@ function compareQueueItems(left: WriteReviewQueueItem, right: WriteReviewQueueIt
   if (createdOrder !== 0) return createdOrder;
 
   return left.operationId.localeCompare(right.operationId);
+}
+
+function queueSectionSortOrder(section: WriteReviewQueueSection): number {
+  switch (section) {
+    case "active":
+      return 0;
+    case "history":
+      return 1;
+  }
 }
 
 function decisionSortOrder(decisionState: WriteReviewQueueDecisionState): number {
@@ -156,6 +203,24 @@ function decisionSortOrder(decisionState: WriteReviewQueueDecisionState): number
       return 2;
     case "rejected":
       return 3;
+  }
+}
+
+function getQueueSection(
+  decisionState: WriteReviewQueueDecisionState,
+  applyState: WriteReviewQueueApplyState
+): WriteReviewQueueSection {
+  if (applyState === "applied") return "history";
+  if (decisionState === "rejected") return "history";
+  return "active";
+}
+
+function formatQueueSection(section: WriteReviewQueueSection): string {
+  switch (section) {
+    case "active":
+      return "Needs review";
+    case "history":
+      return "History";
   }
 }
 
@@ -177,6 +242,7 @@ function canApplyOperation(
   switch (operation.type) {
     case "create_note_from_source":
     case "update_note_tags":
+    case "rewrite_note_content":
       break;
     case "update_note_links":
       return false;
@@ -198,6 +264,8 @@ function formatOperationType(type: GuardedVaultWriteOperation["type"]): string {
       return "Update note tags";
     case "update_note_links":
       return "Update note links";
+    case "rewrite_note_content":
+      return "Rewrite note content";
   }
 }
 

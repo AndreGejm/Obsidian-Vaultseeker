@@ -6,7 +6,11 @@ import type {
   IndexHealth,
   NoteRecord,
   StudioModeId,
-  VaultseerStore
+  VaultseerStore,
+  VaultWriteApplyResultRecord,
+  VaultWriteDecision,
+  VaultWriteDecisionRecord,
+  VaultWritePort
 } from "@vaultseer/core";
 import {
   applyChatEvent,
@@ -30,14 +34,29 @@ import {
   type CodexToolImplementations,
   type CodexToolResult
 } from "./codex-tool-dispatcher";
-import { buildStudioChatShellState } from "./studio-chat-shell-state";
-import { buildInlineApprovalState } from "./inline-approval-state";
+import { buildStudioChatComposerState, buildStudioChatShellState } from "./studio-chat-shell-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 import { CODEX_MODEL_OPTIONS, CODEX_REASONING_EFFORT_OPTIONS, type CodexReasoningEffort } from "./settings-model";
-import { getVaultseerQuickCommands, type VaultseerStudioCommand } from "./studio-command-catalog";
-import { buildVaultseerChatActionPlan } from "./vaultseer-chat-action-plan";
 import {
+  getVaultseerQuickCommands,
+  groupVaultseerStudioCommands,
+  type VaultseerStudioCommand
+} from "./studio-command-catalog";
+import {
+  buildStudioModeDashboard,
+  type StudioModeDashboardActionCard
+} from "./studio-mode-dashboard";
+import { buildStudioNoteProposalCards, type StudioNoteProposalControlType } from "./studio-note-proposal-cards";
+import { buildStudioStatusStrip, type StudioStatusStripItem } from "./studio-status-strip";
+import {
+  buildVaultseerChatActionPlan,
+  extractLastAssistantMarkdownSuggestion
+} from "./vaultseer-chat-action-plan";
+import {
+  buildVaultseerToolContinuationMessage,
   buildVaultseerActionEvidenceMessage,
+  shouldContinueVaultseerToolLoop,
+  splitCodexToolRequestsForExecution,
   splitVaultseerChatActionPlan
 } from "./vaultseer-chat-action-execution";
 import { formatCodexToolResultMessage } from "./codex-tool-result-message";
@@ -45,14 +64,18 @@ import {
   applyVaultseerSlashCommandMessage,
   queueVaultseerStudioCommandRequest
 } from "./vaultseer-studio-command-request";
+import { recordWriteReviewQueueDecision } from "./write-review-queue-controller";
+import { applyApprovedVaultWriteOperation } from "./write-apply-controller";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
+const MAX_CODEX_TOOL_CONTINUATION_ITERATIONS = 3;
 
 export class VaultseerStudioView extends ItemView {
   private activeMode: StudioModeId | null = null;
   private chatState: CodexChatState = createEmptyChatState(null);
   private chatSending = false;
   private chatSendId = 0;
+  private chatDraft = "";
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -67,7 +90,8 @@ export class VaultseerStudioView extends ItemView {
     private readonly getVaultseerCommands: () => VaultseerStudioCommand[],
     private readonly buildActiveNoteContext: () => Promise<ActiveNoteContextPacket>,
     private readonly chatAdapter: CodexChatAdapter,
-    private readonly codexTools: CodexToolImplementations
+    private readonly codexTools: CodexToolImplementations,
+    private readonly writePort: VaultWritePort
   ) {
     super(leaf);
   }
@@ -105,12 +129,14 @@ export class VaultseerStudioView extends ItemView {
     contentEl.createEl("p", { text: "Loading Studio..." });
 
     try {
-      const [health, notes, writeOperations] = await Promise.all([
+      const [health, notes, writeOperations, writeDecisions, writeApplyResults] = await Promise.all([
         this.store.getHealth(),
         this.store.getNoteRecords(),
-        this.store.getVaultWriteOperations()
+        this.store.getVaultWriteOperations(),
+        this.store.getVaultWriteDecisionRecords(),
+        this.store.getVaultWriteApplyResultRecords()
       ]);
-      this.render(health, notes, writeOperations);
+      this.render(health, notes, writeOperations, writeDecisions, writeApplyResults);
     } catch (error) {
       contentEl.empty();
       contentEl.createEl("h2", { text: "Vaultseer Studio" });
@@ -119,7 +145,13 @@ export class VaultseerStudioView extends ItemView {
     }
   }
 
-  private render(health: IndexHealth, notes: NoteRecord[], writeOperations: GuardedVaultWriteOperation[]): void {
+  private render(
+    health: IndexHealth,
+    notes: NoteRecord[],
+    writeOperations: GuardedVaultWriteOperation[],
+    writeDecisions: VaultWriteDecisionRecord[],
+    writeApplyResults: VaultWriteApplyResultRecord[]
+  ): void {
     const activePath = this.getActivePath();
     this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
 
@@ -135,8 +167,30 @@ export class VaultseerStudioView extends ItemView {
     contentEl.empty();
     contentEl.createEl("h2", { text: state.title });
     contentEl.createEl("p", { text: `Current note: ${state.activeNoteLabel}` });
+    this.renderStatusStrip(
+      contentEl,
+      buildStudioStatusStrip({
+        health,
+        activePath,
+        notes,
+        writeOperations,
+        codexRuntimeStatus: this.getCodexRuntimeStatus()
+      })
+    );
     this.renderModeButtons(contentEl, state);
-    this.renderSelectedMode(contentEl, state, writeOperations);
+    this.renderSelectedMode(contentEl, state, writeOperations, writeDecisions, writeApplyResults);
+  }
+
+  private renderStatusStrip(containerEl: HTMLElement, items: StudioStatusStripItem[]): void {
+    const stripEl = containerEl.createDiv({ cls: "vaultseer-studio-status-strip" });
+
+    for (const item of items) {
+      const itemEl = stripEl.createDiv({
+        cls: `vaultseer-studio-status-item vaultseer-studio-status-${item.tone}`
+      });
+      itemEl.createEl("span", { text: item.label, cls: "vaultseer-studio-status-label" });
+      itemEl.createEl("strong", { text: item.value, cls: "vaultseer-studio-status-value" });
+    }
   }
 
   private renderModeButtons(containerEl: HTMLElement, state: PluginStudioState): void {
@@ -159,63 +213,181 @@ export class VaultseerStudioView extends ItemView {
   private renderSelectedMode(
     containerEl: HTMLElement,
     state: PluginStudioState,
-    writeOperations: GuardedVaultWriteOperation[]
+    writeOperations: GuardedVaultWriteOperation[],
+    writeDecisions: VaultWriteDecisionRecord[],
+    writeApplyResults: VaultWriteApplyResultRecord[]
   ): void {
     const selectedMode = state.modes.find((mode) => mode.selected) ?? state.modes[0];
     const body = containerEl.createDiv({ cls: "vaultseer-studio-body" });
 
     if (selectedMode?.id === "chat") {
-      this.renderChatMode(body, state);
+      this.renderChatMode(body, state, writeOperations, writeDecisions, writeApplyResults);
       return;
     }
 
     body.createEl("h3", { text: selectedMode?.label ?? "Note" });
     body.createEl("p", { text: selectedMode?.message ?? "Mode is ready." });
+    if (selectedMode !== undefined) {
+      this.renderModeDashboard(body, selectedMode.id, state.activeNotePath, writeOperations.length);
+    }
 
     if (selectedMode?.id === "note") {
-      this.renderNoteMode(body, state, writeOperations);
+      this.renderNoteMode(body, state, writeOperations, writeDecisions, writeApplyResults);
     }
+  }
+
+  private renderModeDashboard(
+    containerEl: HTMLElement,
+    mode: StudioModeId,
+    activeNotePath: string | null,
+    pendingWriteCount: number
+  ): void {
+    const dashboard = buildStudioModeDashboard({
+      mode,
+      activeNotePath,
+      pendingWriteCount
+    });
+
+    if (dashboard.cards.length === 0) {
+      return;
+    }
+
+    containerEl.createEl("p", { text: dashboard.summary, cls: "vaultseer-studio-mode-summary" });
+    const cardsEl = containerEl.createDiv({ cls: "vaultseer-studio-action-grid" });
+    for (const card of dashboard.cards) {
+      this.renderDashboardActionCard(cardsEl, card);
+    }
+  }
+
+  private renderDashboardActionCard(containerEl: HTMLElement, card: StudioModeDashboardActionCard): void {
+    const cardEl = containerEl.createDiv({
+      cls: `vaultseer-studio-action-card vaultseer-studio-action-${card.tone}`
+    });
+    cardEl.createEl("strong", { text: card.title });
+    cardEl.createEl("p", { text: card.description });
+    const button = cardEl.createEl("button", {
+      text: card.buttonLabel,
+      attr: {
+        type: "button"
+      }
+    });
+    button.addEventListener("click", async () => {
+      if (card.modeId !== undefined) {
+        this.activeMode = card.modeId;
+        await this.refresh();
+        return;
+      }
+
+      if (card.commandId === undefined) {
+        return;
+      }
+
+      const command = this.getVaultseerCommands().find((item) => item.id === card.commandId);
+      if (command === undefined) {
+        new Notice(`Vaultseer command is not available: ${card.commandId}`);
+        return;
+      }
+
+      const activePath = this.getActivePath();
+      this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+      this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
+      this.activeMode = "chat";
+      await this.refresh();
+    });
   }
 
   private renderNoteMode(
     containerEl: HTMLElement,
     state: PluginStudioState,
-    writeOperations: GuardedVaultWriteOperation[]
+    writeOperations: GuardedVaultWriteOperation[],
+    writeDecisions: VaultWriteDecisionRecord[],
+    writeApplyResults: VaultWriteApplyResultRecord[]
   ): void {
-    const activePath = state.activeNotePath;
-    if (!activePath) {
-      containerEl.createEl("p", { text: "Open a Markdown note to review current-note proposals." });
+    this.renderCurrentNoteProposalCards(containerEl, {
+      activePath: state.activeNotePath,
+      writeOperations,
+      writeDecisions,
+      writeApplyResults,
+      showEmptyState: true
+    });
+  }
+
+  private renderCurrentNoteProposalCards(
+    containerEl: HTMLElement,
+    input: {
+      activePath: string | null;
+      writeOperations: GuardedVaultWriteOperation[];
+      writeDecisions: VaultWriteDecisionRecord[];
+      writeApplyResults: VaultWriteApplyResultRecord[];
+      showEmptyState: boolean;
+    }
+  ): void {
+    const proposalState = buildStudioNoteProposalCards({
+      activePath: input.activePath,
+      writeOperations: input.writeOperations,
+      decisions: input.writeDecisions,
+      applyResults: input.writeApplyResults
+    });
+
+    if (!input.showEmptyState && proposalState.cards.length === 0) {
       return;
     }
 
-    const currentNoteOperations = writeOperations.filter((operation) => operation.targetPath === activePath);
-    if (currentNoteOperations.length === 0) {
-      containerEl.createEl("p", { text: "There are no current-note proposals to review." });
-      containerEl.createEl("p", {
-        text: "Stage note changes through the guarded proposal flow before approving them from the review queue."
-      });
+    const proposalsEl = containerEl.createDiv({ cls: "vaultseer-studio-note-proposals" });
+    proposalsEl.createEl("h4", { text: "Current-note proposals" });
+    proposalsEl.createEl("p", { text: proposalState.message });
+
+    if (proposalState.cards.length === 0) {
       return;
     }
 
-    for (const operation of currentNoteOperations) {
-      const approvalState = buildInlineApprovalState({
-        operationType: operation.type,
-        targetPath: operation.targetPath,
-        activePath,
-        touchesMultipleFiles: false
+    for (const card of proposalState.cards) {
+      const cardEl = proposalsEl.createDiv({ cls: "vaultseer-studio-proposal-card" });
+      cardEl.createEl("strong", { text: card.title });
+      cardEl.createEl("p", { text: card.summary });
+      cardEl.createEl("div", { text: `Review: ${card.decisionLabel}` });
+      cardEl.createEl("div", { text: `Apply: ${card.applyLabel}` });
+      cardEl.createEl("span", {
+        text: card.reviewMessage,
+        cls: `vaultseer-studio-proposal-review vaultseer-studio-proposal-${card.reviewSurface}`
       });
-      containerEl.createEl("p", {
-        text: `${formatOperationType(operation.type)} for ${operation.targetPath}: ${approvalState.message}`
-      });
+
+      const controlsEl = cardEl.createDiv({ cls: "vaultseer-studio-proposal-controls" });
+      for (const control of card.controls) {
+        const button = controlsEl.createEl("button", {
+          text: control.label,
+          attr: {
+            type: "button"
+          }
+        });
+        button.disabled = !control.enabled;
+        button.addEventListener("click", async () => {
+          await this.handleProposalControl(card.id, control.type);
+        });
+      }
+
+      const diffEl = cardEl.createEl("details", { cls: "vaultseer-studio-proposal-diff" });
+      diffEl.createEl("summary", { text: "Preview diff" });
+      diffEl.createEl("pre", { text: card.previewDiff });
     }
   }
 
-  private renderChatMode(containerEl: HTMLElement, state: PluginStudioState): void {
+  private renderChatMode(
+    containerEl: HTMLElement,
+    state: PluginStudioState,
+    writeOperations: GuardedVaultWriteOperation[],
+    writeDecisions: VaultWriteDecisionRecord[],
+    writeApplyResults: VaultWriteApplyResultRecord[]
+  ): void {
     const shellState = buildStudioChatShellState({
       activeNoteLabel: state.activeNoteLabel,
       activeNotePath: state.activeNotePath,
       codexRuntimeStatus: this.getCodexRuntimeStatus(),
       ...this.getCodexModelSelection()
+    });
+    const composerState = buildStudioChatComposerState({
+      chatSending: this.chatSending,
+      draft: this.chatDraft
     });
     const shellEl = containerEl.createDiv({ cls: "vaultseer-codex-shell" });
     const headerEl = shellEl.createDiv({ cls: "vaultseer-codex-header" });
@@ -254,6 +426,13 @@ export class VaultseerStudioView extends ItemView {
     }
 
     this.renderPendingToolRequests(shellEl);
+    this.renderCurrentNoteProposalCards(shellEl, {
+      activePath: state.activeNotePath,
+      writeOperations,
+      writeDecisions,
+      writeApplyResults,
+      showEmptyState: false
+    });
 
     if (this.chatState.error) {
       shellEl.createEl("p", { text: this.chatState.error, cls: "vaultseer-codex-error" });
@@ -265,9 +444,31 @@ export class VaultseerStudioView extends ItemView {
       composerBodyEl.createEl("span", { text: shellState.activeNoteMention, cls: "vaultseer-codex-note-pill" });
     }
 
+    let input: HTMLTextAreaElement | null = null;
     const quickCommands = getVaultseerQuickCommands(this.getVaultseerCommands());
-    if (quickCommands.length > 0) {
+    if (shellState.quickPrompts.length > 0 || quickCommands.length > 0) {
       const quickActionsEl = composerBodyEl.createDiv({ cls: "vaultseer-codex-quick-actions" });
+      for (const prompt of shellState.quickPrompts) {
+        const promptButton = quickActionsEl.createEl("button", {
+          text: prompt.label,
+          title: prompt.title,
+          attr: {
+            type: "button"
+          },
+          cls: "vaultseer-codex-quick-action"
+        });
+        promptButton.disabled = this.chatSending;
+        promptButton.addEventListener("click", () => {
+          if (input === null || this.chatSending) {
+            return;
+          }
+
+          input.value = prompt.prompt;
+          this.chatDraft = prompt.prompt;
+          requestFormSubmit(form);
+        });
+      }
+
       for (const command of quickCommands) {
         const quickButton = quickActionsEl.createEl("button", {
           text: command.quickActionLabel ?? command.name,
@@ -287,11 +488,15 @@ export class VaultseerStudioView extends ItemView {
       }
     }
 
-    const input = composerBodyEl.createEl("textarea", {
+    input = composerBodyEl.createEl("textarea", {
       attr: {
         rows: "3",
         placeholder: shellState.composerPlaceholder
       }
+    });
+    input.value = composerState.inputValue;
+    input.addEventListener("input", () => {
+      this.chatDraft = input?.value ?? "";
     });
 
     const footerEl = form.createDiv({ cls: "vaultseer-codex-composer-footer" });
@@ -332,15 +537,15 @@ export class VaultseerStudioView extends ItemView {
       this.showReasoningMenu(event);
     });
     const sendButton = footerEl.createEl("button", {
-      text: this.chatSending ? "..." : ">",
+      text: composerState.sendLabel,
       attr: {
         type: "submit",
         "aria-label": "Send message"
       },
       cls: "vaultseer-codex-send-button"
     });
-    input.disabled = this.chatSending;
-    sendButton.disabled = this.chatSending;
+    input.disabled = composerState.inputDisabled;
+    sendButton.disabled = composerState.sendDisabled;
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -348,6 +553,7 @@ export class VaultseerStudioView extends ItemView {
 
       const message = input.value.trim();
       if (!message) return;
+      this.chatDraft = "";
 
       const activePath = this.getActivePath();
       this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
@@ -371,7 +577,39 @@ export class VaultseerStudioView extends ItemView {
         content: message,
         createdAt: new Date().toISOString()
       });
-      const actionPlan = buildVaultseerChatActionPlan({ message, activePath });
+
+      if (this.chatAdapter.capabilities?.nativeToolLoop === true) {
+        await this.refresh();
+
+        try {
+          const context = await this.buildActiveNoteContext();
+          const response = await this.chatAdapter.send({
+            message,
+            context
+          });
+          await this.applyCodexResponseAndAutoContinue(sendScope, response, 0);
+        } catch (error) {
+          if (this.isCurrentChatSend(sendScope)) {
+            this.chatState = applyChatEvent(this.chatState, {
+              type: "error",
+              message: getErrorMessage(error)
+            });
+          }
+        } finally {
+          if (this.chatSendId === sendId) {
+            this.chatSending = false;
+          }
+          await this.refresh();
+        }
+        return;
+      }
+
+      const lastAssistantMarkdownSuggestion = extractLastAssistantMarkdownSuggestion(this.chatState.messages);
+      const actionPlan = buildVaultseerChatActionPlan({
+        message,
+        activePath,
+        lastAssistantMarkdownSuggestion
+      });
       const actionPlanSplit = splitVaultseerChatActionPlan(actionPlan);
       if (actionPlan.content !== null || actionPlanSplit.approvalToolRequests.length > 0) {
         this.chatState = applyChatEvent(this.chatState, {
@@ -380,6 +618,25 @@ export class VaultseerStudioView extends ItemView {
           createdAt: new Date().toISOString(),
           toolRequests: actionPlanSplit.approvalToolRequests
         });
+      }
+      const stagedProposalResults = await this.runApprovedProposalToolRequests([
+        ...(actionPlan.autoStageToolRequests ?? []),
+        ...actionPlanSplit.autoStageToolRequests
+      ]);
+      if (stagedProposalResults.length > 0 && this.isCurrentChatSend(sendScope)) {
+        this.chatState = applyChatEvent(this.chatState, {
+          type: "assistant_message",
+          content: [
+            "Vaultseer staged the active-note proposal for review.",
+            ...stagedProposalResults.map((result) => formatCodexToolResultMessage(result))
+          ].join("\n\n"),
+          createdAt: new Date().toISOString()
+        });
+      }
+      if (actionPlan.sendToCodex === false) {
+        this.chatSending = false;
+        await this.refresh();
+        return;
       }
       await this.refresh();
 
@@ -399,17 +656,10 @@ export class VaultseerStudioView extends ItemView {
 
         const context = await this.buildActiveNoteContext();
         const response = await this.chatAdapter.send({
-          message: buildVaultseerActionEvidenceMessage(message, automaticToolResults),
+          message: buildVaultseerActionEvidenceMessage(actionPlan.agentMessage ?? message, automaticToolResults),
           context
         });
-        if (this.isCurrentChatSend(sendScope)) {
-          this.chatState = applyChatEvent(this.chatState, {
-            type: "assistant_message",
-            content: response.content,
-            createdAt: new Date().toISOString(),
-            toolRequests: response.toolRequests
-          });
-        }
+        await this.applyCodexResponseAndAutoContinue(sendScope, response, 0);
       } catch (error) {
         if (this.isCurrentChatSend(sendScope)) {
           this.chatState = applyChatEvent(this.chatState, {
@@ -424,6 +674,127 @@ export class VaultseerStudioView extends ItemView {
         await this.refresh();
       }
     });
+  }
+
+  private async applyCodexResponseAndAutoContinue(
+    sendScope: CodexChatSendScope,
+    response: Awaited<ReturnType<CodexChatAdapter["send"]>>,
+    iteration: number
+  ): Promise<void> {
+    if (!this.isCurrentChatSend(sendScope)) {
+      return;
+    }
+
+    const split = splitCodexToolRequestsForExecution(response.toolRequests);
+    this.appendNativeAgentToolEvents(response.toolEvents);
+    this.chatState = applyChatEvent(this.chatState, {
+      type: "assistant_message",
+      content: response.content,
+      createdAt: new Date().toISOString(),
+      toolRequests: split.approvalToolRequests
+    });
+    await this.refresh();
+
+    const stagedProposalResults = await this.runApprovedProposalToolRequests(split.autoStageToolRequests);
+    if (stagedProposalResults.length > 0 && this.isCurrentChatSend(sendScope)) {
+      this.chatState = applyChatEvent(this.chatState, {
+        type: "assistant_message",
+        content: [
+          "Vaultseer staged the active-note proposal for review.",
+          ...stagedProposalResults.map((result) => formatCodexToolResultMessage(result))
+        ].join("\n\n"),
+        createdAt: new Date().toISOString()
+      });
+      await this.refresh();
+    }
+
+    if (
+      !shouldContinueVaultseerToolLoop({
+        iteration,
+        maxIterations: MAX_CODEX_TOOL_CONTINUATION_ITERATIONS,
+        resultCount: split.autoRunToolRequests.length
+      })
+    ) {
+      return;
+    }
+
+    const automaticToolResults = await this.runAutomaticToolRequests(split.autoRunToolRequests);
+    if (!this.isCurrentChatSend(sendScope)) {
+      return;
+    }
+
+    this.chatState = applyChatEvent(this.chatState, {
+      type: "assistant_message",
+      content: [
+        "Vaultseer ran requested read-only tools automatically.",
+        ...automaticToolResults.map((result) => formatCodexToolResultMessage(result))
+      ].join("\n\n"),
+      createdAt: new Date().toISOString()
+    });
+    await this.refresh();
+
+    const context = await this.buildActiveNoteContext();
+    const continuationResponse = await this.chatAdapter.send({
+      message: buildVaultseerToolContinuationMessage(automaticToolResults),
+      context
+    });
+    await this.applyCodexResponseAndAutoContinue(sendScope, continuationResponse, iteration + 1);
+  }
+
+  private appendNativeAgentToolEvents(
+    toolEvents: Awaited<ReturnType<CodexChatAdapter["send"]>>["toolEvents"]
+  ): void {
+    if (!Array.isArray(toolEvents) || toolEvents.length === 0) {
+      return;
+    }
+
+    for (const event of toolEvents) {
+      this.chatState = applyChatEvent(this.chatState, {
+        type: "system_message",
+        content: formatCodexToolResultMessage(event.result),
+        createdAt: new Date().toISOString()
+      });
+    }
+  }
+
+  private async continueCodexAfterToolResults(results: CodexToolResult[]): Promise<void> {
+    if (
+      !shouldContinueVaultseerToolLoop({
+        iteration: 0,
+        maxIterations: MAX_CODEX_TOOL_CONTINUATION_ITERATIONS,
+        resultCount: results.length
+      })
+    ) {
+      return;
+    }
+
+    const activePath = this.getActivePath();
+    this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+    const sendId = ++this.chatSendId;
+    const sendScope = createCodexChatSendScope(this.chatState, sendId, activePath);
+    this.chatSending = true;
+    await this.refresh();
+
+    try {
+      const context = await this.buildActiveNoteContext();
+      const response = await this.chatAdapter.send({
+        message: buildVaultseerToolContinuationMessage(results),
+        context
+      });
+      await this.applyCodexResponseAndAutoContinue(sendScope, response, 0);
+    } catch (error) {
+      if (this.isCurrentChatSend(sendScope)) {
+        this.chatState = applyChatEvent(this.chatState, {
+          type: "error",
+          message: getErrorMessage(error)
+        });
+      }
+    } finally {
+      if (this.chatSendId === sendId) {
+        this.chatSending = false;
+      }
+      await this.refresh();
+    }
   }
 
   private async runAutomaticToolRequests(requests: CodexChatToolRequest[]): Promise<CodexToolResult[]> {
@@ -444,6 +815,27 @@ export class VaultseerStudioView extends ItemView {
     return results;
   }
 
+  private async runApprovedProposalToolRequests(requests: CodexChatToolRequest[]): Promise<CodexToolResult[]> {
+    const results: CodexToolResult[] = [];
+    const activePath = this.getActivePath();
+
+    for (const request of requests) {
+      results.push(
+        await dispatchCodexToolRequest({
+          request: {
+            tool: request.tool,
+            input: request.input
+          },
+          tools: this.codexTools,
+          allowProposalTools: true,
+          beforeProposalCommit: () => this.getActivePath() === activePath
+        })
+      );
+    }
+
+    return results;
+  }
+
   private renderPendingToolRequests(containerEl: HTMLElement): void {
     if (this.chatState.pendingToolRequests.length === 0) {
       return;
@@ -454,10 +846,13 @@ export class VaultseerStudioView extends ItemView {
 
     for (const request of buildCodexPendingToolRequestDisplayItems(this.chatState.pendingToolRequests)) {
       const requestEl = pendingEl.createDiv({ cls: "vaultseer-studio-chat-tool-request" });
-      requestEl.createEl("strong", { text: request.tool });
-      requestEl.createSpan({
-        text: ` - ${request.statusLabel} - ${request.inputPreview}`
-      });
+      const summaryEl = requestEl.createDiv({ cls: "vaultseer-studio-chat-tool-request-summary" });
+      summaryEl.createEl("strong", { text: request.title });
+      summaryEl.createSpan({ text: request.statusLabel, cls: "vaultseer-studio-chat-tool-request-status" });
+      summaryEl.createEl("p", { text: request.description });
+      if (request.inputPreview !== "null" && request.inputPreview !== "No input") {
+        summaryEl.createEl("code", { text: request.inputPreview });
+      }
 
       for (const control of request.controls) {
         const button = requestEl.createEl("button", {
@@ -525,6 +920,7 @@ export class VaultseerStudioView extends ItemView {
         result,
         createdAt: new Date().toISOString()
       });
+      await this.continueCodexAfterToolResults([result]);
     }
 
     await this.refresh();
@@ -574,6 +970,7 @@ export class VaultseerStudioView extends ItemView {
         result,
         createdAt: new Date().toISOString()
       });
+      await this.continueCodexAfterToolResults([result]);
     }
 
     await this.refresh();
@@ -585,6 +982,109 @@ export class VaultseerStudioView extends ItemView {
       displayId
     });
     await this.refresh();
+  }
+
+  private async handleProposalControl(operationId: string, controlType: StudioNoteProposalControlType): Promise<void> {
+    if (controlType === "approve_apply") {
+      await this.handleProposalApproveAndApply(operationId);
+      return;
+    }
+
+    if (controlType === "apply") {
+      await this.handleProposalApply(operationId);
+      return;
+    }
+
+    const decision = proposalControlToDecision(controlType);
+    if (decision === null) {
+      await this.refresh();
+      return;
+    }
+
+    await this.handleProposalDecision(operationId, decision);
+  }
+
+  private async handleProposalApproveAndApply(operationId: string): Promise<void> {
+    try {
+      const operation = await this.loadProposalOperation(operationId);
+      if (operation === null) {
+        new Notice("Vaultseer proposal is no longer available.");
+        await this.refresh();
+        return;
+      }
+
+      const decisionSummary = await recordWriteReviewQueueDecision({
+        store: this.store,
+        operation,
+        decision: "approved",
+        now: () => new Date().toISOString()
+      });
+      const applySummary = await applyApprovedVaultWriteOperation({
+        store: this.store,
+        writePort: this.writePort,
+        operation,
+        decision: decisionSummary.decisionRecord,
+        now: () => new Date().toISOString()
+      });
+      new Notice(`${decisionSummary.message} ${applySummary.message}`);
+    } catch (error) {
+      new Notice(`Vaultseer could not approve and apply the proposal: ${getErrorMessage(error)}`);
+    }
+
+    await this.refresh();
+  }
+
+  private async handleProposalDecision(operationId: string, decision: VaultWriteDecision): Promise<void> {
+    try {
+      const operation = await this.loadProposalOperation(operationId);
+      if (operation === null) {
+        new Notice("Vaultseer proposal is no longer available.");
+        await this.refresh();
+        return;
+      }
+
+      const summary = await recordWriteReviewQueueDecision({
+        store: this.store,
+        operation,
+        decision,
+        now: () => new Date().toISOString()
+      });
+      new Notice(summary.message);
+    } catch (error) {
+      new Notice(`Vaultseer could not record the proposal decision: ${getErrorMessage(error)}`);
+    }
+
+    await this.refresh();
+  }
+
+  private async handleProposalApply(operationId: string): Promise<void> {
+    try {
+      const operation = await this.loadProposalOperation(operationId);
+      if (operation === null) {
+        new Notice("Vaultseer proposal is no longer available.");
+        await this.refresh();
+        return;
+      }
+
+      const decisions = await this.store.getVaultWriteDecisionRecords();
+      const summary = await applyApprovedVaultWriteOperation({
+        store: this.store,
+        writePort: this.writePort,
+        operation,
+        decision: findLatestDecision(decisions, operationId),
+        now: () => new Date().toISOString()
+      });
+      new Notice(summary.message);
+    } catch (error) {
+      new Notice(`Vaultseer could not apply the proposal: ${getErrorMessage(error)}`);
+    }
+
+    await this.refresh();
+  }
+
+  private async loadProposalOperation(operationId: string): Promise<GuardedVaultWriteOperation | null> {
+    const operations = await this.store.getVaultWriteOperations();
+    return operations.find((operation) => operation.id === operationId) ?? null;
   }
 
   private showModelMenu(event: MouseEvent): void {
@@ -609,16 +1109,23 @@ export class VaultseerStudioView extends ItemView {
     event.preventDefault();
     const menu = new Menu();
 
-    for (const command of this.getVaultseerCommands()) {
+    for (const group of groupVaultseerStudioCommands(this.getVaultseerCommands())) {
       menu.addItem((item) => {
-        item.setTitle(command.name);
-        item.onClick(async () => {
-          const activePath = this.getActivePath();
-          this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
-          this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
-          await this.refresh();
-        });
+        item.setTitle(group.label);
+        item.setIsLabel(true);
       });
+
+      for (const command of group.commands) {
+        menu.addItem((item) => {
+          item.setTitle(command.name);
+          item.onClick(async () => {
+            const activePath = this.getActivePath();
+            this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+            this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
+            await this.refresh();
+          });
+        });
+      }
     }
 
     menu.showAtMouseEvent(event);
@@ -666,6 +1173,35 @@ export async function activateVaultseerStudio(app: App): Promise<WorkspaceLeaf |
   return leaf;
 }
 
+function proposalControlToDecision(controlType: StudioNoteProposalControlType): VaultWriteDecision | null {
+  switch (controlType) {
+    case "approve":
+      return "approved";
+    case "defer":
+      return "deferred";
+    case "reject":
+      return "rejected";
+    case "approve_apply":
+      return null;
+    case "apply":
+      return null;
+  }
+}
+
+function findLatestDecision(
+  decisions: VaultWriteDecisionRecord[],
+  operationId: string
+): VaultWriteDecisionRecord | null {
+  let latest: VaultWriteDecisionRecord | null = null;
+  for (const decision of decisions) {
+    if (decision.operationId !== operationId) continue;
+    if (latest === null || latest.decidedAt.localeCompare(decision.decidedAt) < 0) {
+      latest = decision;
+    }
+  }
+  return latest;
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -674,10 +1210,15 @@ function capitalize(value: string): string {
   return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }
 
-function formatOperationType(type: GuardedVaultWriteOperation["type"]): string {
-  return type.replace(/_/g, " ");
-}
-
 function formatReasoningEffort(value: string): string {
   return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
+}
+
+function requestFormSubmit(form: HTMLFormElement): void {
+  if (typeof form.requestSubmit === "function") {
+    form.requestSubmit();
+    return;
+  }
+
+  form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 }

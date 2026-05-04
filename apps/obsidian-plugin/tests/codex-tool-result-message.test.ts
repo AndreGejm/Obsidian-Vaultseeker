@@ -35,4 +35,35 @@ describe("formatCodexToolResultMessage", () => {
       })
     ).toBe("Tool result (search_sources) failed: Source search unavailable");
   });
+
+  it("shows when current-note inspection used live note text instead of only indexed chunks", () => {
+    const message = formatCodexToolResultMessage({
+      ok: true,
+      tool: "inspect_current_note",
+      output: {
+        status: "ready",
+        note: {
+          path: "Electronics/Resistor Types.md",
+          title: "Resistor Types",
+          aliases: [],
+          tags: ["electronics"],
+          headings: [],
+          links: []
+        },
+        liveNote: {
+          source: "active_file",
+          contentHash: "hash-live",
+          text: "# Resistor Types\n\nResistors limit current and divide voltage.",
+          truncated: false
+        },
+        noteChunks: [],
+        relatedNotes: [],
+        sourceExcerpts: []
+      }
+    });
+
+    expect(message).toContain("Live note text: available");
+    expect(message).toContain("Resistors limit current");
+    expect(message).not.toContain("paste");
+  });
 });

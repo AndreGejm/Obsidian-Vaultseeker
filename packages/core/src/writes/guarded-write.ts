@@ -1,7 +1,11 @@
 import { hashString } from "../chunking/text-chunking";
 import type { SourceNoteProposal } from "../source/source-note-proposal";
 
-export type VaultWriteOperationType = "create_note_from_source" | "update_note_tags" | "update_note_links";
+export type VaultWriteOperationType =
+  | "create_note_from_source"
+  | "update_note_tags"
+  | "update_note_links"
+  | "rewrite_note_content";
 
 export type VaultWritePreview = {
   kind: "create_file" | "modify_file";
@@ -70,7 +74,27 @@ export type NoteLinkUpdateOperation = {
   createdAt: string;
 };
 
-export type GuardedVaultWriteOperation = SourceNoteCreationOperation | NoteTagUpdateOperation | NoteLinkUpdateOperation;
+export type NoteContentRewriteOperation = {
+  id: string;
+  type: "rewrite_note_content";
+  targetPath: string;
+  expectedCurrentHash: string;
+  content: string;
+  preview: VaultWritePreview;
+  rewrite: {
+    reason: string | null;
+    beforeHash: string;
+    afterHash: string;
+  };
+  suggestionIds: string[];
+  createdAt: string;
+};
+
+export type GuardedVaultWriteOperation =
+  | SourceNoteCreationOperation
+  | NoteTagUpdateOperation
+  | NoteLinkUpdateOperation
+  | NoteContentRewriteOperation;
 
 export type PlanSourceNoteCreationOperationInput = {
   proposal: SourceNoteProposal;
@@ -91,6 +115,15 @@ export type PlanNoteLinkUpdateOperationInput = {
   targetPath: string;
   currentContent: string;
   replacements: NoteLinkUpdateReplacementInput[];
+  suggestionIds: string[];
+  createdAt: string;
+};
+
+export type PlanNoteContentRewriteOperationInput = {
+  targetPath: string;
+  currentContent: string;
+  proposedContent: string;
+  reason?: string | null;
   suggestionIds: string[];
   createdAt: string;
 };
@@ -288,6 +321,33 @@ export function planNoteLinkUpdateOperation(input: PlanNoteLinkUpdateOperationIn
     preview: modifyFilePreview(input.targetPath, currentContent, content),
     linkUpdate: {
       replacements: appliedReplacements
+    },
+    suggestionIds: [...input.suggestionIds],
+    createdAt: input.createdAt
+  };
+}
+
+export function planNoteContentRewriteOperation(
+  input: PlanNoteContentRewriteOperationInput
+): NoteContentRewriteOperation {
+  const currentContent = normalizeWriteContent(input.currentContent);
+  const content = normalizeWriteContent(input.proposedContent);
+  const beforeHash = hashString(currentContent);
+  const afterHash = hashString(content);
+  const reason = input.reason?.trim() || null;
+  const operationHash = hashString([input.targetPath, beforeHash, afterHash, reason ?? "", ...input.suggestionIds].join("\n"));
+
+  return {
+    id: `vault-write:rewrite-note-content:${input.targetPath}:${operationHash}`,
+    type: "rewrite_note_content",
+    targetPath: input.targetPath,
+    expectedCurrentHash: beforeHash,
+    content,
+    preview: modifyFilePreview(input.targetPath, currentContent, content),
+    rewrite: {
+      reason,
+      beforeHash,
+      afterHash
     },
     suggestionIds: [...input.suggestionIds],
     createdAt: input.createdAt

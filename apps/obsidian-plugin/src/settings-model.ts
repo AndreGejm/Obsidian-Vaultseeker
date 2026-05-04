@@ -8,6 +8,9 @@ export type VaultseerSettings = {
   embeddingDimensions: number;
   embeddingBatchSize: number;
   sourceNoteFolder: string;
+  codexProvider: CodexProviderId;
+  openAiApiKey: string;
+  openAiBaseUrl: string;
   nativeCodexEnabled: boolean;
   codexCommand: string;
   codexWorkingDirectory: string;
@@ -17,6 +20,10 @@ export type VaultseerSettings = {
   planFolder: string;
   releaseFolder: string;
 };
+
+export const CODEX_PROVIDER_OPTIONS = ["acp", "openai"] as const;
+
+export type CodexProviderId = (typeof CODEX_PROVIDER_OPTIONS)[number];
 
 export const CODEX_MODEL_OPTIONS = [
   "gpt-5.5",
@@ -48,6 +55,9 @@ export const DEFAULT_SETTINGS: VaultseerSettings = {
   embeddingDimensions: 768,
   embeddingBatchSize: 8,
   sourceNoteFolder: DEFAULT_SOURCE_NOTE_FOLDER,
+  codexProvider: "acp",
+  openAiApiKey: "",
+  openAiBaseUrl: "https://api.openai.com/v1",
   nativeCodexEnabled: false,
   codexCommand: "codex-acp",
   codexWorkingDirectory: "",
@@ -71,6 +81,10 @@ export function normalizeVaultFolderPath(value: unknown, fallback = DEFAULT_SOUR
 
 export function normalizeCodexModel(value: unknown): CodexModelId {
   return includesString(CODEX_MODEL_OPTIONS, value) ? value : DEFAULT_SETTINGS.codexModel;
+}
+
+export function normalizeCodexProvider(value: unknown): CodexProviderId {
+  return includesString(CODEX_PROVIDER_OPTIONS, value) ? value : DEFAULT_SETTINGS.codexProvider;
 }
 
 export function normalizeCodexReasoningEffort(value: unknown): CodexReasoningEffort {

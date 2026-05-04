@@ -21,6 +21,8 @@ describe("codex pending tool request display", () => {
     expect(items).toEqual([
       {
         displayId: "codex-tool-request-1-1",
+        title: "Search notes",
+        description: "Searches the read-only Vaultseer note index before Codex answers.",
         tool: "search_notes",
         inputPreview: '{"query":"timing","limit":3}',
         statusLabel: "Pending review",
@@ -40,6 +42,28 @@ describe("codex pending tool request display", () => {
     ]);
     expect(items.flatMap((item) => item.controls.map((control) => control.label))).not.toContain("Approve");
     expect(items.flatMap((item) => item.controls.map((control) => control.label))).not.toContain("Execute");
+  });
+
+  it("uses friendly Vaultseer command names instead of raw command ids", () => {
+    const items = buildCodexPendingToolRequestDisplayItems([
+      {
+        displayId: "codex-tool-request-1-1",
+        toolCallId: "tool-call-1",
+        sessionId: "session-a",
+        tool: "run_vaultseer_command",
+        input: { commandId: "plan-semantic-index" },
+        createdAt: "2026-05-02T12:00:01.000Z",
+        reviewStatus: "pending_review",
+        status: "requested",
+        kind: "command"
+      }
+    ]);
+
+    expect(items[0]).toMatchObject({
+      title: "Plan semantic indexing queue",
+      description: "Queues a Vaultseer command. Review it here, then press Run when you want it executed."
+    });
+    expect(items[0]?.title).not.toBe("run_vaultseer_command");
   });
 
   it("renders Stage and Dismiss controls for proposal tool requests", () => {

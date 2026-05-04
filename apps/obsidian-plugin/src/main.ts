@@ -1,8 +1,9 @@
 import path from "node:path";
 import { Notice, Plugin } from "obsidian";
-import { PersistentVaultseerStore, type IndexHealth, type VaultseerStore } from "@vaultseer/core";
+import { PersistentVaultseerStore, type IndexHealth, type NoteRecordInput, type VaultseerStore } from "@vaultseer/core";
 import { checkReadOnlyIndexStaleness, clearReadOnlyIndex, rebuildReadOnlyIndex } from "./index-controller";
 import { readVaultNoteInputs, type VaultReaderApp } from "./obsidian-adapter";
+import { mapObsidianFileToNoteInput } from "./metadata-mapper";
 import {
   DEFAULT_SETTINGS,
   normalizeCodexModel,
@@ -57,7 +58,8 @@ import {
   nativeCodexCommandExists,
   nativeCodexPathExists
 } from "./native-codex-setup-check";
-import { createNativeStudioCodexChatAdapter } from "./studio-codex-chat-composition";
+import { createVaultseerStudioCodexChatAdapter } from "./studio-codex-chat-composition";
+import { createVaultseerAgentToolRegistry } from "./vaultseer-agent-tool-registry";
 import {
   VAULTSEER_STUDIO_COMMAND_DEFINITIONS,
   type VaultseerStudioCommand
@@ -150,8 +152,51 @@ export default class VaultseerPlugin extends Plugin {
     );
     this.registerView(
       VAULTSEER_STUDIO_VIEW_TYPE,
-      (leaf) =>
-        new VaultseerStudioView(
+      (leaf) => {
+        const writePort = new ObsidianVaultWritePort(this.app.vault as unknown as ObsidianVaultWriteVault);
+        const codexTools = createCodexReadOnlyToolImplementations({
+          store: this.store,
+          getActivePath: () => this.app.workspace.getActiveFile()?.path ?? null,
+          readActiveNoteInput: (path) => this.readActiveNoteInput(path),
+          readActiveNoteContent: async (path) => (await this.readActiveNoteInput(path)).content,
+          searchNotesSemanticSearch: this.createSearchModalSemanticSearch(),
+          searchSourcesSemanticSearch: this.createSourceSearchModalSemanticSearch(),
+          runVaultseerCommand: async (input) => this.runVaultseerStudioCommandRequest(input),
+          rebuildNoteIndex: async () => {
+            await this.rebuildIndex();
+            const health = await this.store.getHealth();
+            return {
+              status: "completed",
+              message: `Vaultseer indexed ${health.noteCount} note${health.noteCount === 1 ? "" : "s"} and ${health.chunkCount} chunk${health.chunkCount === 1 ? "" : "s"}.`,
+              health
+            };
+          },
+          planSemanticIndex: async () => {
+            const before = await this.store.getEmbeddingJobRecords();
+            await this.planSemanticIndex();
+            const after = await this.store.getEmbeddingJobRecords();
+            return {
+              status: "completed",
+              message: `Vaultseer semantic indexing queue now has ${after.filter((job) => job.status === "queued").length} queued job${after.filter((job) => job.status === "queued").length === 1 ? "" : "s"}.`,
+              beforeJobCount: before.length,
+              afterJobCount: after.length
+            };
+          },
+          runSemanticIndexBatch: async () => {
+            const before = await this.store.getEmbeddingJobRecords();
+            await this.runSemanticIndexBatch();
+            const after = await this.store.getEmbeddingJobRecords();
+            return {
+              status: "completed",
+              message: `Vaultseer semantic indexing batch finished; ${after.filter((job) => job.status === "queued").length} queued job${after.filter((job) => job.status === "queued").length === 1 ? "" : "s"} remain.`,
+              beforeJobCount: before.length,
+              afterJobCount: after.length
+            };
+          },
+          writePort
+        });
+
+        return new VaultseerStudioView(
           leaf,
           this.store,
           () => this.app.workspace.getActiveFile()?.path ?? null,
@@ -176,25 +221,18 @@ export default class VaultseerPlugin extends Plugin {
           async () =>
             buildActiveNoteContextFromStore({
               store: this.store,
-              activePath: this.app.workspace.getActiveFile()?.path ?? null
+              activePath: this.app.workspace.getActiveFile()?.path ?? null,
+              readActiveNoteInput: (path) => this.readActiveNoteInput(path)
             }),
-          createNativeStudioCodexChatAdapter(nativeCodexClient),
-          createCodexReadOnlyToolImplementations({
-            store: this.store,
-            getActivePath: () => this.app.workspace.getActiveFile()?.path ?? null,
-            readActiveNoteContent: async (path) => {
-              const file = this.app.workspace.getActiveFile();
-              if (!file || file.path !== path) {
-                throw new Error("Open the current active note before staging a Codex proposal.");
-              }
-
-              return this.app.vault.cachedRead(file);
-            },
-            searchNotesSemanticSearch: this.createSearchModalSemanticSearch(),
-            searchSourcesSemanticSearch: this.createSourceSearchModalSemanticSearch(),
-            runVaultseerCommand: async (input) => this.runVaultseerStudioCommandRequest(input)
-          })
-        )
+          createVaultseerStudioCodexChatAdapter({
+            client: nativeCodexClient,
+            registry: createVaultseerAgentToolRegistry({ tools: codexTools }),
+            getSettings: () => this.settings
+          }),
+          codexTools,
+          writePort
+        );
+      }
     );
 
     this.addCommand({
@@ -835,6 +873,16 @@ export default class VaultseerPlugin extends Plugin {
 
   private async resetNativeCodexSessionQuietly(): Promise<void> {
     await this.nativeCodexClient?.resetSession();
+  }
+
+  private async readActiveNoteInput(path: string): Promise<NoteRecordInput> {
+    const file = this.app.workspace.getActiveFile();
+    if (!file || file.path !== path) {
+      throw new Error("Open the current active note before using Vaultseer note actions.");
+    }
+
+    const content = await this.app.vault.cachedRead(file);
+    return mapObsidianFileToNoteInput(file, content, this.app.metadataCache.getFileCache(file));
   }
 
   private createVaultseerStudioCommands(): VaultseerStudioCommand[] {

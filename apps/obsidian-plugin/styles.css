@@ -7,6 +7,168 @@
   color: var(--text-normal);
 }
 
+.workspace-leaf-content[data-type="vaultseer-studio"] .view-content,
+.vaultseer-codex-shell,
+.vaultseer-studio-body {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.workspace-leaf-content[data-type="vaultseer-studio"] button,
+.workspace-leaf-content[data-type="vaultseer-studio"] input,
+.workspace-leaf-content[data-type="vaultseer-studio"] textarea,
+.workspace-leaf-content[data-type="vaultseer-studio"] select {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+.vaultseer-studio-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.vaultseer-studio-status-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+}
+
+.vaultseer-studio-status-label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.vaultseer-studio-status-value {
+  color: var(--text-normal);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.vaultseer-studio-status-ready {
+  border-color: var(--interactive-accent);
+}
+
+.vaultseer-studio-status-attention {
+  border-color: var(--text-warning, var(--text-accent));
+}
+
+.vaultseer-studio-status-danger {
+  border-color: var(--text-error, var(--text-accent));
+}
+
+.vaultseer-studio-status-muted {
+  opacity: 0.78;
+}
+
+.vaultseer-studio-mode-summary {
+  max-width: 860px;
+  color: var(--text-muted);
+}
+
+.vaultseer-studio-action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.vaultseer-studio-action-card,
+.vaultseer-studio-proposal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 118px;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.vaultseer-studio-action-card p,
+.vaultseer-studio-proposal-card p {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.vaultseer-studio-action-primary {
+  border-color: var(--interactive-accent);
+}
+
+.vaultseer-studio-action-muted {
+  opacity: 0.82;
+}
+
+.vaultseer-studio-action-card button {
+  align-self: flex-start;
+}
+
+.vaultseer-studio-note-proposals {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.vaultseer-studio-note-proposals h4 {
+  margin-bottom: 6px;
+}
+
+.vaultseer-studio-proposal-card {
+  min-height: 0;
+  margin-top: 10px;
+}
+
+.vaultseer-studio-proposal-review {
+  align-self: flex-start;
+  padding: 3px 7px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.vaultseer-studio-proposal-inline {
+  border-color: var(--interactive-accent);
+  color: var(--text-normal);
+}
+
+.vaultseer-studio-proposal-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vaultseer-studio-proposal-diff {
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+}
+
+.vaultseer-studio-proposal-diff summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.vaultseer-studio-proposal-diff pre {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  user-select: text;
+  white-space: pre-wrap;
+}
+
 .vaultseer-codex-header {
   display: flex;
   align-items: center;
@@ -235,6 +397,56 @@
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+}
+
+.vaultseer-studio-chat-tool-request-summary {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.vaultseer-studio-chat-tool-request-summary p {
+  margin: 4px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.vaultseer-studio-chat-tool-request-summary code {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vaultseer-studio-chat-tool-request-status {
+  margin-left: 8px;
+  color: var(--text-accent);
+  font-size: 12px;
+}
+
+.vaultseer-write-review-queue-summary,
+.vaultseer-write-review-queue-navigation,
+.vaultseer-write-review-queue-item {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.vaultseer-write-review-queue-navigation-actions,
+.vaultseer-write-review-queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.vaultseer-write-review-queue-diff pre {
+  max-height: 260px;
+  overflow: auto;
+  user-select: text;
 }
 
 @media (max-width: 520px) {

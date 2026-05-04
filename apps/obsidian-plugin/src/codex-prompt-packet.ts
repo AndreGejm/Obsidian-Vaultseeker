@@ -18,6 +18,7 @@ export type CodexPromptPacketContextSummary = {
   aliasCount: number;
   headingCount: number;
   linkCount: number;
+  liveNoteAvailable: boolean;
   noteChunkCount: number;
   relatedNoteCount: number;
   sourceExcerptCount: number;
@@ -99,13 +100,23 @@ function buildControlSurfaceLines(maxContextCharacters: number): string[] {
     "You are running inside Vaultseer Studio for Obsidian, not as a generic standalone Codex shell.",
     "Vaultseer-native bridge tools available to request:",
     "- inspect_current_note: inspect the active note, chunks, links, tags, and related context.",
-    "- search_notes: search indexed vault notes; input is an object with query and optional limit.",
+    "- inspect_index_health: inspect stored note, chunk, vector, source, suggestion, and embedding-queue counts.",
+    "- inspect_current_note_chunks: inspect the active note chunk boundaries; input may include optional limit.",
+    "- search_notes: search indexed vault notes with the configured hybrid lexical/semantic search; input is an object with query and optional limit.",
+    "- semantic_search_notes: run semantic note search directly; input is an object with query and optional limit.",
     "- search_sources: search extracted or imported source workspaces; input is an object with query and optional limit.",
+    "- suggest_current_note_tags: draft deterministic tag suggestions for the active note.",
+    "- suggest_current_note_links: draft deterministic internal-link suggestions for the active note.",
+    "- inspect_note_quality: inspect narrow quality issues such as missing tags, duplicate aliases, malformed tags, and broken links.",
+    "- rebuild_note_index: request a read-only note index rebuild; the user must approve by clicking Run.",
+    "- plan_semantic_index: request note embedding queue planning; the user must approve by clicking Run.",
+    "- run_semantic_index_batch: request one semantic indexing batch; the user must approve by clicking Run.",
     "- run_vaultseer_command: request a Vaultseer Studio command by commandId; the user must approve by clicking Run.",
-    "- stage_suggestion: stage tag/link proposals for user review; it never writes directly and requires approval.",
+    "- stage_suggestion: stage tag, link, or full current-note rewrite proposals for user review; it never writes directly and requires approval.",
     "Vaultseer Studio commands are available through the chat composer Commands button:",
     ...VAULTSEER_STUDIO_COMMAND_DEFINITIONS.map((command) => `- ${command.id}: ${command.name}`),
     "When asked whether Vaultseer commands are available, answer yes and explain this Vaultseer-native bridge and Commands menu.",
+    "Never say Vaultseer tools are unavailable; if you cannot directly call a tool, request the matching Vaultseer action so Studio can show the user an approval card.",
     "For write-like work, propose or stage changes through Vaultseer and wait for user approval."
   ];
 }
@@ -118,6 +129,7 @@ function buildContextSummary(context: ActiveNoteContextPacket): Omit<CodexPrompt
     aliasCount: context.note?.aliases.length ?? 0,
     headingCount: context.note?.headings.length ?? 0,
     linkCount: context.note?.links.length ?? 0,
+    liveNoteAvailable: Boolean(context.liveNote?.text.trim()),
     noteChunkCount: context.noteChunks.length,
     relatedNoteCount: context.relatedNotes.length,
     sourceExcerptCount: context.sourceExcerpts.length
@@ -128,6 +140,15 @@ function buildContextBody(context: ActiveNoteContextPacket): string {
   return JSON.stringify(
     {
       currentNote: buildCurrentNoteEvidence(context),
+      liveNote:
+        context.liveNote === null || context.liveNote === undefined
+          ? null
+          : {
+              source: context.liveNote.source,
+              contentHash: context.liveNote.contentHash,
+              text: context.liveNote.text,
+              truncated: context.liveNote.truncated
+            },
       noteChunks: context.noteChunks.map((chunk) => ({
         chunkId: chunk.chunkId,
         headingPath: chunk.headingPath,

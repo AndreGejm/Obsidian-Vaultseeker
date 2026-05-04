@@ -6,6 +6,9 @@ describe("VaultseerPluginDataStore settings", () => {
     const store = new VaultseerPluginDataStore({
       loadData: vi.fn(async () => ({
         settings: {
+          codexProvider: "openai",
+          openAiApiKey: "sk-local",
+          openAiBaseUrl: "https://api.openai.test/v1",
           codexModel: "gpt-5.4",
           codexReasoningEffort: "medium"
         },
@@ -16,6 +19,9 @@ describe("VaultseerPluginDataStore settings", () => {
 
     await expect(store.loadSettings()).resolves.toEqual(
       expect.objectContaining({
+        codexProvider: "openai",
+        openAiApiKey: "sk-local",
+        openAiBaseUrl: "https://api.openai.test/v1",
         codexModel: "gpt-5.4",
         codexReasoningEffort: "medium"
       })
@@ -30,6 +36,9 @@ describe("VaultseerPluginDataStore settings", () => {
 
     await expect(store.loadSettings()).resolves.toEqual(
       expect.objectContaining({
+        codexProvider: "acp",
+        openAiApiKey: "",
+        openAiBaseUrl: "https://api.openai.com/v1",
         codexModel: "gpt-5.3-codex-spark",
         codexReasoningEffort: "medium"
       })

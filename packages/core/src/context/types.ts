@@ -11,6 +11,12 @@ export type ActiveNoteContextPacket = {
     headings: string[];
     links: string[];
   } | null;
+  liveNote?: {
+    source: "active_file";
+    contentHash: string;
+    text: string;
+    truncated: boolean;
+  } | null;
   noteChunks: Array<{
     chunkId: string;
     headingPath: string[];

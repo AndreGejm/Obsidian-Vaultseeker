@@ -1,9 +1,11 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type VaultseerPlugin from "./main";
 import {
+  CODEX_PROVIDER_OPTIONS,
   CODEX_MODEL_OPTIONS,
   CODEX_REASONING_EFFORT_OPTIONS,
   DEFAULT_SETTINGS,
+  normalizeCodexProvider,
   normalizeCodexModel,
   normalizeCodexReasoningEffort,
   normalizeVaultFolderPath,
@@ -52,6 +54,46 @@ export class VaultseerSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.sourceNoteFolder)
           .onChange(async (value) => {
             this.plugin.settings.sourceNoteFolder = normalizeVaultFolderPath(value, DEFAULT_SETTINGS.sourceNoteFolder);
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Codex provider")
+      .setDesc("Choose ACP for the local bridge or OpenAI for direct API-key chat with native Vaultseer tools.")
+      .addDropdown((dropdown) => {
+        for (const provider of CODEX_PROVIDER_OPTIONS) {
+          dropdown.addOption(provider, provider === "openai" ? "OpenAI API" : "Local ACP bridge");
+        }
+        dropdown.setValue(this.plugin.settings.codexProvider).onChange(async (value) => {
+          this.plugin.settings.codexProvider = normalizeCodexProvider(value);
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("OpenAI API key")
+      .setDesc("Personal desktop use only. Stored locally in Obsidian plugin data; do not use on shared machines.")
+      .addText((text) => {
+        text.inputEl.type = "password";
+        text
+          .setPlaceholder("sk-...")
+          .setValue(this.plugin.settings.openAiApiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.openAiApiKey = value.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("OpenAI base URL")
+      .setDesc("Advanced: leave as the official OpenAI API endpoint unless you know you need a compatible gateway.")
+      .addText((text) =>
+        text
+          .setPlaceholder(DEFAULT_SETTINGS.openAiBaseUrl)
+          .setValue(this.plugin.settings.openAiBaseUrl)
+          .onChange(async (value) => {
+            this.plugin.settings.openAiBaseUrl = value.trim().replace(/\/+$/g, "") || DEFAULT_SETTINGS.openAiBaseUrl;
             await this.plugin.saveSettings();
           })
       );

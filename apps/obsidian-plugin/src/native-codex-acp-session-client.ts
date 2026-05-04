@@ -31,6 +31,7 @@ export type NativeCodexAcpClientHandler = {
 
 export type NativeCodexAcpConnectionFactoryOptions = {
   command: string;
+  args: string[];
   cwd: string;
   handler: NativeCodexAcpClientHandler;
   onProcessFailure?: (message: string) => void;
@@ -46,6 +47,11 @@ export type NativeCodexAcpSessionClientOptions = {
   createConnection?: NativeCodexAcpConnectionFactory;
   startupTimeoutMs?: number;
   promptTimeoutMs?: number;
+};
+
+export type NativeCodexAcpLaunchCommand = {
+  command: string;
+  args: string[];
 };
 
 type NativeCodexAcpSessionNotification = {
@@ -231,8 +237,10 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
     const cwd = resolveWorkingDirectory(settings.codexWorkingDirectory, this.options.getVaultBasePath());
     const handler = createDenyByDefaultClientHandler((update) => this.forwardSessionUpdate(update));
     const createConnection = this.options.createConnection ?? createNativeCodexAcpConnection;
+    const launchCommand = buildCodexAcpLaunchCommand(settings);
     const connection = await createConnection({
-      command: buildCodexAcpLaunchCommand(settings),
+      command: launchCommand.command,
+      args: launchCommand.args,
       cwd,
       handler,
       onProcessFailure: (message) => this.handleProcessFailure(message)
@@ -315,15 +323,18 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
   }
 }
 
-export function buildCodexAcpLaunchCommand(settings: NativeCodexProcessSettings): string {
-  const command = settings.codexCommand.trim();
-  return [
-    command,
-    "-c",
-    `model=${tomlString(settings.codexModel)}`,
-    "-c",
-    `model_reasoning_effort=${tomlString(settings.codexReasoningEffort)}`
-  ].join(" ");
+export function buildCodexAcpLaunchCommand(settings: NativeCodexProcessSettings): NativeCodexAcpLaunchCommand {
+  const parsed = parseNativeCodexCommand(settings.codexCommand);
+  return {
+    command: parsed.command,
+    args: [
+      ...parsed.args,
+      "-c",
+      `model=${tomlString(settings.codexModel)}`,
+      "-c",
+      `model_reasoning_effort=${tomlString(settings.codexReasoningEffort)}`
+    ]
+  };
 }
 
 function tomlString(value: string): string {
@@ -333,9 +344,11 @@ function tomlString(value: string): string {
 export async function createNativeCodexAcpConnection(
   options: NativeCodexAcpConnectionFactoryOptions
 ): Promise<NativeCodexAcpConnection> {
-  const child = spawn(options.command, {
+  // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process -- command is restricted to Codex executables and args are passed without a shell.
+  const child = spawn(options.command, options.args, {
     cwd: options.cwd,
-    shell: true,
+    shell: false,
+    windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"]
   });
   let disposed = false;
@@ -368,6 +381,66 @@ export async function createNativeCodexAcpConnection(
       }
     }
   };
+}
+
+function parseNativeCodexCommand(commandLine: string): NativeCodexAcpLaunchCommand {
+  const tokens = splitCommandLine(commandLine.trim());
+  const command = tokens[0]?.trim();
+  assertAllowedNativeCodexCommand(command);
+  return {
+    command: command && command.length > 0 ? command : "codex-acp",
+    args: tokens.slice(1)
+  };
+}
+
+function assertAllowedNativeCodexCommand(command: string | undefined): void {
+  if (command === undefined || command.trim().length === 0) {
+    return;
+  }
+
+  const executableName = command.replace(/\\/g, "/").split("/").pop()?.toLowerCase();
+  const allowed = new Set(["codex", "codex.exe", "codex.cmd", "codex.bat", "codex-acp", "codex-acp.exe", "codex-acp.cmd", "codex-acp.bat"]);
+  if (!executableName || !allowed.has(executableName)) {
+    throw new Error("Native Codex command must launch codex or codex-acp.");
+  }
+}
+
+function splitCommandLine(commandLine: string): string[] {
+  const tokens: string[] = [];
+  let current = "";
+  let quote: '"' | "'" | null = null;
+
+  for (const char of commandLine) {
+    if (quote !== null) {
+      if (char === quote) {
+        quote = null;
+      } else {
+        current += char;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+
+    if (/\s/.test(char)) {
+      if (current.length > 0) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.length > 0) {
+    tokens.push(current);
+  }
+
+  return tokens;
 }
 
 function createDenyByDefaultClientHandler(

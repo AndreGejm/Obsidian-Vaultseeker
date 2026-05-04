@@ -165,6 +165,7 @@ export class MarkerSourceExtractor implements SourceExtractorPort {
 export class NodeMarkerCommandRunner implements MarkerCommandRunner {
   async run(command: string, args: string[], options: MarkerCommandRunOptions = {}): Promise<MarkerCommandResult> {
     return new Promise((resolve, reject) => {
+      // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process -- Marker receives source paths as argv with shell disabled.
       const child = spawn(command, args, {
         cwd: options.cwd,
         windowsHide: true

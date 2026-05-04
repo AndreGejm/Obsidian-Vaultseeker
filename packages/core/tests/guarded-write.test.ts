@@ -3,6 +3,7 @@ import {
   createVaultWriteDecisionRecord,
   evaluateVaultWritePrecondition,
   hashString,
+  planNoteContentRewriteOperation,
   planNoteLinkUpdateOperation,
   planNoteTagUpdateOperation,
   planSourceNoteCreationOperation
@@ -180,6 +181,62 @@ describe("guarded write operations", () => {
     expect(
       evaluateVaultWritePrecondition(operation, {
         path: "Electronics/Precision Timer.md",
+        currentHash: hashString(currentContent)
+      })
+    ).toEqual({ ok: true });
+  });
+
+  it("plans a guarded current-note rewrite with a stale-file guard and preview diff", () => {
+    const currentContent = "# Resistor Types\n\nCarbon film and metal film are common.\n";
+    const proposedContent = [
+      "---",
+      "tags:",
+      "  - electronics",
+      "  - resistors",
+      "---",
+      "",
+      "# Resistor Types",
+      "",
+      "## Fixed Resistors",
+      "",
+      "Carbon film and metal film resistors are common fixed resistor types.",
+      ""
+    ].join("\n");
+
+    const operation = planNoteContentRewriteOperation({
+      targetPath: "Electronics/Resistor Types.md",
+      currentContent,
+      proposedContent,
+      reason: "Codex reorganized the note into clearer headings.",
+      suggestionIds: ["suggestion:note-rewrite:Electronics/Resistor Types.md:codex"],
+      createdAt: "2026-05-03T10:00:00.000Z"
+    });
+
+    expect(operation).toMatchObject({
+      type: "rewrite_note_content",
+      targetPath: "Electronics/Resistor Types.md",
+      expectedCurrentHash: hashString(currentContent),
+      rewrite: {
+        reason: "Codex reorganized the note into clearer headings.",
+        beforeHash: hashString(currentContent),
+        afterHash: hashString(proposedContent)
+      },
+      suggestionIds: ["suggestion:note-rewrite:Electronics/Resistor Types.md:codex"],
+      createdAt: "2026-05-03T10:00:00.000Z"
+    });
+    expect(operation.id).toMatch(/^vault-write:rewrite-note-content:Electronics\/Resistor Types\.md:/);
+    expect(operation.content).toBe(proposedContent);
+    expect(operation.preview).toMatchObject({
+      kind: "modify_file",
+      targetPath: "Electronics/Resistor Types.md",
+      beforeHash: hashString(currentContent),
+      afterHash: hashString(proposedContent)
+    });
+    expect(operation.preview.diff).toContain("-Carbon film and metal film are common.");
+    expect(operation.preview.diff).toContain("+## Fixed Resistors");
+    expect(
+      evaluateVaultWritePrecondition(operation, {
+        path: "Electronics/Resistor Types.md",
         currentHash: hashString(currentContent)
       })
     ).toEqual({ ok: true });

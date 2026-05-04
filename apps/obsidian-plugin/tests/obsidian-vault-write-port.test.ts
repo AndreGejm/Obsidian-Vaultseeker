@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { GuardedVaultWriteOperation, SourceNoteProposal } from "@vaultseer/core";
-import { hashString, planNoteTagUpdateOperation, planSourceNoteCreationOperation } from "@vaultseer/core";
+import {
+  hashString,
+  planNoteContentRewriteOperation,
+  planNoteTagUpdateOperation,
+  planSourceNoteCreationOperation
+} from "@vaultseer/core";
 import { ObsidianVaultWritePort, VaultWriteVerificationError } from "../src/obsidian-vault-write-port";
 
 describe("ObsidianVaultWritePort", () => {
@@ -62,6 +67,25 @@ describe("ObsidianVaultWritePort", () => {
     expect(vault.files.has(operation.targetPath)).toBe(false);
   });
 
+  it("rejects write operations whose target path is not vault-relative", async () => {
+    const operation = writeOperation({
+      targetPath: "../outside.md"
+    });
+    const vault = new FakeVault();
+    const port = new ObsidianVaultWritePort(vault);
+
+    await expect(port.dryRun(operation)).rejects.toThrow(VaultWriteVerificationError);
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: null,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-01T20:00:00.000Z"
+      })
+    ).rejects.toThrow(VaultWriteVerificationError);
+  });
+
   it("fails apply when the approved after hash does not match the operation preview", async () => {
     const operation = writeOperation();
     const vault = new FakeVault();
@@ -120,6 +144,42 @@ describe("ObsidianVaultWritePort", () => {
       beforeHash: operation.expectedCurrentHash,
       afterHash: operation.preview.afterHash,
       appliedAt: "2026-05-01T21:00:00.000Z"
+    });
+    expect(vault.modifyCount).toBe(1);
+    expect(vault.files.get(operation.targetPath)).toBe(operation.content);
+  });
+
+  it("applies an approved note rewrite after a clean dry run and verifies the written hash", async () => {
+    const currentContent = "# Resistor Types\n\nCarbon film and metal film are common.\n";
+    const operation = planNoteContentRewriteOperation({
+      targetPath: "Electronics/Resistor Types.md",
+      currentContent,
+      proposedContent: "# Resistor Types\n\n## Fixed Resistors\n\nMetal film resistors are stable.\n",
+      reason: "Improve scanability.",
+      suggestionIds: ["suggestion:note-rewrite:Electronics/Resistor Types.md:codex"],
+      createdAt: "2026-05-03T10:00:00.000Z"
+    });
+    const vault = new FakeVault([[operation.targetPath, currentContent]], ["Electronics"]);
+    const port = new ObsidianVaultWritePort(vault);
+
+    await expect(port.dryRun(operation)).resolves.toMatchObject({
+      precondition: { ok: true },
+      preview: operation.preview
+    });
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-03T10:10:00.000Z"
+      })
+    ).resolves.toEqual({
+      operationId: operation.id,
+      targetPath: operation.targetPath,
+      beforeHash: operation.expectedCurrentHash,
+      afterHash: operation.preview.afterHash,
+      appliedAt: "2026-05-03T10:10:00.000Z"
     });
     expect(vault.modifyCount).toBe(1);
     expect(vault.files.get(operation.targetPath)).toBe(operation.content);

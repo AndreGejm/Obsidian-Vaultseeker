@@ -7,6 +7,7 @@ import type {
   VaultWritePort
 } from "@vaultseer/core";
 import { evaluateVaultWritePrecondition, hashString } from "@vaultseer/core";
+import { validateVaultRelativePath, VaultPathPolicyError } from "./vault-path-policy";
 
 export type ObsidianVaultWriteFile = {
   path: string;
@@ -35,6 +36,7 @@ export class ObsidianVaultWritePort implements VaultWritePort {
   constructor(private readonly vault: ObsidianVaultWriteVault) {}
 
   async dryRun(operation: GuardedVaultWriteOperation): Promise<VaultWriteDryRunResult> {
+    this.verifyTargetPath(operation.targetPath);
     const currentHash = await this.readCurrentHash(operation.targetPath);
     const precondition = await this.evaluateObsidianPrecondition(operation, currentHash);
 
@@ -46,6 +48,7 @@ export class ObsidianVaultWritePort implements VaultWritePort {
   }
 
   async apply(operation: GuardedVaultWriteOperation, approval: VaultWriteApproval): Promise<VaultWriteApplyResult> {
+    this.verifyTargetPath(operation.targetPath);
     this.verifyApproval(operation, approval);
 
     const dryRun = await this.dryRun(operation);
@@ -57,7 +60,8 @@ export class ObsidianVaultWritePort implements VaultWritePort {
       case "create_note_from_source":
         return this.createNoteFromSource(operation, approval);
       case "update_note_tags":
-        return this.updateNoteTags(operation, approval);
+      case "rewrite_note_content":
+        return this.modifyExistingNote(operation, approval);
       case "update_note_links":
         throw new VaultWriteVerificationError("note link updates are preview-only in this version");
     }
@@ -86,7 +90,7 @@ export class ObsidianVaultWritePort implements VaultWritePort {
     };
   }
 
-  private async updateNoteTags(
+  private async modifyExistingNote(
     operation: GuardedVaultWriteOperation,
     approval: VaultWriteApproval
   ): Promise<VaultWriteApplyResult> {
@@ -129,6 +133,17 @@ export class ObsidianVaultWritePort implements VaultWritePort {
 
     if (approval.afterHash !== operation.preview.afterHash) {
       throw new VaultWriteVerificationError("approval after hash does not match the write preview");
+    }
+  }
+
+  private verifyTargetPath(path: string): void {
+    try {
+      validateVaultRelativePath(path, { requireMarkdown: true });
+    } catch (error) {
+      if (error instanceof VaultPathPolicyError) {
+        throw new VaultWriteVerificationError(error.message);
+      }
+      throw error;
     }
   }
 

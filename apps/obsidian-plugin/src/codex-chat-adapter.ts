@@ -1,6 +1,7 @@
 import type { ActiveNoteContextPacket } from "@vaultseer/core";
 import type { CodexChatToolRequest } from "./codex-chat-state";
 import { buildCodexPromptPacket, type CodexPromptPacket } from "./codex-prompt-packet";
+import type { VaultseerAgentToolEvent } from "./vaultseer-agent-runtime";
 
 export type CodexChatAdapterRequest = {
   message: string;
@@ -10,9 +11,13 @@ export type CodexChatAdapterRequest = {
 export type CodexChatAdapterResponse = {
   content: string;
   toolRequests: CodexChatToolRequest[];
+  toolEvents?: VaultseerAgentToolEvent[];
 };
 
 export interface CodexChatAdapter {
+  readonly capabilities?: {
+    nativeToolLoop?: boolean;
+  };
   send(request: CodexChatAdapterRequest): Promise<CodexChatAdapterResponse>;
 }
 

@@ -1,5 +1,9 @@
 import { applyChatEvent, type CodexChatState } from "./codex-chat-state";
-import { groupVaultseerStudioCommands, type VaultseerStudioCommand } from "./studio-command-catalog";
+import {
+  groupVaultseerStudioCommands,
+  type VaultseerStudioCommand,
+  type VaultseerStudioCommandDefinition
+} from "./studio-command-catalog";
 
 export function queueVaultseerStudioCommandRequest(
   state: CodexChatState,
@@ -72,7 +76,7 @@ export function applyVaultseerSlashCommandMessage(
   };
 }
 
-export function buildVaultseerCommandListMessage(commands: VaultseerStudioCommand[]): string {
+export function buildVaultseerCommandListMessage(commands: VaultseerStudioCommandDefinition[]): string {
   const groupedCommandLines = groupVaultseerStudioCommands(commands).flatMap((group) => [
     "",
     `${group.label}:`,

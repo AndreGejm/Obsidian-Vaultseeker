@@ -114,6 +114,8 @@ function successMessage(operation: GuardedVaultWriteOperation): string {
       return `Applied tag update to ${operation.targetPath}.`;
     case "update_note_links":
       return `Applied link update to ${operation.targetPath}.`;
+    case "rewrite_note_content":
+      return `Applied note rewrite to ${operation.targetPath}.`;
   }
 }
 
@@ -125,6 +127,8 @@ function failureMessagePrefix(operation: GuardedVaultWriteOperation): string {
       return `Could not apply tag update to ${operation.targetPath}`;
     case "update_note_links":
       return `Could not apply link update to ${operation.targetPath}`;
+    case "rewrite_note_content":
+      return `Could not apply note rewrite to ${operation.targetPath}`;
   }
 }
 

@@ -2,6 +2,7 @@ import type { StoredVaultIndex, VaultseerStorageBackend } from "@vaultseer/core"
 import {
   DEFAULT_SETTINGS,
   normalizeCodexModel,
+  normalizeCodexProvider,
   normalizeCodexReasoningEffort,
   normalizeVaultFolderPath,
   type VaultseerSettings
@@ -173,6 +174,9 @@ function normalizeSettings(raw: unknown): VaultseerSettings {
     embeddingDimensions: normalizePositiveInteger(raw.embeddingDimensions, DEFAULT_SETTINGS.embeddingDimensions),
     embeddingBatchSize: normalizeBoundedInteger(raw.embeddingBatchSize, DEFAULT_SETTINGS.embeddingBatchSize, 1, 32),
     sourceNoteFolder: normalizeVaultFolderPath(raw.sourceNoteFolder, DEFAULT_SETTINGS.sourceNoteFolder),
+    codexProvider: normalizeCodexProvider(raw.codexProvider),
+    openAiApiKey: typeof raw.openAiApiKey === "string" ? raw.openAiApiKey.trim() : DEFAULT_SETTINGS.openAiApiKey,
+    openAiBaseUrl: normalizeNonEmptyString(raw.openAiBaseUrl, DEFAULT_SETTINGS.openAiBaseUrl).replace(/\/+$/g, ""),
     nativeCodexEnabled:
       typeof raw.nativeCodexEnabled === "boolean" ? raw.nativeCodexEnabled : DEFAULT_SETTINGS.nativeCodexEnabled,
     codexCommand: normalizeNonEmptyString(raw.codexCommand, DEFAULT_SETTINGS.codexCommand),

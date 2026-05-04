@@ -57,6 +57,7 @@ export type CodexToolRequestScope = {
 export type CodexChatEvent =
   | { type: "user_message"; content: string; createdAt: string }
   | { type: "assistant_message"; content: string; createdAt: string; toolRequests?: CodexChatToolRequest[] }
+  | { type: "system_message"; content: string; createdAt: string }
   | { type: "error"; message: string }
   | { type: "active_note_changed"; activePath: string | null }
   | { type: "dismiss_tool_request"; displayId: string }
@@ -140,6 +141,8 @@ export function applyChatEvent(state: CodexChatState, event: CodexChatEvent): Co
       const nextState = appendMessage(state, "assistant", event.content, createdAt);
       return appendPendingToolRequests(nextState, event.toolRequests, createdAt, messageOrdinal);
     }
+    case "system_message":
+      return appendMessage(state, "system", event.content, event.createdAt);
     case "error":
       return { ...state, error: event.message };
     case "active_note_changed":
