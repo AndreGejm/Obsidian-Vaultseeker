@@ -67,6 +67,9 @@ export class VaultseerAgentEnvironment implements CodexChatAdapter {
       userMessage: buildVaultseerAgentContextMessage(contextMessageInput),
       allowProposalTools: true
     };
+    if (request.attachments !== undefined) {
+      turnInput.userAttachments = request.attachments;
+    }
     if (this.options.maxToolIterations !== undefined) {
       turnInput.maxToolIterations = this.options.maxToolIterations;
     }

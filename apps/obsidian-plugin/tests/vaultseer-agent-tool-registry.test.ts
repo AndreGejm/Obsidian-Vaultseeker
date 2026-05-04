@@ -16,6 +16,9 @@ describe("Vaultseer agent tool registry", () => {
       "search_notes",
       "semantic_search_notes",
       "search_sources",
+      "inspect_pdf_source_extraction_queue",
+      "list_vault_images",
+      "read_vault_image",
       "suggest_current_note_tags",
       "suggest_current_note_links",
       "inspect_note_quality",
@@ -24,6 +27,11 @@ describe("Vaultseer agent tool registry", () => {
       "rebuild_note_index",
       "plan_semantic_index",
       "run_semantic_index_batch",
+      "import_vault_text_source",
+      "plan_pdf_source_extraction",
+      "run_pdf_source_extraction_batch",
+      "plan_source_semantic_index",
+      "run_source_semantic_index_batch",
       "run_vaultseer_command",
       "run_approved_script",
       "stage_suggestion",
@@ -41,6 +49,27 @@ describe("Vaultseer agent tool registry", () => {
       safety: "read",
       requestClass: "read-only"
     });
+    expect(definitions.find((definition) => definition.id === "inspect_pdf_source_extraction_queue")).toMatchObject({
+      safety: "read",
+      requestClass: "read-only"
+    });
+    expect(definitions.find((definition) => definition.id === "read_vault_image")).toMatchObject({
+      safety: "read",
+      requestClass: "read-only",
+      inputSchema: expect.objectContaining({
+        required: ["path"]
+      })
+    });
+    expect(definitions.find((definition) => definition.id === "list_vault_images")).toMatchObject({
+      safety: "read",
+      requestClass: "read-only",
+      inputSchema: expect.objectContaining({
+        properties: expect.objectContaining({
+          query: expect.objectContaining({ type: "string" }),
+          limit: expect.objectContaining({ type: "number" })
+        })
+      })
+    });
     expect(definitions.find((definition) => definition.id === "run_approved_script")).toMatchObject({
       safety: "approved-script",
       requestClass: "command",
@@ -51,6 +80,32 @@ describe("Vaultseer agent tool registry", () => {
         }),
         required: ["scriptId"]
       })
+    });
+    expect(definitions.find((definition) => definition.id === "import_vault_text_source")).toMatchObject({
+      safety: "user-approved-command",
+      requestClass: "command",
+      inputSchema: expect.objectContaining({
+        properties: expect.objectContaining({
+          path: expect.objectContaining({ type: "string" })
+        }),
+        required: ["path"]
+      })
+    });
+    expect(definitions.find((definition) => definition.id === "plan_pdf_source_extraction")).toMatchObject({
+      safety: "user-approved-command",
+      requestClass: "command"
+    });
+    expect(definitions.find((definition) => definition.id === "run_pdf_source_extraction_batch")).toMatchObject({
+      safety: "user-approved-command",
+      requestClass: "command"
+    });
+    expect(definitions.find((definition) => definition.id === "plan_source_semantic_index")).toMatchObject({
+      safety: "user-approved-command",
+      requestClass: "command"
+    });
+    expect(definitions.find((definition) => definition.id === "run_source_semantic_index_batch")).toMatchObject({
+      safety: "user-approved-command",
+      requestClass: "command"
     });
     expect(definitions.find((definition) => definition.id === "review_current_note_proposal")).toMatchObject({
       safety: "active-note-proposal",

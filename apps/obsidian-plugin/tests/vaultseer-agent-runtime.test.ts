@@ -203,4 +203,94 @@ describe("runVaultseerAgentTurn", () => {
       }
     ]);
   });
+
+  it("passes user attachments to the provider as multimodal content parts", async () => {
+    const provider: VaultseerAgentProvider = {
+      respond: vi.fn(async () => ({
+        message: "The image is attached."
+      }))
+    };
+    const registry = createVaultseerAgentToolRegistry({
+      tools: {
+        inspectCurrentNote: async () => ({ status: "ready" }),
+        searchNotes: async () => ({ status: "ready", results: [] }),
+        searchSources: async () => ({ status: "ready", results: [] }),
+        stageSuggestion: async () => ({ status: "planned" })
+      }
+    });
+
+    await runVaultseerAgentTurn({
+      provider,
+      registry,
+      userMessage: "describe this",
+      userAttachments: [{ type: "image_url", imageUrl: "data:image/jpeg;base64,abc123", detail: "low" }]
+    });
+
+    expect(provider.respond).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: "user",
+            content: [
+              { type: "text", text: "describe this" },
+              { type: "image_url", imageUrl: "data:image/jpeg;base64,abc123", detail: "low" }
+            ]
+          })
+        ])
+      })
+    );
+  });
+
+  it("attaches multimodal content parts returned by tools as follow-up user input", async () => {
+    const provider: VaultseerAgentProvider = {
+      respond: vi
+        .fn()
+        .mockResolvedValueOnce({
+          message: "I will inspect the image.",
+          toolCalls: [{ id: "call-image", name: "read_vault_image", input: { path: "Images/resistor.png" } }]
+        })
+        .mockResolvedValueOnce({
+          message: "The image shows a resistor."
+        })
+    };
+    const registry = createVaultseerAgentToolRegistry({
+      tools: {
+        inspectCurrentNote: async () => ({ status: "ready" }),
+        searchNotes: async () => ({ status: "ready", results: [] }),
+        searchSources: async () => ({ status: "ready", results: [] }),
+        readVaultImage: async () => ({
+          status: "ready",
+          path: "Images/resistor.png",
+          contentPart: { type: "image_url", imageUrl: "data:image/png;base64,abc123", detail: "auto" }
+        }),
+        stageSuggestion: async () => ({ status: "planned" })
+      }
+    });
+
+    await runVaultseerAgentTurn({
+      provider,
+      registry,
+      userMessage: "what is in this image?"
+    });
+
+    expect(provider.respond).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: "tool",
+            name: "read_vault_image",
+            content: expect.stringContaining("\"imageUrl\":\"[attached as multimodal content]\"")
+          }),
+          expect.objectContaining({
+            role: "user",
+            content: [
+              { type: "text", text: "Vaultseer attached image content returned by read_vault_image." },
+              { type: "image_url", imageUrl: "data:image/png;base64,abc123", detail: "auto" }
+            ]
+          })
+        ])
+      })
+    );
+  });
 });

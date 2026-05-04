@@ -156,6 +156,174 @@ describe("parseCodexStageSuggestionInput", () => {
   });
 });
 
+describe("readVaultImage tool", () => {
+  it("lists vault image assets without reading image bytes", async () => {
+    let binaryReadCount = 0;
+    const tools = createCodexReadOnlyToolImplementations({
+      store: new InMemoryVaultseerStore(),
+      getActivePath: () => null,
+      readVaultAssetRecords: () => [
+        {
+          path: "Images/resistor.png",
+          filename: "resistor.png",
+          basename: "resistor",
+          extension: ".png",
+          mimeType: "image/png",
+          sizeBytes: 3,
+          modifiedTime: 10,
+          contentHash: "vault-file:3:10"
+        },
+        {
+          path: "Images/capacitor.jpg",
+          filename: "capacitor.jpg",
+          basename: "capacitor",
+          extension: ".jpg",
+          mimeType: "image/jpeg",
+          sizeBytes: 4,
+          modifiedTime: 11,
+          contentHash: "vault-file:4:11"
+        },
+        {
+          path: "Docs/readme.pdf",
+          filename: "readme.pdf",
+          basename: "readme",
+          extension: ".pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 100,
+          modifiedTime: 12,
+          contentHash: "vault-file:100:12"
+        }
+      ],
+      readVaultBinaryFile: async () => {
+        binaryReadCount += 1;
+        return new Uint8Array([1, 2, 3]);
+      }
+    });
+
+    await expect(tools.listVaultImages?.({ query: "resistor", limit: 5 })).resolves.toEqual({
+      status: "ready",
+      message: "1 vault image found.",
+      images: [
+        {
+          path: "Images/resistor.png",
+          filename: "resistor.png",
+          mimeType: "image/png",
+          sizeBytes: 3,
+          modifiedTime: 10,
+          contentHash: "vault-file:3:10"
+        }
+      ]
+    });
+    expect(binaryReadCount).toBe(0);
+  });
+
+  it("returns a multimodal image content part for vault image assets without source extraction", async () => {
+    const store = new InMemoryVaultseerStore();
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => null,
+      readVaultAssetRecords: () => [
+        {
+          path: "Images/resistor.png",
+          filename: "resistor.png",
+          basename: "resistor",
+          extension: ".png",
+          mimeType: "image/png",
+          sizeBytes: 3,
+          modifiedTime: 10,
+          contentHash: "vault-file:3:10"
+        }
+      ],
+      readVaultBinaryFile: async (path) => {
+        expect(path).toBe("Images/resistor.png");
+        return new Uint8Array([1, 2, 3]);
+      }
+    });
+
+    await expect(tools.readVaultImage?.({ path: "Images/resistor.png", detail: "high" })).resolves.toEqual({
+      status: "ready",
+      path: "Images/resistor.png",
+      mimeType: "image/png",
+      sizeBytes: 3,
+      contentPart: {
+        type: "image_url",
+        imageUrl: "data:image/png;base64,AQID",
+        detail: "high"
+      }
+    });
+  });
+
+  it("returns a multimodal image content part only for indexed vault images", async () => {
+    const store = new InMemoryVaultseerStore();
+    await store.replaceSourceWorkspace(
+      [
+        {
+          id: "source-image",
+          status: "extracted",
+          sourcePath: "Images/resistor.png",
+          filename: "resistor.png",
+          extension: ".png",
+          sizeBytes: 3,
+          contentHash: "vault-file:3:10",
+          importedAt: "2026-05-04T00:00:00.000Z",
+          extractor: { id: "builtin-image", name: "Built-in image", version: null },
+          extractionOptions: {},
+          extractedMarkdown: "",
+          diagnostics: [],
+          attachments: [
+            {
+              id: "attachment-image",
+              sourceId: "source-image",
+              kind: "image",
+              filename: "resistor.png",
+              contentHash: "vault-file:3:10",
+              stagedPath: "Images/resistor.png",
+              mimeType: "image/png"
+            }
+          ]
+        }
+      ],
+      []
+    );
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => null,
+      readVaultBinaryFile: async (path) => {
+        expect(path).toBe("Images/resistor.png");
+        return new Uint8Array([1, 2, 3]);
+      }
+    });
+
+    await expect(tools.readVaultImage?.({ path: "Images/resistor.png", detail: "high" })).resolves.toEqual({
+      status: "ready",
+      path: "Images/resistor.png",
+      mimeType: "image/png",
+      sizeBytes: 3,
+      contentPart: {
+        type: "image_url",
+        imageUrl: "data:image/png;base64,AQID",
+        detail: "high"
+      }
+    });
+  });
+
+  it("does not read image bytes when the vault image was not indexed first", async () => {
+    const tools = createCodexReadOnlyToolImplementations({
+      store: new InMemoryVaultseerStore(),
+      getActivePath: () => null,
+      readVaultBinaryFile: async () => {
+        throw new Error("must not read unindexed image bytes");
+      }
+    });
+
+    await expect(tools.readVaultImage?.({ path: "Images/missing.png" })).resolves.toEqual({
+      status: "not_indexed",
+      path: "Images/missing.png",
+      message: "Index this vault image before Vaultseer can attach it to the agent turn."
+    });
+  });
+});
+
 describe("createCodexReadOnlyToolImplementations", () => {
   it("inspects the current active note through the active note context builder", async () => {
     const store = new InMemoryVaultseerStore();

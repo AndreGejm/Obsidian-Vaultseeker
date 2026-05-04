@@ -77,6 +77,38 @@ const SEARCH_SCHEMA: JsonSchemaObject = {
   additionalProperties: false
 };
 
+const READ_VAULT_IMAGE_SCHEMA: JsonSchemaObject = {
+  type: "object",
+  properties: {
+    path: {
+      type: "string",
+      description: "Vault-relative path to an indexed image file."
+    },
+    detail: {
+      type: "string",
+      enum: ["auto", "low", "high"],
+      description: "Vision detail level to request for this image."
+    }
+  },
+  required: ["path"],
+  additionalProperties: false
+};
+
+const LIST_VAULT_IMAGES_SCHEMA: JsonSchemaObject = {
+  type: "object",
+  properties: {
+    query: {
+      type: "string",
+      description: "Optional filename or vault path filter."
+    },
+    limit: {
+      type: "number",
+      description: "Optional maximum number of image records to return."
+    }
+  },
+  additionalProperties: false
+};
+
 const RUN_COMMAND_SCHEMA: JsonSchemaObject = {
   type: "object",
   properties: {
@@ -86,6 +118,18 @@ const RUN_COMMAND_SCHEMA: JsonSchemaObject = {
     }
   },
   required: ["commandId"],
+  additionalProperties: false
+};
+
+const IMPORT_VAULT_TEXT_SOURCE_SCHEMA: JsonSchemaObject = {
+  type: "object",
+  properties: {
+    path: {
+      type: "string",
+      description: "Vault-relative path to a text or code file to import as a searchable source workspace."
+    }
+  },
+  required: ["path"],
   additionalProperties: false
 };
 
@@ -171,6 +215,14 @@ const VAULTSEER_AGENT_TOOL_DEFINITIONS: VaultseerAgentToolDefinition[] = [
   readTool("search_notes", "Search notes", "Search indexed vault notes using Vaultseer lexical and semantic search.", SEARCH_SCHEMA),
   readTool("semantic_search_notes", "Semantic search notes", "Search indexed vault notes by similar meaning.", SEARCH_SCHEMA),
   readTool("search_sources", "Search sources", "Search extracted or imported source workspaces.", SEARCH_SCHEMA),
+  readTool(
+    "inspect_pdf_source_extraction_queue",
+    "Inspect PDF extraction queue",
+    "Inspect queued, running, completed, failed, and cancelled Marker PDF extraction jobs.",
+    EMPTY_INPUT_SCHEMA
+  ),
+  readTool("list_vault_images", "List vault images", "List image files inside the Obsidian vault that Vaultseer may read for visual analysis.", LIST_VAULT_IMAGES_SCHEMA),
+  readTool("read_vault_image", "Read vault image", "Attach an indexed vault image to the current agent turn for visual analysis.", READ_VAULT_IMAGE_SCHEMA),
   readTool("suggest_current_note_tags", "Suggest current note tags", "Draft deterministic tag suggestions for the active note.", EMPTY_INPUT_SCHEMA),
   readTool("suggest_current_note_links", "Suggest current note links", "Draft deterministic internal-link suggestions for the active note.", EMPTY_INPUT_SCHEMA),
   readTool("inspect_note_quality", "Inspect note quality", "Inspect narrow quality issues such as missing tags, duplicate aliases, malformed tags, and broken links.", EMPTY_INPUT_SCHEMA),
@@ -179,6 +231,31 @@ const VAULTSEER_AGENT_TOOL_DEFINITIONS: VaultseerAgentToolDefinition[] = [
   commandTool("rebuild_note_index", "Rebuild note index", "Request a read-only vault index rebuild.", EMPTY_INPUT_SCHEMA),
   commandTool("plan_semantic_index", "Plan semantic index", "Request semantic indexing queue planning.", EMPTY_INPUT_SCHEMA),
   commandTool("run_semantic_index_batch", "Run semantic index batch", "Request one semantic indexing batch.", EMPTY_INPUT_SCHEMA),
+  commandTool("import_vault_text_source", "Import vault text source", "Import one vault text/code file as a searchable source workspace.", IMPORT_VAULT_TEXT_SOURCE_SCHEMA),
+  commandTool(
+    "plan_pdf_source_extraction",
+    "Plan PDF source extraction",
+    "Request Marker PDF extraction queue planning for PDFs inside the vault.",
+    EMPTY_INPUT_SCHEMA
+  ),
+  commandTool(
+    "run_pdf_source_extraction_batch",
+    "Run PDF extraction batch",
+    "Request one Marker PDF extraction batch for already queued vault PDFs.",
+    EMPTY_INPUT_SCHEMA
+  ),
+  commandTool(
+    "plan_source_semantic_index",
+    "Plan source semantic index",
+    "Request semantic indexing queue planning for extracted or imported source workspaces.",
+    EMPTY_INPUT_SCHEMA
+  ),
+  commandTool(
+    "run_source_semantic_index_batch",
+    "Run source semantic index batch",
+    "Request one semantic indexing batch for extracted or imported source chunks.",
+    EMPTY_INPUT_SCHEMA
+  ),
   commandTool("run_vaultseer_command", "Run Vaultseer command", "Request a named Vaultseer Studio command by commandId.", RUN_COMMAND_SCHEMA),
   approvedScriptTool("run_approved_script", "Run approved script", "Run a user-approved note-management script by script id.", RUN_APPROVED_SCRIPT_SCHEMA),
   proposalTool("stage_suggestion", "Stage suggestion", "Stage tag, link, or full current-note rewrite proposals for user review.", STAGE_SUGGESTION_SCHEMA),

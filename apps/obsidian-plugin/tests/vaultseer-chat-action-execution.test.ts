@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CodexToolResult } from "../src/codex-tool-dispatcher";
 import {
+  appendAssistantRequestedStageSuggestion,
   buildVaultseerToolContinuationMessage,
   buildVaultseerActionEvidenceMessage,
   shouldContinueVaultseerToolLoop,
@@ -109,5 +110,44 @@ describe("vaultseer chat action execution", () => {
     expect(shouldContinueVaultseerToolLoop({ iteration: 2, maxIterations: 3, resultCount: 1 })).toBe(true);
     expect(shouldContinueVaultseerToolLoop({ iteration: 3, maxIterations: 3, resultCount: 1 })).toBe(false);
     expect(shouldContinueVaultseerToolLoop({ iteration: 0, maxIterations: 3, resultCount: 0 })).toBe(false);
+  });
+
+  it("adds an auto-stage request when the assistant text asks to run stage_suggestion", () => {
+    const requests = appendAssistantRequestedStageSuggestion({
+      activePath: "Electronics/Resistor types 2.md",
+      content: [
+        "Please run Vaultseer `stage_suggestion` with:",
+        "```markdown",
+        "# Resistor types 2",
+        "",
+        "A cleaner active note.",
+        "```"
+      ].join("\n"),
+      toolRequests: []
+    });
+
+    expect(requests).toEqual([
+      {
+        tool: "stage_suggestion",
+        input: {
+          kind: "rewrite",
+          targetPath: "Electronics/Resistor types 2.md",
+          markdown: "# Resistor types 2\n\nA cleaner active note.",
+          reason: "Assistant requested Vaultseer stage_suggestion for the active note."
+        }
+      }
+    ]);
+  });
+
+  it("does not duplicate an explicit stage_suggestion tool request", () => {
+    const explicitRequest = { tool: "stage_suggestion", input: { kind: "rewrite", markdown: "# Explicit" } };
+
+    expect(
+      appendAssistantRequestedStageSuggestion({
+        activePath: "Electronics/Resistor types 2.md",
+        content: "Please run Vaultseer `stage_suggestion` with:\n```markdown\n# Parsed\n```",
+        toolRequests: [explicitRequest]
+      })
+    ).toEqual([explicitRequest]);
   });
 });

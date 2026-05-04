@@ -26,6 +26,24 @@ describe("buildStudioChatShellState", () => {
         label: "Draft suggestions",
         prompt: "draft suggestions for this note",
         title: "Draft tag, link, and cleanup suggestions for the active note"
+      },
+      {
+        id: "review-rewrite",
+        label: "Review & rewrite",
+        prompt: "review this note and make it clearer, better structured, and easier to read",
+        title: "Ask Vaultseer to inspect the active note and stage a rewrite proposal"
+      },
+      {
+        id: "find-related",
+        label: "Find related",
+        prompt: "find related notes for this note",
+        title: "Search for connected notes and nearby ideas"
+      },
+      {
+        id: "source-check",
+        label: "Check sources",
+        prompt: "search sources for claims related to this note",
+        title: "Search extracted literature and source workspaces for supporting context"
       }
     ]);
   });
@@ -49,13 +67,31 @@ describe("buildStudioChatShellState", () => {
     expect(
       buildStudioChatComposerState({
         chatSending: true,
-        draft: "next note idea"
+        draft: "next note idea",
+        focusRequested: true
       })
     ).toEqual({
       inputValue: "next note idea",
       inputDisabled: false,
       sendDisabled: true,
-      sendLabel: "..."
+      sendLabel: "...",
+      shouldRestoreFocus: false
+    });
+  });
+
+  it("restores composer focus after a finished chat action asks for it", () => {
+    expect(
+      buildStudioChatComposerState({
+        chatSending: false,
+        draft: "",
+        focusRequested: true
+      })
+    ).toEqual({
+      inputValue: "",
+      inputDisabled: false,
+      sendDisabled: false,
+      sendLabel: ">",
+      shouldRestoreFocus: true
     });
   });
 });

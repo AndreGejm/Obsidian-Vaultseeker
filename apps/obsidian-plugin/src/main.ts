@@ -1,8 +1,16 @@
 import path from "node:path";
-import { Notice, Plugin } from "obsidian";
-import { PersistentVaultseerStore, type IndexHealth, type NoteRecordInput, type VaultseerStore } from "@vaultseer/core";
+import { Notice, Plugin, TFile } from "obsidian";
+import {
+  getEmbeddingJobTargetKind,
+  isBuiltInTextSourceExtension,
+  PersistentVaultseerStore,
+  type EmbeddingJobRecord,
+  type IndexHealth,
+  type NoteRecordInput,
+  type VaultseerStore
+} from "@vaultseer/core";
 import { checkReadOnlyIndexStaleness, clearReadOnlyIndex, rebuildReadOnlyIndex } from "./index-controller";
-import { readVaultNoteInputs, type VaultReaderApp } from "./obsidian-adapter";
+import { readVaultAssetRecords, readVaultNoteInputs, type VaultAssetReaderApp, type VaultReaderApp } from "./obsidian-adapter";
 import { mapObsidianFileToNoteInput } from "./metadata-mapper";
 import {
   DEFAULT_SETTINGS,
@@ -67,6 +75,7 @@ import {
   VAULTSEER_STUDIO_COMMAND_DEFINITIONS,
   type VaultseerStudioCommand
 } from "./studio-command-catalog";
+import { validateVaultRelativePath } from "./vault-path-policy";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
@@ -201,8 +210,67 @@ export default class VaultseerPlugin extends Plugin {
               afterJobCount: after.length
             };
           },
+          inspectPdfSourceExtractionQueue: async () => {
+            const summary = await summarizeSourceExtractionQueue({ store: this.store });
+            return {
+              status: "ready",
+              message: `Vaultseer PDF extraction queue: ${formatSourceExtractionQueueStatus(summary)}.`,
+              ...summary
+            };
+          },
+          planPdfSourceExtraction: async () => {
+            const before = await summarizeSourceExtractionQueue({ store: this.store });
+            await this.planSourceExtractionQueue();
+            const after = await summarizeSourceExtractionQueue({ store: this.store });
+            return {
+              status: "completed",
+              message: `Vaultseer PDF extraction queue now has ${after.queuedJobCount} queued job${after.queuedJobCount === 1 ? "" : "s"}.`,
+              before,
+              after
+            };
+          },
+          runPdfSourceExtractionBatch: async () => {
+            const before = await summarizeSourceExtractionQueue({ store: this.store });
+            await this.runSourceExtractionBatch();
+            const after = await summarizeSourceExtractionQueue({ store: this.store });
+            return {
+              status: "completed",
+              message: `Vaultseer PDF extraction batch finished; ${after.queuedJobCount} queued job${after.queuedJobCount === 1 ? "" : "s"} remain.`,
+              before,
+              after
+            };
+          },
+          planSourceSemanticIndex: async () => {
+            const before = await this.store.getEmbeddingJobRecords();
+            await this.planSourceSemanticIndex();
+            const after = await this.store.getEmbeddingJobRecords();
+            const queuedSourceJobs = countQueuedSourceEmbeddingJobs(after);
+            return {
+              status: "completed",
+              message: `Vaultseer source semantic indexing queue now has ${queuedSourceJobs} queued job${queuedSourceJobs === 1 ? "" : "s"}.`,
+              beforeJobCount: before.length,
+              afterJobCount: after.length,
+              queuedSourceJobCount: queuedSourceJobs
+            };
+          },
+          runSourceSemanticIndexBatch: async () => {
+            const before = await this.store.getEmbeddingJobRecords();
+            await this.runSourceSemanticIndexBatch();
+            const after = await this.store.getEmbeddingJobRecords();
+            const queuedSourceJobs = countQueuedSourceEmbeddingJobs(after);
+            return {
+              status: "completed",
+              message: `Vaultseer source semantic indexing batch finished; ${queuedSourceJobs} queued job${queuedSourceJobs === 1 ? "" : "s"} remain.`,
+              beforeJobCount: before.length,
+              afterJobCount: after.length,
+              queuedSourceJobCount: queuedSourceJobs
+            };
+          },
+          importVaultTextSource: async (input) => this.importVaultTextSourceToolRequest(input),
           writePort,
-          approvedScriptRegistry
+          approvedScriptRegistry,
+          readVaultAssetRecords: () => readVaultAssetRecords(this.app as unknown as VaultAssetReaderApp),
+          readVaultBinaryFile: (path) => this.readVaultBinaryFile(path)
         });
 
         return new VaultseerStudioView(
@@ -239,7 +307,8 @@ export default class VaultseerPlugin extends Plugin {
             getSettings: () => this.settings
           }),
           codexTools,
-          writePort
+          writePort,
+          (path) => this.readVaultBinaryFile(path)
         );
       }
     );
@@ -521,6 +590,40 @@ export default class VaultseerPlugin extends Plugin {
     });
 
     new Notice(summary.message);
+  }
+
+  private async importVaultTextSourceToolRequest(input: unknown): Promise<unknown> {
+    const sourcePath = parseImportVaultTextSourcePath(input);
+    const file = this.app.vault.getAbstractFileByPath(sourcePath);
+    if (!(file instanceof TFile)) {
+      return {
+        status: "not_found",
+        sourcePath,
+        message: `Vaultseer could not find vault file '${sourcePath}'.`
+      };
+    }
+
+    const extension = file.extension ? `.${file.extension}` : getFileExtension(file.name);
+    if (!isBuiltInTextSourceExtension(extension)) {
+      return {
+        status: "unsupported",
+        sourcePath,
+        extension,
+        message: `Vaultseer can import text and code files as source workspaces, but '${sourcePath}' is not a supported text source.`
+      };
+    }
+
+    const summary = await importVaultTextSourceWorkspace({
+      store: this.store,
+      sourcePath: file.path,
+      filename: file.name,
+      extension,
+      sizeBytes: file.stat.size,
+      readText: async () => this.app.vault.cachedRead(file),
+      now: () => new Date().toISOString()
+    });
+    await this.refreshVaultseerViews();
+    return summary;
   }
 
   async chooseTextSourceFile(): Promise<void> {
@@ -894,6 +997,15 @@ export default class VaultseerPlugin extends Plugin {
     return mapObsidianFileToNoteInput(file, content, this.app.metadataCache.getFileCache(file));
   }
 
+  private async readVaultBinaryFile(path: string): Promise<ArrayBuffer> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      throw new Error(`Vaultseer could not find vault file '${path}'.`);
+    }
+
+    return this.app.vault.readBinary(file);
+  }
+
   private createVaultseerStudioCommands(): VaultseerStudioCommand[] {
     const handlers: Record<string, () => Promise<void>> = {
       "rebuild-index": () => this.rebuildIndex(),
@@ -1032,6 +1144,21 @@ function parseVaultseerCommandId(input: unknown): string {
   throw new Error("Vaultseer command requests must include a nonblank commandId.");
 }
 
+function parseImportVaultTextSourcePath(input: unknown): string {
+  if (typeof input === "string" && input.trim().length > 0) {
+    return validateVaultRelativePath(input.trim());
+  }
+
+  if (typeof input === "object" && input !== null && !Array.isArray(input)) {
+    const sourcePath = (input as Record<string, unknown>)["path"];
+    if (typeof sourcePath === "string" && sourcePath.trim().length > 0) {
+      return validateVaultRelativePath(sourcePath.trim());
+    }
+  }
+
+  throw new Error("Vaultseer source import requests must include a nonblank vault-relative path.");
+}
+
 function getFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
   if (lastDot <= 0 || lastDot === filename.length - 1) return "";
@@ -1052,4 +1179,8 @@ function formatSourceExtractionQueueStatus(summary: SourceExtractionQueueStatusS
     `${summary.failedJobCount} failed`,
     `${summary.cancelledJobCount} cancelled`
   ].join(", ");
+}
+
+function countQueuedSourceEmbeddingJobs(jobs: EmbeddingJobRecord[]): number {
+  return jobs.filter((job) => job.status === "queued" && getEmbeddingJobTargetKind(job) === "source").length;
 }

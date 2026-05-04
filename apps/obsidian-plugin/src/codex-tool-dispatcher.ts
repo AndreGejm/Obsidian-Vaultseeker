@@ -5,6 +5,9 @@ export type CodexReadOnlyTool =
   | "search_notes"
   | "semantic_search_notes"
   | "search_sources"
+  | "inspect_pdf_source_extraction_queue"
+  | "list_vault_images"
+  | "read_vault_image"
   | "suggest_current_note_tags"
   | "suggest_current_note_links"
   | "inspect_note_quality"
@@ -15,6 +18,11 @@ export type CodexCommandTool =
   | "rebuild_note_index"
   | "plan_semantic_index"
   | "run_semantic_index_batch"
+  | "import_vault_text_source"
+  | "plan_pdf_source_extraction"
+  | "run_pdf_source_extraction_batch"
+  | "plan_source_semantic_index"
+  | "run_source_semantic_index_batch"
   | "run_approved_script";
 export type CodexProposalTool = "stage_suggestion" | "review_current_note_proposal";
 export type AllowedCodexTool = CodexReadOnlyTool | CodexCommandTool | CodexProposalTool;
@@ -27,6 +35,9 @@ const READ_ONLY_CODEX_TOOLS = new Set<string>([
   "search_notes",
   "semantic_search_notes",
   "search_sources",
+  "inspect_pdf_source_extraction_queue",
+  "list_vault_images",
+  "read_vault_image",
   "suggest_current_note_tags",
   "suggest_current_note_links",
   "inspect_note_quality",
@@ -38,6 +49,11 @@ const COMMAND_CODEX_TOOLS = new Set<string>([
   "rebuild_note_index",
   "plan_semantic_index",
   "run_semantic_index_batch",
+  "import_vault_text_source",
+  "plan_pdf_source_extraction",
+  "run_pdf_source_extraction_batch",
+  "plan_source_semantic_index",
+  "run_source_semantic_index_batch",
   "run_approved_script"
 ]);
 const PROPOSAL_CODEX_TOOLS = new Set<string>(["stage_suggestion", "review_current_note_proposal"]);
@@ -67,16 +83,24 @@ export type CodexToolImplementations = {
   searchNotes(input: unknown): Promise<unknown>;
   semanticSearchNotes?(input: unknown): Promise<unknown>;
   searchSources(input: unknown): Promise<unknown>;
+  inspectPdfSourceExtractionQueue?(): Promise<unknown>;
+  listVaultImages?(input: unknown): Promise<unknown>;
+  readVaultImage?(input: unknown): Promise<unknown>;
   suggestCurrentNoteTags?(): Promise<unknown>;
   suggestCurrentNoteLinks?(): Promise<unknown>;
   inspectNoteQuality?(): Promise<unknown>;
   listCurrentNoteProposals?(): Promise<unknown>;
   listApprovedScripts?(): Promise<unknown>;
   runVaultseerCommand?(input: unknown): Promise<unknown>;
+  importVaultTextSource?(input: unknown): Promise<unknown>;
   runApprovedScript?(input: unknown): Promise<unknown>;
   rebuildNoteIndex?(): Promise<unknown>;
   planSemanticIndex?(): Promise<unknown>;
   runSemanticIndexBatch?(): Promise<unknown>;
+  planPdfSourceExtraction?(): Promise<unknown>;
+  runPdfSourceExtractionBatch?(): Promise<unknown>;
+  planSourceSemanticIndex?(): Promise<unknown>;
+  runSourceSemanticIndexBatch?(): Promise<unknown>;
   stageSuggestion(input: unknown, context?: CodexProposalToolExecutionContext): Promise<unknown>;
   reviewCurrentNoteProposal?(input: unknown, context?: CodexProposalToolExecutionContext): Promise<unknown>;
 };
@@ -173,6 +197,21 @@ export async function dispatchCodexToolRequest(input: {
       );
     case "search_sources":
       return runAllowedCodexTool("search_sources", () => input.tools.searchSources(input.request.input));
+    case "inspect_pdf_source_extraction_queue":
+      return runOptionalAllowedCodexTool(
+        "inspect_pdf_source_extraction_queue",
+        input.tools.inspectPdfSourceExtractionQueue
+      );
+    case "list_vault_images":
+      return runOptionalAllowedCodexTool(
+        "list_vault_images",
+        input.tools.listVaultImages === undefined ? undefined : () => input.tools.listVaultImages!(input.request.input)
+      );
+    case "read_vault_image":
+      return runOptionalAllowedCodexTool(
+        "read_vault_image",
+        input.tools.readVaultImage === undefined ? undefined : () => input.tools.readVaultImage!(input.request.input)
+      );
     case "suggest_current_note_tags":
       return runOptionalAllowedCodexTool("suggest_current_note_tags", input.tools.suggestCurrentNoteTags);
     case "suggest_current_note_links":
@@ -189,6 +228,27 @@ export async function dispatchCodexToolRequest(input: {
       return runOptionalAllowedCodexTool("plan_semantic_index", input.tools.planSemanticIndex);
     case "run_semantic_index_batch":
       return runOptionalAllowedCodexTool("run_semantic_index_batch", input.tools.runSemanticIndexBatch);
+    case "import_vault_text_source":
+      return runOptionalAllowedCodexTool(
+        "import_vault_text_source",
+        input.tools.importVaultTextSource === undefined
+          ? undefined
+          : () => input.tools.importVaultTextSource!(input.request.input)
+      );
+    case "plan_pdf_source_extraction":
+      return runOptionalAllowedCodexTool("plan_pdf_source_extraction", input.tools.planPdfSourceExtraction);
+    case "run_pdf_source_extraction_batch":
+      return runOptionalAllowedCodexTool(
+        "run_pdf_source_extraction_batch",
+        input.tools.runPdfSourceExtractionBatch
+      );
+    case "plan_source_semantic_index":
+      return runOptionalAllowedCodexTool("plan_source_semantic_index", input.tools.planSourceSemanticIndex);
+    case "run_source_semantic_index_batch":
+      return runOptionalAllowedCodexTool(
+        "run_source_semantic_index_batch",
+        input.tools.runSourceSemanticIndexBatch
+      );
     case "run_vaultseer_command":
       {
         const runVaultseerCommand = input.tools.runVaultseerCommand;

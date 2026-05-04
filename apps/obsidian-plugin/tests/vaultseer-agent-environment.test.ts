@@ -98,6 +98,53 @@ describe("VaultseerAgentEnvironment", () => {
     expect(message).toContain("Use liveNote.text as the active-note body");
   });
 
+  it("passes user image attachments to the native agent runtime", async () => {
+    const provider: VaultseerAgentProvider = {
+      respond: vi.fn(async () => ({ message: "I can see the attached image." }))
+    };
+    const environment = new VaultseerAgentEnvironment({
+      providerFactory: () => provider,
+      registry: createVaultseerAgentToolRegistry({
+        tools: {
+          inspectCurrentNote: async () => ({ status: "ready" }),
+          searchNotes: async () => ({ status: "ready", results: [] }),
+          searchSources: async () => ({ status: "ready", results: [] }),
+          stageSuggestion: async () => ({ status: "planned" })
+        }
+      })
+    });
+
+    await environment.send({
+      message: "What does this image show?",
+      context: readyContext(),
+      attachments: [
+        {
+          type: "image_url",
+          imageUrl: "data:image/png;base64,AQID",
+          detail: "auto"
+        }
+      ]
+    });
+
+    expect(provider.respond).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: "user",
+            content: expect.arrayContaining([
+              expect.objectContaining({ type: "text", text: expect.stringContaining("What does this image show?") }),
+              {
+                type: "image_url",
+                imageUrl: "data:image/png;base64,AQID",
+                detail: "auto"
+              }
+            ])
+          })
+        ])
+      })
+    );
+  });
+
   it("returns a blocked-context response without contacting the provider", async () => {
     const provider: VaultseerAgentProvider = {
       respond: vi.fn()

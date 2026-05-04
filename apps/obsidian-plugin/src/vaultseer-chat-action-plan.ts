@@ -139,8 +139,38 @@ export function buildVaultseerChatActionPlan(input: BuildVaultseerChatActionPlan
     };
   }
 
+  if (mentionsPdfSourceExtractionBatch(normalized)) {
+    return {
+      content: "Vaultseer prepared one native PDF extraction batch.",
+      toolRequests: [
+        { tool: "inspect_pdf_source_extraction_queue", input: null },
+        { tool: "run_pdf_source_extraction_batch", input: null }
+      ]
+    };
+  }
+
   if (mentionsSourceExtraction(normalized)) {
-    return commandPlan("Vaultseer prepared the source extraction queue command.", "plan-source-extraction-queue");
+    return {
+      content: "Vaultseer prepared native PDF source extraction planning.",
+      toolRequests: [
+        { tool: "inspect_pdf_source_extraction_queue", input: null },
+        { tool: "plan_pdf_source_extraction", input: null }
+      ]
+    };
+  }
+
+  if (mentionsSourceSemanticIndexBatch(normalized)) {
+    return {
+      content: "Vaultseer prepared one source semantic indexing batch.",
+      toolRequests: [{ tool: "run_source_semantic_index_batch", input: null }]
+    };
+  }
+
+  if (mentionsSourceSemanticIndexing(normalized)) {
+    return {
+      content: "Vaultseer prepared native source semantic indexing.",
+      toolRequests: [{ tool: "plan_source_semantic_index", input: null }]
+    };
   }
 
   if (mentionsSemanticIndexing(normalized)) {
@@ -244,8 +274,32 @@ function mentionsSemanticIndexing(message: string): boolean {
   return /\b(vectori[sz]e|semantic index|embedding|embeddings|chunk and vectori[sz]e)\b/.test(message);
 }
 
+function mentionsSourceSemanticIndexing(message: string): boolean {
+  return (
+    /\b(vectori[sz]e|semantic index|embedding|embeddings|chunk and vectori[sz]e)\b.*\b(sources?|source workspaces?|extracted sources?|literature|datasheets?|papers?|books?)\b/.test(
+      message
+    ) ||
+    /\b(sources?|source workspaces?|extracted sources?|literature|datasheets?|papers?|books?)\b.*\b(vectori[sz]e|semantic index|embedding|embeddings|chunk and vectori[sz]e)\b/.test(
+      message
+    )
+  );
+}
+
+function mentionsSourceSemanticIndexBatch(message: string): boolean {
+  return (
+    /\brun\b.*\b(source|sources|source semantic|extracted sources?)\b.*\b(semantic|embedding|embeddings|indexing)\b.*\bbatch\b/.test(
+      message
+    ) ||
+    /\brun\b.*\b(source semantic indexing|source embedding)\s+batch\b/.test(message)
+  );
+}
+
 function mentionsSourceExtraction(message: string): boolean {
   return /\b(extract|convert|import)\b.*\b(pdf|source|datasheet|paper|book|docx|presentation)\b/.test(message);
+}
+
+function mentionsPdfSourceExtractionBatch(message: string): boolean {
+  return /\brun\b.*\b(pdf|source)\b.*\b(extraction|extract)\b.*\bbatch\b/.test(message);
 }
 
 function mentionsDraftSuggestions(message: string): boolean {
@@ -334,6 +388,11 @@ export type ExtractLastAssistantMarkdownSuggestionMessage = {
   content: string;
 };
 
+export type BuildAssistantRequestedStageSuggestionInput = {
+  content: string;
+  activePath: string | null;
+};
+
 export function extractLastAssistantMarkdownSuggestion(
   messages: ExtractLastAssistantMarkdownSuggestionMessage[]
 ): string | null {
@@ -352,8 +411,31 @@ export function extractLastAssistantMarkdownSuggestion(
   return null;
 }
 
+export function buildAssistantRequestedStageSuggestion(
+  input: BuildAssistantRequestedStageSuggestionInput
+): CodexChatToolRequest | null {
+  if (input.activePath === null || !mentionsAssistantStageSuggestion(input.content)) {
+    return null;
+  }
+
+  const markdown = extractLastMarkdownFence(input.content);
+  if (!isNonblank(markdown)) {
+    return null;
+  }
+
+  return {
+    tool: "stage_suggestion",
+    input: {
+      kind: "rewrite",
+      targetPath: input.activePath,
+      markdown: markdown.trim(),
+      reason: "Assistant requested Vaultseer stage_suggestion for the active note."
+    }
+  };
+}
+
 function extractLastMarkdownFence(content: string): string | null {
-  const matches = [...content.matchAll(/```(?:markdown|md)?\s*\r?\n([\s\S]*?)```/gi)];
+  const matches = [...content.matchAll(/```(?:markdown|md)?[ \t]*(?:\r?\n)?([\s\S]*?)```/gi)];
   for (let index = matches.length - 1; index >= 0; index -= 1) {
     const candidate = matches[index]?.[1]?.trim();
     if (candidate) {
@@ -362,6 +444,10 @@ function extractLastMarkdownFence(content: string): string | null {
   }
 
   return null;
+}
+
+function mentionsAssistantStageSuggestion(content: string): boolean {
+  return /\bstage_suggestion\b/i.test(content);
 }
 
 function buildVaultseerCapabilitiesMessage(): string {

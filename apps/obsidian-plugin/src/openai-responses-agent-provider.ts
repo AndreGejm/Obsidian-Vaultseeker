@@ -1,4 +1,5 @@
 import type {
+  VaultseerAgentContentPart,
   VaultseerAgentMessage,
   VaultseerAgentProvider,
   VaultseerAgentProviderRequest,
@@ -127,14 +128,38 @@ function toResponsesInputItem(message: VaultseerAgentMessage): Record<string, un
     return {
       type: "function_call_output",
       call_id: message.toolCallId,
-      output: message.content
+      output: typeof message.content === "string" ? message.content : JSON.stringify(message.content)
     };
   }
 
   return {
     role: message.role,
-    content: message.content
+    content: serializeResponsesContent(message.content)
   };
+}
+
+function serializeResponsesContent(content: string | VaultseerAgentContentPart[]): string | Record<string, unknown>[] {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  return content.map((part) => {
+    if (part.type === "text") {
+      return {
+        type: "input_text",
+        text: part.text
+      };
+    }
+
+    const serialized: Record<string, unknown> = {
+      type: "input_image",
+      image_url: part.imageUrl
+    };
+    if (part.detail) {
+      serialized.detail = part.detail;
+    }
+    return serialized;
+  });
 }
 
 function parseResponsesBody(body: unknown): {

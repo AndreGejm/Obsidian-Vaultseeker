@@ -149,6 +149,66 @@ describe("createVaultseerStudioCodexChatAdapter", () => {
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
+  it("forwards user image attachments through the OpenAI-backed Studio adapter", async () => {
+    const fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        output: [
+          {
+            type: "message",
+            content: [{ type: "output_text", text: "The image is attached." }]
+          }
+        ]
+      }),
+      text: async () => ""
+    }));
+    const adapter = createVaultseerStudioCodexChatAdapter({
+      client: fakeAcpClient(),
+      registry: createVaultseerAgentToolRegistry({
+        tools: {
+          inspectCurrentNote: async () => ({ status: "ready" }),
+          searchNotes: async () => ({ status: "ready", results: [] }),
+          searchSources: async () => ({ status: "ready", results: [] }),
+          stageSuggestion: async () => ({ status: "planned" })
+        }
+      }),
+      getSettings: () => ({
+        codexProvider: "openai",
+        openAiApiKey: "sk-test",
+        openAiBaseUrl: "https://api.openai.com/v1",
+        codexModel: "gpt-5.4",
+        codexReasoningEffort: "medium"
+      }),
+      fetch
+    });
+
+    await adapter.send({
+      message: "Analyze this vault image",
+      context: readyContext(),
+      attachments: [
+        {
+          type: "image_url",
+          imageUrl: "data:image/png;base64,AQID",
+          detail: "auto"
+        }
+      ]
+    });
+
+    const body = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+    expect(body.input[1].content).toEqual([
+      {
+        type: "input_text",
+        text: expect.stringContaining("Analyze this vault image")
+      },
+      {
+        type: "input_image",
+        image_url: "data:image/png;base64,AQID",
+        detail: "auto"
+      }
+    ]);
+  });
+
   it("falls back to the ACP adapter when OpenAI is not configured", async () => {
     const client = fakeAcpClient();
     const adapter = createVaultseerStudioCodexChatAdapter({

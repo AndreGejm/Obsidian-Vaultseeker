@@ -16,6 +16,8 @@ describe("dispatchCodexToolRequest", () => {
     expect(isAllowedCodexTool("search_notes")).toBe(true);
     expect(isAllowedCodexTool("semantic_search_notes")).toBe(true);
     expect(isAllowedCodexTool("search_sources")).toBe(true);
+    expect(isAllowedCodexTool("inspect_pdf_source_extraction_queue")).toBe(true);
+    expect(isAllowedCodexTool("list_vault_images")).toBe(true);
     expect(isAllowedCodexTool("suggest_current_note_tags")).toBe(true);
     expect(isAllowedCodexTool("suggest_current_note_links")).toBe(true);
     expect(isAllowedCodexTool("inspect_note_quality")).toBe(true);
@@ -24,6 +26,11 @@ describe("dispatchCodexToolRequest", () => {
     expect(isAllowedCodexTool("rebuild_note_index")).toBe(true);
     expect(isAllowedCodexTool("plan_semantic_index")).toBe(true);
     expect(isAllowedCodexTool("run_semantic_index_batch")).toBe(true);
+    expect(isAllowedCodexTool("import_vault_text_source")).toBe(true);
+    expect(isAllowedCodexTool("plan_pdf_source_extraction")).toBe(true);
+    expect(isAllowedCodexTool("run_pdf_source_extraction_batch")).toBe(true);
+    expect(isAllowedCodexTool("plan_source_semantic_index")).toBe(true);
+    expect(isAllowedCodexTool("run_source_semantic_index_batch")).toBe(true);
     expect(isAllowedCodexTool("run_vaultseer_command")).toBe(true);
     expect(isAllowedCodexTool("run_approved_script")).toBe(true);
     expect(isAllowedCodexTool("stage_suggestion")).toBe(true);
@@ -40,6 +47,8 @@ describe("dispatchCodexToolRequest", () => {
     expect(isReadOnlyCodexTool("search_notes")).toBe(true);
     expect(isReadOnlyCodexTool("semantic_search_notes")).toBe(true);
     expect(isReadOnlyCodexTool("search_sources")).toBe(true);
+    expect(isReadOnlyCodexTool("inspect_pdf_source_extraction_queue")).toBe(true);
+    expect(isReadOnlyCodexTool("list_vault_images")).toBe(true);
     expect(isReadOnlyCodexTool("suggest_current_note_tags")).toBe(true);
     expect(isReadOnlyCodexTool("suggest_current_note_links")).toBe(true);
     expect(isReadOnlyCodexTool("inspect_note_quality")).toBe(true);
@@ -48,6 +57,11 @@ describe("dispatchCodexToolRequest", () => {
     expect(isReadOnlyCodexTool("rebuild_note_index")).toBe(false);
     expect(isReadOnlyCodexTool("plan_semantic_index")).toBe(false);
     expect(isReadOnlyCodexTool("run_semantic_index_batch")).toBe(false);
+    expect(isReadOnlyCodexTool("import_vault_text_source")).toBe(false);
+    expect(isReadOnlyCodexTool("plan_pdf_source_extraction")).toBe(false);
+    expect(isReadOnlyCodexTool("run_pdf_source_extraction_batch")).toBe(false);
+    expect(isReadOnlyCodexTool("plan_source_semantic_index")).toBe(false);
+    expect(isReadOnlyCodexTool("run_source_semantic_index_batch")).toBe(false);
     expect(isReadOnlyCodexTool("run_vaultseer_command")).toBe(false);
     expect(isReadOnlyCodexTool("run_approved_script")).toBe(false);
     expect(isReadOnlyCodexTool("stage_suggestion")).toBe(false);
@@ -59,11 +73,18 @@ describe("dispatchCodexToolRequest", () => {
     expect(isProposalCodexTool("search_notes")).toBe(false);
     expect(getCodexToolRequestClass("search_notes")).toBe("read-only");
     expect(getCodexToolRequestClass("semantic_search_notes")).toBe("read-only");
+    expect(getCodexToolRequestClass("inspect_pdf_source_extraction_queue")).toBe("read-only");
+    expect(getCodexToolRequestClass("list_vault_images")).toBe("read-only");
     expect(getCodexToolRequestClass("list_current_note_proposals")).toBe("read-only");
     expect(getCodexToolRequestClass("list_approved_scripts")).toBe("read-only");
     expect(getCodexToolRequestClass("rebuild_note_index")).toBe("command");
     expect(getCodexToolRequestClass("plan_semantic_index")).toBe("command");
     expect(getCodexToolRequestClass("run_semantic_index_batch")).toBe("command");
+    expect(getCodexToolRequestClass("import_vault_text_source")).toBe("command");
+    expect(getCodexToolRequestClass("plan_pdf_source_extraction")).toBe("command");
+    expect(getCodexToolRequestClass("run_pdf_source_extraction_batch")).toBe("command");
+    expect(getCodexToolRequestClass("plan_source_semantic_index")).toBe("command");
+    expect(getCodexToolRequestClass("run_source_semantic_index_batch")).toBe("command");
     expect(getCodexToolRequestClass("run_vaultseer_command")).toBe("command");
     expect(getCodexToolRequestClass("run_approved_script")).toBe("command");
     expect(getCodexToolRequestClass("stage_suggestion")).toBe("proposal");
@@ -78,6 +99,8 @@ describe("dispatchCodexToolRequest", () => {
     expect(isRunnableCodexTool("search_notes")).toBe(true);
     expect(isRunnableCodexTool("semantic_search_notes")).toBe(true);
     expect(isRunnableCodexTool("search_sources")).toBe(true);
+    expect(isRunnableCodexTool("inspect_pdf_source_extraction_queue")).toBe(true);
+    expect(isRunnableCodexTool("list_vault_images")).toBe(true);
     expect(isRunnableCodexTool("suggest_current_note_tags")).toBe(true);
     expect(isRunnableCodexTool("suggest_current_note_links")).toBe(true);
     expect(isRunnableCodexTool("inspect_note_quality")).toBe(true);
@@ -86,6 +109,11 @@ describe("dispatchCodexToolRequest", () => {
     expect(isRunnableCodexTool("rebuild_note_index")).toBe(true);
     expect(isRunnableCodexTool("plan_semantic_index")).toBe(true);
     expect(isRunnableCodexTool("run_semantic_index_batch")).toBe(true);
+    expect(isRunnableCodexTool("import_vault_text_source")).toBe(true);
+    expect(isRunnableCodexTool("plan_pdf_source_extraction")).toBe(true);
+    expect(isRunnableCodexTool("run_pdf_source_extraction_batch")).toBe(true);
+    expect(isRunnableCodexTool("plan_source_semantic_index")).toBe(true);
+    expect(isRunnableCodexTool("run_source_semantic_index_batch")).toBe(true);
     expect(isRunnableCodexTool("run_vaultseer_command")).toBe(true);
     expect(isRunnableCodexTool("run_approved_script")).toBe(true);
     expect(isRunnableCodexTool("stage_suggestion")).toBe(false);
@@ -168,6 +196,15 @@ describe("dispatchCodexToolRequest", () => {
     const rebuildNoteIndex = vi.fn(async () => ({ message: "Indexed 2 notes." }));
     const planSemanticIndex = vi.fn(async () => ({ queuedJobCount: 4 }));
     const runSemanticIndexBatch = vi.fn(async () => ({ claimed: 2, completed: 2, failed: 0 }));
+    const importVaultTextSource = vi.fn(async () => ({
+      status: "extracted",
+      sourcePath: "Sources/timer.vhd",
+      chunkCount: 2
+    }));
+    const planPdfSourceExtraction = vi.fn(async () => ({ plannedJobCount: 1 }));
+    const runPdfSourceExtractionBatch = vi.fn(async () => ({ claimed: 1, completed: 1, failed: 0 }));
+    const planSourceSemanticIndex = vi.fn(async () => ({ queuedJobCount: 3 }));
+    const runSourceSemanticIndexBatch = vi.fn(async () => ({ claimed: 3, completed: 3, failed: 0 }));
 
     const tools = {
       inspectCurrentNote: async () => ({ status: "ready" }),
@@ -176,6 +213,11 @@ describe("dispatchCodexToolRequest", () => {
       rebuildNoteIndex,
       planSemanticIndex,
       runSemanticIndexBatch,
+      importVaultTextSource,
+      planPdfSourceExtraction,
+      runPdfSourceExtractionBatch,
+      planSourceSemanticIndex,
+      runSourceSemanticIndexBatch,
       stageSuggestion: async () => ({ staged: true })
     };
 
@@ -199,6 +241,49 @@ describe("dispatchCodexToolRequest", () => {
       ok: true,
       tool: "run_semantic_index_batch",
       output: { claimed: 2, completed: 2, failed: 0 }
+    });
+    await expect(
+      dispatchCodexToolRequest({
+        request: { tool: "import_vault_text_source", input: { path: "Sources/timer.vhd" } },
+        tools
+      })
+    ).resolves.toEqual({
+      ok: true,
+      tool: "import_vault_text_source",
+      output: {
+        status: "extracted",
+        sourcePath: "Sources/timer.vhd",
+        chunkCount: 2
+      }
+    });
+    expect(importVaultTextSource).toHaveBeenCalledWith({ path: "Sources/timer.vhd" });
+    await expect(
+      dispatchCodexToolRequest({ request: { tool: "plan_pdf_source_extraction", input: null }, tools })
+    ).resolves.toEqual({
+      ok: true,
+      tool: "plan_pdf_source_extraction",
+      output: { plannedJobCount: 1 }
+    });
+    await expect(
+      dispatchCodexToolRequest({ request: { tool: "run_pdf_source_extraction_batch", input: null }, tools })
+    ).resolves.toEqual({
+      ok: true,
+      tool: "run_pdf_source_extraction_batch",
+      output: { claimed: 1, completed: 1, failed: 0 }
+    });
+    await expect(
+      dispatchCodexToolRequest({ request: { tool: "plan_source_semantic_index", input: null }, tools })
+    ).resolves.toEqual({
+      ok: true,
+      tool: "plan_source_semantic_index",
+      output: { queuedJobCount: 3 }
+    });
+    await expect(
+      dispatchCodexToolRequest({ request: { tool: "run_source_semantic_index_batch", input: null }, tools })
+    ).resolves.toEqual({
+      ok: true,
+      tool: "run_source_semantic_index_batch",
+      output: { claimed: 3, completed: 3, failed: 0 }
     });
   });
 
@@ -246,6 +331,20 @@ describe("dispatchCodexToolRequest", () => {
       expectedArguments: [{ query: "datasheet" }]
     },
     {
+      tool: "inspect_pdf_source_extraction_queue",
+      input: null,
+      implementation: "inspectPdfSourceExtractionQueue",
+      output: { status: "ready", queuedJobCount: 2 },
+      expectedArguments: []
+    },
+    {
+      tool: "list_vault_images",
+      input: { query: "resistor", limit: 3 },
+      implementation: "listVaultImages",
+      output: { status: "ready", images: [] },
+      expectedArguments: [{ query: "resistor", limit: 3 }]
+    },
+    {
       tool: "suggest_current_note_tags",
       input: null,
       implementation: "suggestCurrentNoteTags",
@@ -288,6 +387,10 @@ describe("dispatchCodexToolRequest", () => {
       searchNotes: vi.fn(async () => (scenario.implementation === "searchNotes" ? scenario.output : [])),
       semanticSearchNotes: vi.fn(async () => (scenario.implementation === "semanticSearchNotes" ? scenario.output : [])),
       searchSources: vi.fn(async () => (scenario.implementation === "searchSources" ? scenario.output : [])),
+      inspectPdfSourceExtractionQueue: vi.fn(async () =>
+        scenario.implementation === "inspectPdfSourceExtractionQueue" ? scenario.output : []
+      ),
+      listVaultImages: vi.fn(async () => (scenario.implementation === "listVaultImages" ? scenario.output : [])),
       suggestCurrentNoteTags: vi.fn(async () => (scenario.implementation === "suggestCurrentNoteTags" ? scenario.output : [])),
       suggestCurrentNoteLinks: vi.fn(async () => (scenario.implementation === "suggestCurrentNoteLinks" ? scenario.output : [])),
       inspectNoteQuality: vi.fn(async () => (scenario.implementation === "inspectNoteQuality" ? scenario.output : [])),

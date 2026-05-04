@@ -2,7 +2,10 @@ import type { CodexChatToolRequest } from "./codex-chat-state";
 import { formatCodexToolResultMessage } from "./codex-tool-result-message";
 import type { CodexToolResult } from "./codex-tool-dispatcher";
 import { isReadOnlyCodexTool } from "./codex-tool-dispatcher";
-import type { VaultseerChatActionPlan } from "./vaultseer-chat-action-plan";
+import {
+  buildAssistantRequestedStageSuggestion,
+  type VaultseerChatActionPlan
+} from "./vaultseer-chat-action-plan";
 
 export type VaultseerChatActionPlanSplit = {
   autoRunToolRequests: CodexChatToolRequest[];
@@ -22,6 +25,23 @@ export function splitCodexToolRequestsForExecution(toolRequests: CodexChatToolRe
       (request) => !isReadOnlyCodexTool(request.tool) && request.tool !== "stage_suggestion"
     )
   };
+}
+
+export function appendAssistantRequestedStageSuggestion(input: {
+  content: string;
+  activePath: string | null;
+  toolRequests: CodexChatToolRequest[];
+}): CodexChatToolRequest[] {
+  if (input.toolRequests.some((request) => request.tool === "stage_suggestion")) {
+    return input.toolRequests;
+  }
+
+  const request = buildAssistantRequestedStageSuggestion({
+    content: input.content,
+    activePath: input.activePath
+  });
+
+  return request === null ? input.toolRequests : [...input.toolRequests, request];
 }
 
 export function buildVaultseerActionEvidenceMessage(message: string, results: CodexToolResult[]): string {

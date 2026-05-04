@@ -25,6 +25,7 @@ export type StudioChatComposerState = {
   inputDisabled: boolean;
   sendDisabled: boolean;
   sendLabel: string;
+  shouldRestoreFocus: boolean;
 };
 
 export type BuildStudioChatShellStateInput = {
@@ -53,12 +54,14 @@ export function buildStudioChatShellState(input: BuildStudioChatShellStateInput)
 export function buildStudioChatComposerState(input: {
   chatSending: boolean;
   draft: string;
+  focusRequested?: boolean;
 }): StudioChatComposerState {
   return {
     inputValue: input.draft,
     inputDisabled: false,
     sendDisabled: input.chatSending,
-    sendLabel: input.chatSending ? "..." : ">"
+    sendLabel: input.chatSending ? "..." : ">",
+    shouldRestoreFocus: input.focusRequested === true && !input.chatSending
   };
 }
 
@@ -73,6 +76,24 @@ function buildQuickPrompts(activeNotePath: string | null): StudioChatQuickPrompt
       label: "Draft suggestions",
       prompt: "draft suggestions for this note",
       title: "Draft tag, link, and cleanup suggestions for the active note"
+    },
+    {
+      id: "review-rewrite",
+      label: "Review & rewrite",
+      prompt: "review this note and make it clearer, better structured, and easier to read",
+      title: "Ask Vaultseer to inspect the active note and stage a rewrite proposal"
+    },
+    {
+      id: "find-related",
+      label: "Find related",
+      prompt: "find related notes for this note",
+      title: "Search for connected notes and nearby ideas"
+    },
+    {
+      id: "source-check",
+      label: "Check sources",
+      prompt: "search sources for claims related to this note",
+      title: "Search extracted literature and source workspaces for supporting context"
     }
   ];
 }

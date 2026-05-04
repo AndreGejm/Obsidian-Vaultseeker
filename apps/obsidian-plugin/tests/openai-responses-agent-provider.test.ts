@@ -83,6 +83,39 @@ describe("OpenAiResponsesAgentProvider", () => {
     ]);
   });
 
+  it("serializes multimodal user content parts for Responses image input", async () => {
+    const fetch = vi.fn(async () => responseJson({ output: [{ type: "message", content: [{ type: "output_text", text: "I can see it." }] }] }));
+    const provider = new OpenAiResponsesAgentProvider({
+      apiKey: "sk-test",
+      model: "gpt-5.4",
+      reasoningEffort: "low",
+      fetch
+    });
+
+    await provider.respond({
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "What is this diagram?" },
+            { type: "image_url", imageUrl: "data:image/png;base64,abc123", detail: "high" }
+          ]
+        }
+      ],
+      tools: []
+    });
+
+    expect(JSON.parse(fetch.mock.calls[0][1].body).input).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: "What is this diagram?" },
+          { type: "input_image", image_url: "data:image/png;base64,abc123", detail: "high" }
+        ]
+      }
+    ]);
+  });
+
   it("preserves prior Responses output items before returning tool outputs", async () => {
     const firstOutput = [
       {

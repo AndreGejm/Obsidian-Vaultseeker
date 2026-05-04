@@ -53,6 +53,7 @@ import {
   extractLastAssistantMarkdownSuggestion
 } from "./vaultseer-chat-action-plan";
 import {
+  appendAssistantRequestedStageSuggestion,
   buildVaultseerToolContinuationMessage,
   buildVaultseerActionEvidenceMessage,
   shouldContinueVaultseerToolLoop,
@@ -66,6 +67,15 @@ import {
 } from "./vaultseer-studio-command-request";
 import { recordWriteReviewQueueDecision } from "./write-review-queue-controller";
 import { applyApprovedVaultWriteOperation } from "./write-apply-controller";
+import {
+  canAttachMoreChatImages,
+  CHAT_IMAGE_ATTACHMENT_EXTENSIONS,
+  createChatImageAttachment,
+  MAX_CHAT_IMAGE_ATTACHMENT_COUNT,
+  type ChatImageAttachment
+} from "./chat-image-attachment";
+import { VaultseerChatImageAttachmentModal } from "./chat-image-attachment-modal";
+import { readVaultAssetRecords, type VaultAssetReaderApp, type VaultAssetRecord } from "./obsidian-adapter";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 const MAX_CODEX_TOOL_CONTINUATION_ITERATIONS = 3;
@@ -76,6 +86,8 @@ export class VaultseerStudioView extends ItemView {
   private chatSending = false;
   private chatSendId = 0;
   private chatDraft = "";
+  private chatDraftAttachments: ChatImageAttachment[] = [];
+  private chatComposerFocusRequested = false;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -91,7 +103,8 @@ export class VaultseerStudioView extends ItemView {
     private readonly buildActiveNoteContext: () => Promise<ActiveNoteContextPacket>,
     private readonly chatAdapter: CodexChatAdapter,
     private readonly codexTools: CodexToolImplementations,
-    private readonly writePort: VaultWritePort
+    private readonly writePort: VaultWritePort,
+    private readonly readVaultBinaryFile: (path: string) => Promise<Uint8Array | ArrayBuffer>
   ) {
     super(leaf);
   }
@@ -205,6 +218,9 @@ export class VaultseerStudioView extends ItemView {
       button.setAttribute("aria-pressed", String(mode.selected));
       button.addEventListener("click", async () => {
         this.activeMode = mode.id;
+        if (mode.id === "chat") {
+          this.chatComposerFocusRequested = true;
+        }
         await this.refresh();
       });
     }
@@ -274,6 +290,9 @@ export class VaultseerStudioView extends ItemView {
     button.addEventListener("click", async () => {
       if (card.modeId !== undefined) {
         this.activeMode = card.modeId;
+        if (card.modeId === "chat") {
+          this.chatComposerFocusRequested = true;
+        }
         await this.refresh();
         return;
       }
@@ -292,6 +311,7 @@ export class VaultseerStudioView extends ItemView {
       this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
       this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
       this.activeMode = "chat";
+      this.chatComposerFocusRequested = true;
       await this.refresh();
     });
   }
@@ -387,7 +407,8 @@ export class VaultseerStudioView extends ItemView {
     });
     const composerState = buildStudioChatComposerState({
       chatSending: this.chatSending,
-      draft: this.chatDraft
+      draft: this.chatDraft,
+      focusRequested: this.chatComposerFocusRequested
     });
     const shellEl = containerEl.createDiv({ cls: "vaultseer-codex-shell" });
     const headerEl = shellEl.createDiv({ cls: "vaultseer-codex-header" });
@@ -409,7 +430,9 @@ export class VaultseerStudioView extends ItemView {
       this.chatSendId += 1;
       this.chatSending = false;
       this.chatState = applyChatEvent(this.chatState, { type: "clear" });
+      this.chatDraftAttachments = [];
       await this.resetCodexSession();
+      this.chatComposerFocusRequested = true;
       await this.refresh();
     });
 
@@ -443,6 +466,7 @@ export class VaultseerStudioView extends ItemView {
     if (shellState.activeNoteMention !== null) {
       composerBodyEl.createEl("span", { text: shellState.activeNoteMention, cls: "vaultseer-codex-note-pill" });
     }
+    this.renderChatAttachmentControls(composerBodyEl);
 
     let input: HTMLTextAreaElement | null = null;
     const quickCommands = getVaultseerQuickCommands(this.getVaultseerCommands());
@@ -483,6 +507,7 @@ export class VaultseerStudioView extends ItemView {
           const activePath = this.getActivePath();
           this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
           this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
+          this.chatComposerFocusRequested = true;
           await this.refresh();
         });
       }
@@ -546,6 +571,10 @@ export class VaultseerStudioView extends ItemView {
     });
     input.disabled = composerState.inputDisabled;
     sendButton.disabled = composerState.sendDisabled;
+    if (composerState.shouldRestoreFocus) {
+      this.chatComposerFocusRequested = false;
+      restoreChatComposerFocus(input);
+    }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -553,7 +582,10 @@ export class VaultseerStudioView extends ItemView {
 
       const message = input.value.trim();
       if (!message) return;
+      const attachments = this.chatDraftAttachments.map((attachment) => attachment.contentPart);
+      const displayMessage = formatChatUserMessage(message, this.chatDraftAttachments);
       this.chatDraft = "";
+      this.chatDraftAttachments = [];
 
       const activePath = this.getActivePath();
       this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
@@ -565,6 +597,7 @@ export class VaultseerStudioView extends ItemView {
       );
       if (slashResult.handled) {
         this.chatState = slashResult.state;
+        this.chatComposerFocusRequested = true;
         await this.refresh();
         return;
       }
@@ -574,7 +607,7 @@ export class VaultseerStudioView extends ItemView {
       const sendScope = createCodexChatSendScope(this.chatState, sendId, activePath);
       this.chatState = applyChatEvent(this.chatState, {
         type: "user_message",
-        content: message,
+        content: displayMessage,
         createdAt: new Date().toISOString()
       });
 
@@ -585,7 +618,8 @@ export class VaultseerStudioView extends ItemView {
           const context = await this.buildActiveNoteContext();
           const response = await this.chatAdapter.send({
             message,
-            context
+            context,
+            attachments
           });
           await this.applyCodexResponseAndAutoContinue(sendScope, response, 0);
         } catch (error) {
@@ -598,6 +632,7 @@ export class VaultseerStudioView extends ItemView {
         } finally {
           if (this.chatSendId === sendId) {
             this.chatSending = false;
+            this.chatComposerFocusRequested = true;
           }
           await this.refresh();
         }
@@ -635,6 +670,7 @@ export class VaultseerStudioView extends ItemView {
       }
       if (actionPlan.sendToCodex === false) {
         this.chatSending = false;
+        this.chatComposerFocusRequested = true;
         await this.refresh();
         return;
       }
@@ -657,7 +693,8 @@ export class VaultseerStudioView extends ItemView {
         const context = await this.buildActiveNoteContext();
         const response = await this.chatAdapter.send({
           message: buildVaultseerActionEvidenceMessage(actionPlan.agentMessage ?? message, automaticToolResults),
-          context
+          context,
+          attachments
         });
         await this.applyCodexResponseAndAutoContinue(sendScope, response, 0);
       } catch (error) {
@@ -670,6 +707,7 @@ export class VaultseerStudioView extends ItemView {
       } finally {
         if (this.chatSendId === sendId) {
           this.chatSending = false;
+          this.chatComposerFocusRequested = true;
         }
         await this.refresh();
       }
@@ -685,7 +723,12 @@ export class VaultseerStudioView extends ItemView {
       return;
     }
 
-    const split = splitCodexToolRequestsForExecution(response.toolRequests);
+    const toolRequests = appendAssistantRequestedStageSuggestion({
+      content: response.content,
+      activePath: sendScope.activePath,
+      toolRequests: response.toolRequests
+    });
+    const split = splitCodexToolRequestsForExecution(toolRequests);
     this.appendNativeAgentToolEvents(response.toolEvents);
     this.chatState = applyChatEvent(this.chatState, {
       type: "assistant_message",
@@ -792,6 +835,7 @@ export class VaultseerStudioView extends ItemView {
     } finally {
       if (this.chatSendId === sendId) {
         this.chatSending = false;
+        this.chatComposerFocusRequested = true;
       }
       await this.refresh();
     }
@@ -883,6 +927,7 @@ export class VaultseerStudioView extends ItemView {
     this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
     const request = this.chatState.pendingToolRequests.find((pendingRequest) => pendingRequest.displayId === displayId);
     if (!request || !isRunnableCodexTool(request.tool) || request.executionStatus !== undefined) {
+      this.chatComposerFocusRequested = true;
       await this.refresh();
       return;
     }
@@ -923,6 +968,7 @@ export class VaultseerStudioView extends ItemView {
       await this.continueCodexAfterToolResults([result]);
     }
 
+    this.chatComposerFocusRequested = true;
     await this.refresh();
   }
 
@@ -931,6 +977,7 @@ export class VaultseerStudioView extends ItemView {
     this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
     const request = this.chatState.pendingToolRequests.find((pendingRequest) => pendingRequest.displayId === displayId);
     if (!request || !isProposalCodexTool(request.tool) || request.tool !== "stage_suggestion" || request.executionStatus !== undefined) {
+      this.chatComposerFocusRequested = true;
       await this.refresh();
       return;
     }
@@ -973,6 +1020,7 @@ export class VaultseerStudioView extends ItemView {
       await this.continueCodexAfterToolResults([result]);
     }
 
+    this.chatComposerFocusRequested = true;
     await this.refresh();
   }
 
@@ -981,6 +1029,93 @@ export class VaultseerStudioView extends ItemView {
       type: "dismiss_tool_request",
       displayId
     });
+    this.chatComposerFocusRequested = true;
+    await this.refresh();
+  }
+
+  private renderChatAttachmentControls(containerEl: HTMLElement): void {
+    const rowEl = containerEl.createDiv({ cls: "vaultseer-codex-attachment-row" });
+    const nativeAttachmentsEnabled = this.chatAdapter.capabilities?.nativeToolLoop === true;
+    const attachButton = rowEl.createEl("button", {
+      text: "Attach image",
+      attr: {
+        type: "button",
+        "aria-label": "Attach vault image"
+      },
+      cls: "vaultseer-codex-attach-button"
+    });
+    attachButton.disabled =
+      this.chatSending ||
+      !nativeAttachmentsEnabled ||
+      !canAttachMoreChatImages(this.chatDraftAttachments.length);
+    attachButton.title = nativeAttachmentsEnabled
+      ? `Attach up to ${MAX_CHAT_IMAGE_ATTACHMENT_COUNT} vault images to the next message`
+      : "Image attachments require the OpenAI provider in Vaultseer settings";
+    attachButton.addEventListener("click", async () => {
+      await this.handleImageAttachPick();
+    });
+
+    for (const attachment of this.chatDraftAttachments) {
+      const chipEl = rowEl.createDiv({ cls: "vaultseer-codex-attachment-chip" });
+      chipEl.createEl("span", { text: attachment.filename });
+      const removeButton = chipEl.createEl("button", {
+        text: "x",
+        attr: {
+          type: "button",
+          "aria-label": `Remove ${attachment.filename}`
+        }
+      });
+      removeButton.disabled = this.chatSending;
+      removeButton.addEventListener("click", async () => {
+        this.chatDraftAttachments = this.chatDraftAttachments.filter((item) => item.id !== attachment.id);
+        this.chatComposerFocusRequested = true;
+        await this.refresh();
+      });
+    }
+  }
+
+  private async handleImageAttachPick(): Promise<void> {
+    if (this.chatAdapter.capabilities?.nativeToolLoop !== true) {
+      new Notice("Vaultseer image attachments require the OpenAI provider in settings.");
+      return;
+    }
+
+    if (!canAttachMoreChatImages(this.chatDraftAttachments.length)) {
+      new Notice(`Vaultseer can attach up to ${MAX_CHAT_IMAGE_ATTACHMENT_COUNT} images per message.`);
+      return;
+    }
+
+    const assets = readVaultAssetRecords(this.app as unknown as VaultAssetReaderApp, {
+      extensions: [...CHAT_IMAGE_ATTACHMENT_EXTENSIONS]
+    });
+    new VaultseerChatImageAttachmentModal(this.app, assets, async (asset) => {
+      await this.attachVaultImageToDraft(asset);
+    }).open();
+  }
+
+  private async attachVaultImageToDraft(asset: VaultAssetRecord): Promise<void> {
+    if (!canAttachMoreChatImages(this.chatDraftAttachments.length)) {
+      new Notice(`Vaultseer can attach up to ${MAX_CHAT_IMAGE_ATTACHMENT_COUNT} images per message.`);
+      return;
+    }
+
+    if (this.chatDraftAttachments.some((attachment) => attachment.path === asset.path)) {
+      new Notice(`${asset.filename} is already attached.`);
+      return;
+    }
+
+    try {
+      const attachment = await createChatImageAttachment({
+        asset,
+        readVaultBinaryFile: this.readVaultBinaryFile
+      });
+      this.chatDraftAttachments = [...this.chatDraftAttachments, attachment];
+      new Notice(`Attached ${attachment.filename} to the next Vaultseer message.`);
+      this.chatComposerFocusRequested = true;
+    } catch (error) {
+      new Notice(`Vaultseer could not attach ${asset.filename}: ${getErrorMessage(error)}`);
+    }
+
     await this.refresh();
   }
 
@@ -997,6 +1132,7 @@ export class VaultseerStudioView extends ItemView {
 
     const decision = proposalControlToDecision(controlType);
     if (decision === null) {
+      this.chatComposerFocusRequested = true;
       await this.refresh();
       return;
     }
@@ -1009,6 +1145,7 @@ export class VaultseerStudioView extends ItemView {
       const operation = await this.loadProposalOperation(operationId);
       if (operation === null) {
         new Notice("Vaultseer proposal is no longer available.");
+        this.chatComposerFocusRequested = true;
         await this.refresh();
         return;
       }
@@ -1031,6 +1168,7 @@ export class VaultseerStudioView extends ItemView {
       new Notice(`Vaultseer could not approve and apply the proposal: ${getErrorMessage(error)}`);
     }
 
+    this.chatComposerFocusRequested = true;
     await this.refresh();
   }
 
@@ -1039,6 +1177,7 @@ export class VaultseerStudioView extends ItemView {
       const operation = await this.loadProposalOperation(operationId);
       if (operation === null) {
         new Notice("Vaultseer proposal is no longer available.");
+        this.chatComposerFocusRequested = true;
         await this.refresh();
         return;
       }
@@ -1054,6 +1193,7 @@ export class VaultseerStudioView extends ItemView {
       new Notice(`Vaultseer could not record the proposal decision: ${getErrorMessage(error)}`);
     }
 
+    this.chatComposerFocusRequested = true;
     await this.refresh();
   }
 
@@ -1062,6 +1202,7 @@ export class VaultseerStudioView extends ItemView {
       const operation = await this.loadProposalOperation(operationId);
       if (operation === null) {
         new Notice("Vaultseer proposal is no longer available.");
+        this.chatComposerFocusRequested = true;
         await this.refresh();
         return;
       }
@@ -1079,6 +1220,7 @@ export class VaultseerStudioView extends ItemView {
       new Notice(`Vaultseer could not apply the proposal: ${getErrorMessage(error)}`);
     }
 
+    this.chatComposerFocusRequested = true;
     await this.refresh();
   }
 
@@ -1097,6 +1239,7 @@ export class VaultseerStudioView extends ItemView {
         item.setTitle(model === current ? `Current: ${model}` : model);
         item.onClick(async () => {
           await this.updateCodexModelSelection({ codexModel: model });
+          this.chatComposerFocusRequested = true;
           await this.refresh();
         });
       });
@@ -1122,6 +1265,7 @@ export class VaultseerStudioView extends ItemView {
             const activePath = this.getActivePath();
             this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
             this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
+            this.chatComposerFocusRequested = true;
             await this.refresh();
           });
         });
@@ -1142,6 +1286,7 @@ export class VaultseerStudioView extends ItemView {
         item.setTitle(effort === current ? `Current: ${label}` : label);
         item.onClick(async () => {
           await this.updateCodexModelSelection({ codexReasoningEffort: effort });
+          this.chatComposerFocusRequested = true;
           await this.refresh();
         });
       });
@@ -1159,7 +1304,11 @@ export class VaultseerStudioView extends ItemView {
   }
 
   private handleActiveNoteOpened(activePath: string | null): void {
+    const previousActivePath = this.chatState.activePath;
     this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+    if (previousActivePath !== activePath) {
+      this.chatDraftAttachments = [];
+    }
   }
 }
 
@@ -1214,6 +1363,18 @@ function formatReasoningEffort(value: string): string {
   return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }
 
+function formatChatUserMessage(message: string, attachments: ChatImageAttachment[]): string {
+  if (attachments.length === 0) {
+    return message;
+  }
+
+  return [
+    message,
+    "",
+    `Attached image${attachments.length === 1 ? "" : "s"}: ${attachments.map((item) => item.filename).join(", ")}`
+  ].join("\n");
+}
+
 function requestFormSubmit(form: HTMLFormElement): void {
   if (typeof form.requestSubmit === "function") {
     form.requestSubmit();
@@ -1221,4 +1382,12 @@ function requestFormSubmit(form: HTMLFormElement): void {
   }
 
   form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+}
+
+function restoreChatComposerFocus(input: HTMLTextAreaElement): void {
+  window.setTimeout(() => {
+    input.focus();
+    const cursorPosition = input.value.length;
+    input.setSelectionRange(cursorPosition, cursorPosition);
+  }, 0);
 }

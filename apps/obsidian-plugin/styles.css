@@ -314,6 +314,66 @@
   background: var(--background-modifier-hover);
 }
 
+.vaultseer-codex-attachment-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.vaultseer-codex-attach-button,
+.vaultseer-codex-attachment-chip {
+  min-height: 28px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: none;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.vaultseer-codex-attach-button {
+  padding: 4px 8px;
+}
+
+.vaultseer-codex-attach-button:hover,
+.vaultseer-codex-attach-button:focus-visible {
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+}
+
+.vaultseer-codex-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 2px 4px 2px 8px;
+  color: var(--text-normal);
+}
+
+.vaultseer-codex-attachment-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vaultseer-codex-attachment-chip button {
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.vaultseer-codex-attachment-chip button:hover,
+.vaultseer-codex-attachment-chip button:focus-visible {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
 .vaultseer-codex-composer textarea {
   width: 100%;
   min-height: 74px;

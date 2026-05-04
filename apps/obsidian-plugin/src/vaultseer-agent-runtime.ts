@@ -5,9 +5,20 @@ const DEFAULT_MAX_TOOL_ITERATIONS = 10;
 
 export type VaultseerAgentMessageRole = "system" | "user" | "assistant" | "tool";
 
+export type VaultseerAgentContentPart =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "image_url";
+      imageUrl: string;
+      detail?: "auto" | "low" | "high";
+    };
+
 export type VaultseerAgentMessage = {
   role: VaultseerAgentMessageRole;
-  content: string;
+  content: string | VaultseerAgentContentPart[];
   name?: string;
   toolCallId?: string;
 };
@@ -49,6 +60,7 @@ export type RunVaultseerAgentTurnInput = {
   provider: VaultseerAgentProvider;
   registry: VaultseerAgentToolRegistry;
   userMessage: string;
+  userAttachments?: VaultseerAgentContentPart[];
   messages?: VaultseerAgentMessage[];
   maxToolIterations?: number;
   allowProposalTools?: boolean;
@@ -59,7 +71,7 @@ export async function runVaultseerAgentTurn(input: RunVaultseerAgentTurnInput): 
     ...(input.messages ?? []),
     {
       role: "user",
-      content: input.userMessage
+      content: buildUserMessageContent(input.userMessage, input.userAttachments)
     }
   ];
   const toolEvents: VaultseerAgentToolEvent[] = [];
@@ -121,8 +133,20 @@ export async function runVaultseerAgentTurn(input: RunVaultseerAgentTurnInput): 
         role: "tool",
         name: toolCall.name,
         toolCallId: toolCall.id,
-        content: JSON.stringify(result)
+        content: JSON.stringify(sanitizeToolResultForMessage(result))
       });
+      for (const contentPart of extractToolResultContentParts(result)) {
+        messages.push({
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Vaultseer attached image content returned by ${toolCall.name}.`
+            },
+            contentPart
+          ]
+        });
+      }
     }
   }
 
@@ -139,6 +163,74 @@ export async function runVaultseerAgentTurn(input: RunVaultseerAgentTurnInput): 
     messages,
     toolEvents
   };
+}
+
+function sanitizeToolResultForMessage(result: CodexToolResult): CodexToolResult {
+  if (!result.ok || !isRecord(result.output) || !isAgentContentPart(result.output["contentPart"])) {
+    return result;
+  }
+
+  return {
+    ...result,
+    output: {
+      ...result.output,
+      contentPart: sanitizeAgentContentPart(result.output["contentPart"])
+    }
+  };
+}
+
+function extractToolResultContentParts(result: CodexToolResult): VaultseerAgentContentPart[] {
+  if (!result.ok || !isRecord(result.output) || !isAgentContentPart(result.output["contentPart"])) {
+    return [];
+  }
+
+  return [result.output["contentPart"]];
+}
+
+function sanitizeAgentContentPart(part: VaultseerAgentContentPart): VaultseerAgentContentPart {
+  if (part.type === "text") {
+    return part;
+  }
+
+  const sanitized: VaultseerAgentContentPart = {
+    type: "image_url",
+    imageUrl: "[attached as multimodal content]"
+  };
+  if (part.detail) {
+    sanitized.detail = part.detail;
+  }
+  return sanitized;
+}
+
+function isAgentContentPart(value: unknown): value is VaultseerAgentContentPart {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (value["type"] === "text") {
+    return typeof value["text"] === "string";
+  }
+
+  return (
+    value["type"] === "image_url" &&
+    typeof value["imageUrl"] === "string" &&
+    (value["detail"] === undefined || value["detail"] === "auto" || value["detail"] === "low" || value["detail"] === "high")
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function buildUserMessageContent(
+  userMessage: string,
+  userAttachments: VaultseerAgentContentPart[] | undefined
+): string | VaultseerAgentContentPart[] {
+  if (!userAttachments || userAttachments.length === 0) {
+    return userMessage;
+  }
+
+  return [{ type: "text", text: userMessage }, ...userAttachments];
 }
 
 function normalizeMaxToolIterations(value: number | undefined): number {

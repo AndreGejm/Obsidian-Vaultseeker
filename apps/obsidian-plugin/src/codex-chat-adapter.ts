@@ -1,11 +1,12 @@
 import type { ActiveNoteContextPacket } from "@vaultseer/core";
 import type { CodexChatToolRequest } from "./codex-chat-state";
 import { buildCodexPromptPacket, type CodexPromptPacket } from "./codex-prompt-packet";
-import type { VaultseerAgentToolEvent } from "./vaultseer-agent-runtime";
+import type { VaultseerAgentContentPart, VaultseerAgentToolEvent } from "./vaultseer-agent-runtime";
 
 export type CodexChatAdapterRequest = {
   message: string;
   context: ActiveNoteContextPacket;
+  attachments?: VaultseerAgentContentPart[];
 };
 
 export type CodexChatAdapterResponse = {

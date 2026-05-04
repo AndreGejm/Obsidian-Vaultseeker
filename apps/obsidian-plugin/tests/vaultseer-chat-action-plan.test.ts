@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildVaultseerChatActionPlan, extractLastAssistantMarkdownSuggestion } from "../src/vaultseer-chat-action-plan";
+import {
+  buildAssistantRequestedStageSuggestion,
+  buildVaultseerChatActionPlan,
+  extractLastAssistantMarkdownSuggestion
+} from "../src/vaultseer-chat-action-plan";
 
 describe("buildVaultseerChatActionPlan", () => {
   it("answers Vaultseer capability questions locally instead of asking Codex", () => {
@@ -95,6 +99,88 @@ describe("buildVaultseerChatActionPlan", () => {
         { role: "assistant", content: "Use this:\n```markdown\n# New\n\nBody.\n```" }
       ])
     ).toBe("# New\n\nBody.");
+  });
+
+  it("extracts compact assistant markdown drafts when the fence starts inline", () => {
+    expect(
+      extractLastAssistantMarkdownSuggestion([
+        {
+          role: "assistant",
+          content: [
+            "Please run Vaultseer `stage_suggestion` with this content: ```markdown ---",
+            "title: Resistor types 2",
+            "tags:",
+            "- electronics",
+            "---",
+            "# Resistor types 2",
+            "",
+            "A clearer note."
+          ].join("\n") + "\n```"
+        }
+      ])
+    ).toBe(["---", "title: Resistor types 2", "tags:", "- electronics", "---", "# Resistor types 2", "", "A clearer note."].join("\n"));
+  });
+
+  it("stages compact previous assistant drafts for explicit stage-suggestion requests", () => {
+    const lastAssistantMarkdownSuggestion = extractLastAssistantMarkdownSuggestion([
+      {
+        role: "assistant",
+        content: "Please run Vaultseer `stage_suggestion` using: ```markdown # Resistor types 2\n\nA cleaner active note.\n```"
+      }
+    ]);
+
+    const plan = buildVaultseerChatActionPlan({
+      message: "run vaultseer stage suggestion",
+      activePath: "Electronics/Resistor types 2.md",
+      lastAssistantMarkdownSuggestion
+    });
+
+    expect(plan.sendToCodex).toBe(false);
+    expect(plan.content).toContain("Vaultseer staged the previous draft for review.");
+    expect(plan.autoStageToolRequests).toEqual([
+      {
+        tool: "stage_suggestion",
+        input: {
+          kind: "rewrite",
+          targetPath: "Electronics/Resistor types 2.md",
+          markdown: "# Resistor types 2\n\nA cleaner active note.",
+          reason: "User explicitly asked Vaultseer chat to write the previous assistant draft to the active note."
+        }
+      }
+    ]);
+  });
+
+  it("builds an automatic guarded proposal when an assistant asks to run stage_suggestion with markdown", () => {
+    expect(
+      buildAssistantRequestedStageSuggestion({
+        activePath: "Electronics/Resistor types 2.md",
+        content: [
+          "Please run Vaultseer `stage_suggestion` as a full current-note rewrite using:",
+          "```markdown",
+          "# Resistor types 2",
+          "",
+          "A cleaner active note.",
+          "```"
+        ].join("\n")
+      })
+    ).toEqual({
+      tool: "stage_suggestion",
+      input: {
+        kind: "rewrite",
+        targetPath: "Electronics/Resistor types 2.md",
+        markdown: "# Resistor types 2\n\nA cleaner active note.",
+        reason: "Assistant requested Vaultseer stage_suggestion for the active note."
+      }
+    });
+  });
+
+  it("does not auto-stage ordinary assistant markdown blocks", () => {
+    expect(
+      buildAssistantRequestedStageSuggestion({
+        activePath: "Electronics/Resistor types 2.md",
+        content: "Here is an example:\n```markdown\n# Example\n```"
+      })
+    ).toBeNull();
   });
 
   it("queues explicit tag staging requests locally for user approval", () => {
@@ -289,8 +375,50 @@ describe("buildVaultseerChatActionPlan", () => {
         activePath: "Notes/VHDL.md"
       })
     ).toEqual({
-      content: "Vaultseer prepared the source extraction queue command.",
-      toolRequests: [{ tool: "run_vaultseer_command", input: { commandId: "plan-source-extraction-queue" } }]
+      content: "Vaultseer prepared native PDF source extraction planning.",
+      toolRequests: [
+        { tool: "inspect_pdf_source_extraction_queue", input: null },
+        { tool: "plan_pdf_source_extraction", input: null }
+      ]
+    });
+  });
+
+  it("plans a native PDF extraction batch for queued PDF processing requests", () => {
+    expect(
+      buildVaultseerChatActionPlan({
+        message: "run one pdf extraction batch",
+        activePath: "Notes/VHDL.md"
+      })
+    ).toEqual({
+      content: "Vaultseer prepared one native PDF extraction batch.",
+      toolRequests: [
+        { tool: "inspect_pdf_source_extraction_queue", input: null },
+        { tool: "run_pdf_source_extraction_batch", input: null }
+      ]
+    });
+  });
+
+  it("plans native source semantic indexing for source vectorization requests", () => {
+    expect(
+      buildVaultseerChatActionPlan({
+        message: "vectorize extracted sources",
+        activePath: "Notes/VHDL.md"
+      })
+    ).toEqual({
+      content: "Vaultseer prepared native source semantic indexing.",
+      toolRequests: [{ tool: "plan_source_semantic_index", input: null }]
+    });
+  });
+
+  it("plans a native source semantic indexing batch for queued source embedding work", () => {
+    expect(
+      buildVaultseerChatActionPlan({
+        message: "run source semantic indexing batch",
+        activePath: "Notes/VHDL.md"
+      })
+    ).toEqual({
+      content: "Vaultseer prepared one source semantic indexing batch.",
+      toolRequests: [{ tool: "run_source_semantic_index_batch", input: null }]
     });
   });
 
