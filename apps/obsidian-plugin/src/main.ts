@@ -50,8 +50,10 @@ import type { SourceSearchModalSemanticSearch } from "./source-search-modal-quer
 import { activateVaultseerStudio, VAULTSEER_STUDIO_VIEW_TYPE, VaultseerStudioView } from "./studio-view";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 import { buildActiveNoteContextFromStore } from "./active-note-context-controller";
+import { createBuiltInApprovedScriptHandlers, mergeApprovedScriptDefinitions } from "./approved-script-builtins";
 import { createApprovedScriptRegistry } from "./approved-script-registry";
 import { createCodexReadOnlyToolImplementations } from "./codex-read-only-tool-implementations";
+import type { CodexToolImplementations } from "./codex-tool-dispatcher";
 import { NativeCodexAcpSessionClient } from "./native-codex-acp-session-client";
 import {
   buildNativeCodexSetupSummary,
@@ -155,11 +157,12 @@ export default class VaultseerPlugin extends Plugin {
       VAULTSEER_STUDIO_VIEW_TYPE,
       (leaf) => {
         const writePort = new ObsidianVaultWritePort(this.app.vault as unknown as ObsidianVaultWriteVault);
+        let codexTools: CodexToolImplementations;
         const approvedScriptRegistry = createApprovedScriptRegistry({
-          definitions: this.settings.approvedScripts,
-          handlers: {}
+          definitions: mergeApprovedScriptDefinitions(this.settings.approvedScripts),
+          handlers: createBuiltInApprovedScriptHandlers(() => codexTools)
         });
-        const codexTools = createCodexReadOnlyToolImplementations({
+        codexTools = createCodexReadOnlyToolImplementations({
           store: this.store,
           getActivePath: () => this.app.workspace.getActiveFile()?.path ?? null,
           readActiveNoteInput: (path) => this.readActiveNoteInput(path),

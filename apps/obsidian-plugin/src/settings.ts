@@ -171,7 +171,7 @@ export class VaultseerSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Approved scripts")
       .setDesc(
-        "JSON manifest for approved note-management scripts. Entries describe script ids and permissions only; command, path, executable, shell, and args fields are ignored."
+        "JSON overrides for Vaultseer-approved note-management scripts. Built-in scripts are available by default; add an entry with the same id and enabled=false to hide one. Entries describe ids and permissions only; command, path, executable, shell, and args fields are rejected."
       )
       .addTextArea((text) => {
         text.inputEl.rows = 8;
@@ -181,10 +181,8 @@ export class VaultseerSettingTab extends PluginSettingTab {
             JSON.stringify(
               [
                 {
-                  id: "normalize-frontmatter",
-                  title: "Normalize frontmatter",
-                  description: "Return a frontmatter cleanup proposal.",
-                  permission: "active-note-proposal"
+                  id: "stage-active-note-rewrite",
+                  enabled: false
                 }
               ],
               null,
