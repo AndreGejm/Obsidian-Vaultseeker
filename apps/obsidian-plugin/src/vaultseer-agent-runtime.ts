@@ -1,5 +1,10 @@
 import type { CodexToolResult } from "./codex-tool-dispatcher";
-import { toOpenAiFunctionTools, type OpenAiFunctionToolDefinition, type VaultseerAgentToolRegistry } from "./vaultseer-agent-tool-registry";
+import {
+  toOpenAiFunctionTools,
+  type OpenAiFunctionToolDefinition,
+  type VaultseerAgentToolDefinition,
+  type VaultseerAgentToolRegistry
+} from "./vaultseer-agent-tool-registry";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 10;
 
@@ -62,8 +67,10 @@ export type RunVaultseerAgentTurnInput = {
   userMessage: string;
   userAttachments?: VaultseerAgentContentPart[];
   messages?: VaultseerAgentMessage[];
+  toolDefinitions?: VaultseerAgentToolDefinition[];
   maxToolIterations?: number;
   allowProposalTools?: boolean;
+  allowProposalReviewTools?: boolean;
 };
 
 export async function runVaultseerAgentTurn(input: RunVaultseerAgentTurnInput): Promise<VaultseerAgentTurnResult> {
@@ -76,7 +83,7 @@ export async function runVaultseerAgentTurn(input: RunVaultseerAgentTurnInput): 
   ];
   const toolEvents: VaultseerAgentToolEvent[] = [];
   const maxToolIterations = normalizeMaxToolIterations(input.maxToolIterations);
-  const tools = toOpenAiFunctionTools(input.registry.definitions);
+  const tools = toOpenAiFunctionTools(input.toolDefinitions ?? input.registry.definitions);
 
   for (let iteration = 0; iteration <= maxToolIterations; iteration += 1) {
     const response = await input.provider.respond({
@@ -122,6 +129,9 @@ export async function runVaultseerAgentTurn(input: RunVaultseerAgentTurnInput): 
       const executeOptions: Parameters<VaultseerAgentToolRegistry["execute"]>[2] = {};
       if (input.allowProposalTools !== undefined) {
         executeOptions.allowProposalTools = input.allowProposalTools;
+      }
+      if (input.allowProposalReviewTools !== undefined) {
+        executeOptions.allowProposalReviewTools = input.allowProposalReviewTools;
       }
       const result = await input.registry.execute(toolCall.name, toolCall.input, executeOptions);
       toolEvents.push({

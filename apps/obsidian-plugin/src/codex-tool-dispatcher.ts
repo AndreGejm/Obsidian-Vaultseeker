@@ -172,6 +172,7 @@ export async function dispatchCodexToolRequest(input: {
   request: CodexToolRequest;
   tools: CodexToolImplementations;
   allowProposalTools?: boolean;
+  allowProposalReviewTools?: boolean;
   beforeProposalCommit?: () => boolean | Promise<boolean>;
 }): Promise<CodexToolResult> {
   switch (input.request.tool) {
@@ -292,11 +293,11 @@ export async function dispatchCodexToolRequest(input: {
           : input.tools.stageSuggestion(input.request.input)
       );
     case "review_current_note_proposal":
-      if (input.allowProposalTools !== true) {
+      if (input.allowProposalReviewTools !== true) {
         return {
           ok: false,
           tool: input.request.tool,
-          message: "Codex tool 'review_current_note_proposal' requires explicit proposal approval."
+          message: "Codex tool 'review_current_note_proposal' requires explicit user approval."
         };
       }
 

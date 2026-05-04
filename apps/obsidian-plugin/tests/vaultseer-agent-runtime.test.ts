@@ -113,6 +113,51 @@ describe("runVaultseerAgentTurn", () => {
     ]);
   });
 
+  it("forwards explicit proposal review authority to the dispatcher when the user-approved turn can apply", async () => {
+    const reviewCurrentNoteProposal = vi.fn(async () => ({ status: "applied" }));
+    const provider: VaultseerAgentProvider = {
+      respond: vi
+        .fn()
+        .mockResolvedValueOnce({
+          message: "I will apply the approved proposal.",
+          toolCalls: [{ id: "call-apply", name: "review_current_note_proposal", input: { apply: true } }]
+        })
+        .mockResolvedValueOnce({
+          message: "Applied."
+        })
+    };
+    const registry = createVaultseerAgentToolRegistry({
+      tools: {
+        inspectCurrentNote: async () => ({ status: "ready" }),
+        searchNotes: async () => ({ status: "ready", results: [] }),
+        searchSources: async () => ({ status: "ready", results: [] }),
+        stageSuggestion: async () => ({ status: "planned" }),
+        reviewCurrentNoteProposal
+      }
+    });
+
+    const result = await runVaultseerAgentTurn({
+      provider,
+      registry,
+      userMessage: "yes, apply it",
+      allowProposalReviewTools: true
+    });
+
+    expect(result.status).toBe("completed");
+    expect(reviewCurrentNoteProposal).toHaveBeenCalledWith({ apply: true });
+    expect(result.toolEvents).toEqual([
+      {
+        callId: "call-apply",
+        tool: "review_current_note_proposal",
+        result: {
+          ok: true,
+          tool: "review_current_note_proposal",
+          output: { status: "applied" }
+        }
+      }
+    ]);
+  });
+
   it("stops with a clear status when tool calls exceed the configured iteration limit", async () => {
     const provider: VaultseerAgentProvider = {
       respond: vi.fn(async () => ({

@@ -39,6 +39,7 @@ export type VaultseerAgentToolRegistry = {
     input: unknown,
     options?: {
       allowProposalTools?: boolean;
+      allowProposalReviewTools?: boolean;
       beforeProposalCommit?: CodexProposalToolExecutionContext["beforeProposalCommit"];
     }
   ): Promise<CodexToolResult>;
@@ -266,6 +267,10 @@ export function listVaultseerAgentToolDefinitions(): VaultseerAgentToolDefinitio
   return VAULTSEER_AGENT_TOOL_DEFINITIONS.map((definition) => ({ ...definition }));
 }
 
+export function listAutonomousVaultseerAgentToolDefinitions(): VaultseerAgentToolDefinition[] {
+  return listVaultseerAgentToolDefinitions().filter((definition) => definition.id !== "review_current_note_proposal");
+}
+
 export function toOpenAiFunctionTools(
   definitions: VaultseerAgentToolDefinition[] = listVaultseerAgentToolDefinitions()
 ): OpenAiFunctionToolDefinition[] {
@@ -289,6 +294,9 @@ export function createVaultseerAgentToolRegistry(input: {
       };
       if (options.allowProposalTools !== undefined) {
         dispatchInput.allowProposalTools = options.allowProposalTools;
+      }
+      if (options.allowProposalReviewTools !== undefined) {
+        dispatchInput.allowProposalReviewTools = options.allowProposalReviewTools;
       }
       if (options.beforeProposalCommit !== undefined) {
         dispatchInput.beforeProposalCommit = options.beforeProposalCommit;

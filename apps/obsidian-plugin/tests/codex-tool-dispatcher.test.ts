@@ -409,7 +409,7 @@ describe("dispatchCodexToolRequest", () => {
     expect(tools[scenario.implementation]).toHaveBeenCalledWith(...scenario.expectedArguments);
   });
 
-  it("rejects proposal tools by default and delegates when proposals are explicitly allowed", async () => {
+  it("lets the autonomous agent stage proposals but requires explicit approval authority before review/apply", async () => {
     const tools = {
       inspectCurrentNote: vi.fn(async () => ({ status: "ready" })),
       searchNotes: vi.fn(async () => []),
@@ -444,13 +444,24 @@ describe("dispatchCodexToolRequest", () => {
 
     expect(rejectedReview.ok).toBe(false);
     expect(rejectedReview.tool).toBe("review_current_note_proposal");
-    expect(rejectedReview.message).toContain("requires explicit proposal approval");
+    expect(rejectedReview.message).toContain("requires explicit user approval");
+    expect(tools.reviewCurrentNoteProposal).not.toHaveBeenCalled();
+
+    const rejectedAutonomousReview = await dispatchCodexToolRequest({
+      request: { tool: "review_current_note_proposal", input: { apply: true } },
+      tools,
+      allowProposalTools: true
+    });
+
+    expect(rejectedAutonomousReview.ok).toBe(false);
+    expect(rejectedAutonomousReview.tool).toBe("review_current_note_proposal");
+    expect(rejectedAutonomousReview.message).toContain("requires explicit user approval");
     expect(tools.reviewCurrentNoteProposal).not.toHaveBeenCalled();
 
     const allowedReview = await dispatchCodexToolRequest({
       request: { tool: "review_current_note_proposal", input: { apply: true } },
       tools,
-      allowProposalTools: true
+      allowProposalReviewTools: true
     });
 
     expect(allowedReview).toEqual({
@@ -514,10 +525,22 @@ describe("dispatchCodexToolRequest", () => {
       ...tools,
       reviewCurrentNoteProposal
     };
-    const reviewAllowed = await dispatchCodexToolRequest({
+    const autonomousReviewBlocked = await dispatchCodexToolRequest({
       request: { tool: "review_current_note_proposal", input: { apply: true } },
       tools: reviewTools,
       allowProposalTools: true,
+      beforeProposalCommit
+    });
+
+    expect(autonomousReviewBlocked.ok).toBe(false);
+    expect(autonomousReviewBlocked.tool).toBe("review_current_note_proposal");
+    expect(autonomousReviewBlocked.message).toContain("requires explicit user approval");
+    expect(reviewCurrentNoteProposal).not.toHaveBeenCalled();
+
+    const reviewAllowed = await dispatchCodexToolRequest({
+      request: { tool: "review_current_note_proposal", input: { apply: true } },
+      tools: reviewTools,
+      allowProposalReviewTools: true,
       beforeProposalCommit
     });
 

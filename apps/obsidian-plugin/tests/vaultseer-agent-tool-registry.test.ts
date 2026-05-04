@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createVaultseerAgentToolRegistry,
+  listAutonomousVaultseerAgentToolDefinitions,
   listVaultseerAgentToolDefinitions,
   toOpenAiFunctionTools
 } from "../src/vaultseer-agent-tool-registry";
@@ -137,6 +138,18 @@ describe("Vaultseer agent tool registry", () => {
     expect(openAiTools.map((tool) => tool.name)).not.toContain("write_file");
   });
 
+  it("keeps apply-capable proposal review out of the autonomous provider tool list", () => {
+    const definitions = listAutonomousVaultseerAgentToolDefinitions();
+
+    expect(definitions.map((definition) => definition.id)).toContain("stage_suggestion");
+    expect(definitions.map((definition) => definition.id)).toContain("list_current_note_proposals");
+    expect(definitions.map((definition) => definition.id)).not.toContain("review_current_note_proposal");
+
+    const openAiTools = toOpenAiFunctionTools(definitions);
+    expect(openAiTools.map((tool) => tool.name)).toContain("stage_suggestion");
+    expect(openAiTools.map((tool) => tool.name)).not.toContain("review_current_note_proposal");
+  });
+
   it("executes tools through the existing Vaultseer dispatcher and preserves proposal approval gates", async () => {
     const searchNotes = vi.fn(async () => ({ status: "ready", results: [] }));
     const stageSuggestion = vi.fn(async () => ({ status: "planned" }));
@@ -200,12 +213,21 @@ describe("Vaultseer agent tool registry", () => {
     await expect(registry.execute("review_current_note_proposal", { apply: true })).resolves.toMatchObject({
       ok: false,
       tool: "review_current_note_proposal",
-      message: expect.stringContaining("requires explicit proposal approval")
+      message: expect.stringContaining("requires explicit user approval")
     });
     expect(reviewCurrentNoteProposal).not.toHaveBeenCalled();
 
     await expect(
       registry.execute("review_current_note_proposal", { apply: true }, { allowProposalTools: true })
+    ).resolves.toMatchObject({
+      ok: false,
+      tool: "review_current_note_proposal",
+      message: expect.stringContaining("requires explicit user approval")
+    });
+    expect(reviewCurrentNoteProposal).not.toHaveBeenCalled();
+
+    await expect(
+      registry.execute("review_current_note_proposal", { apply: true }, { allowProposalReviewTools: true })
     ).resolves.toEqual({
       ok: true,
       tool: "review_current_note_proposal",

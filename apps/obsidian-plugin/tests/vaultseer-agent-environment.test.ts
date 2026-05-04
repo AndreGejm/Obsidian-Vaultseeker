@@ -79,6 +79,71 @@ describe("VaultseerAgentEnvironment", () => {
     );
   });
 
+  it("does not expose proposal apply/review as an autonomous provider tool", async () => {
+    const provider: VaultseerAgentProvider = {
+      respond: vi.fn(async () => ({ message: "Ready." }))
+    };
+    const registry = createVaultseerAgentToolRegistry({
+      tools: {
+        inspectCurrentNote: async () => ({ status: "ready" }),
+        searchNotes: async () => ({ status: "ready", results: [] }),
+        searchSources: async () => ({ status: "ready", results: [] }),
+        stageSuggestion: async () => ({ status: "planned" }),
+        reviewCurrentNoteProposal: async () => ({ status: "applied" })
+      }
+    });
+    const environment = new VaultseerAgentEnvironment({
+      providerFactory: () => provider,
+      registry
+    });
+
+    await environment.send({
+      message: "What can you do?",
+      context: readyContext()
+    });
+
+    expect(provider.respond).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.arrayContaining([expect.objectContaining({ name: "stage_suggestion" })])
+      })
+    );
+    expect(provider.respond).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.not.arrayContaining([expect.objectContaining({ name: "review_current_note_proposal" })])
+      })
+    );
+  });
+
+  it("exposes proposal review/apply only on explicit user apply requests", async () => {
+    const provider: VaultseerAgentProvider = {
+      respond: vi.fn(async () => ({ message: "I applied the approved active-note proposal." }))
+    };
+    const registry = createVaultseerAgentToolRegistry({
+      tools: {
+        inspectCurrentNote: async () => ({ status: "ready" }),
+        searchNotes: async () => ({ status: "ready", results: [] }),
+        searchSources: async () => ({ status: "ready", results: [] }),
+        stageSuggestion: async () => ({ status: "planned" }),
+        reviewCurrentNoteProposal: async () => ({ status: "applied" })
+      }
+    });
+    const environment = new VaultseerAgentEnvironment({
+      providerFactory: () => provider,
+      registry
+    });
+
+    await environment.send({
+      message: "ok write this to the actual note",
+      context: readyContext()
+    });
+
+    expect(provider.respond).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.arrayContaining([expect.objectContaining({ name: "review_current_note_proposal" })])
+      })
+    );
+  });
+
   it("puts live active-note text into the agent context even when indexed chunks are empty", () => {
     const message = buildVaultseerAgentContextMessage({
       userMessage: "refactor this",
