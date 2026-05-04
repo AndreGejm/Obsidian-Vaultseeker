@@ -40,7 +40,46 @@ describe("VaultseerPluginDataStore settings", () => {
         openAiApiKey: "",
         openAiBaseUrl: "https://api.openai.com/v1",
         codexModel: "gpt-5.3-codex-spark",
-        codexReasoningEffort: "medium"
+        codexReasoningEffort: "medium",
+        approvedScripts: []
+      })
+    );
+  });
+
+  it("normalizes approved script settings and drops executable-shaped entries", async () => {
+    const store = new VaultseerPluginDataStore({
+      loadData: vi.fn(async () => ({
+        settings: {
+          approvedScripts: [
+            {
+              id: "normalize-frontmatter",
+              title: "Normalize frontmatter",
+              description: "Return a frontmatter proposal.",
+              permission: "active-note-proposal"
+            },
+            {
+              id: "bad-script",
+              title: "Bad script",
+              description: "Must be dropped.",
+              command: "powershell"
+            }
+          ]
+        },
+        index: null
+      })),
+      saveData: vi.fn()
+    });
+
+    await expect(store.loadSettings()).resolves.toEqual(
+      expect.objectContaining({
+        approvedScripts: [
+          expect.objectContaining({
+            id: "normalize-frontmatter",
+            title: "Normalize frontmatter",
+            permission: "active-note-proposal",
+            enabled: true
+          })
+        ]
       })
     );
   });

@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type VaultseerPlugin from "./main";
+import { normalizeApprovedScriptDefinitions } from "./approved-script-registry";
 import {
   CODEX_PROVIDER_OPTIONS,
   CODEX_MODEL_OPTIONS,
@@ -166,6 +167,40 @@ export class VaultseerSettingTab extends PluginSettingTab {
           await this.plugin.showNativeCodexSetupCheck();
         })
       );
+
+    new Setting(containerEl)
+      .setName("Approved scripts")
+      .setDesc(
+        "JSON manifest for approved note-management scripts. Entries describe script ids and permissions only; command, path, executable, shell, and args fields are ignored."
+      )
+      .addTextArea((text) => {
+        text.inputEl.rows = 8;
+        text.inputEl.cols = 60;
+        text
+          .setPlaceholder(
+            JSON.stringify(
+              [
+                {
+                  id: "normalize-frontmatter",
+                  title: "Normalize frontmatter",
+                  description: "Return a frontmatter cleanup proposal.",
+                  permission: "active-note-proposal"
+                }
+              ],
+              null,
+              2
+            )
+          )
+          .setValue(JSON.stringify(this.plugin.settings.approvedScripts, null, 2))
+          .onChange(async (value) => {
+            try {
+              this.plugin.settings.approvedScripts = normalizeApprovedScriptDefinitions(JSON.parse(value));
+              await this.plugin.saveSettings();
+            } catch {
+              // Keep the last valid manifest until the user finishes editing JSON.
+            }
+          });
+      });
 
     new Setting(containerEl)
       .setName("Managed source folder")

@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { InMemoryVaultseerStore } from "@vaultseer/core";
+import { createApprovedScriptRegistry } from "../src/approved-script-registry";
+import { createCodexReadOnlyToolImplementations } from "../src/codex-read-only-tool-implementations";
 import type { VaultseerAgentProvider } from "../src/vaultseer-agent-runtime";
 import { runVaultseerAgentTurn } from "../src/vaultseer-agent-runtime";
 import { createVaultseerAgentToolRegistry } from "../src/vaultseer-agent-tool-registry";
@@ -136,5 +139,68 @@ describe("runVaultseerAgentTurn", () => {
     expect(result.status).toBe("tool_iteration_limit");
     expect(result.assistantMessage).toContain("tool-call limit");
     expect(result.toolEvents).toHaveLength(1);
+  });
+
+  it("lets the provider list approved scripts through the native Vaultseer tool runtime", async () => {
+    const approvedScriptRegistry = createApprovedScriptRegistry({
+      definitions: [
+        {
+          id: "tag-review",
+          title: "Tag review",
+          description: "Review tags for the active note.",
+          scope: "active-note",
+          permission: "active-note-proposal",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            additionalProperties: false
+          },
+          enabled: true,
+          timeoutSeconds: 10
+        }
+      ],
+      handlers: {}
+    });
+    const tools = createCodexReadOnlyToolImplementations({
+      store: new InMemoryVaultseerStore(),
+      getActivePath: () => "Electronics/Resistor Types.md",
+      approvedScriptRegistry
+    });
+    const provider: VaultseerAgentProvider = {
+      respond: vi
+        .fn()
+        .mockResolvedValueOnce({
+          message: "I will inspect the approved script container.",
+          toolCalls: [{ id: "call-approved-scripts", name: "list_approved_scripts", input: {} }]
+        })
+        .mockResolvedValueOnce({
+          message: "Tag review is available."
+        })
+    };
+
+    const result = await runVaultseerAgentTurn({
+      provider,
+      registry: createVaultseerAgentToolRegistry({ tools }),
+      userMessage: "what approved scripts can you use?"
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.toolEvents).toEqual([
+      {
+        callId: "call-approved-scripts",
+        tool: "list_approved_scripts",
+        result: {
+          ok: true,
+          tool: "list_approved_scripts",
+          output: [
+            expect.objectContaining({
+              id: "tag-review",
+              title: "Tag review",
+              permission: "active-note-proposal"
+            })
+          ]
+        }
+      }
+    ]);
   });
 });

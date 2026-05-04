@@ -1,3 +1,5 @@
+import type { ApprovedScriptDefinition } from "./approved-script-registry";
+
 export type VaultseerSettings = {
   excludedFolders: string[];
   semanticSearchEnabled: boolean;
@@ -16,6 +18,7 @@ export type VaultseerSettings = {
   codexWorkingDirectory: string;
   codexModel: CodexModelId;
   codexReasoningEffort: CodexReasoningEffort;
+  approvedScripts: ApprovedScriptDefinition[];
   managedSourceFolder: string;
   planFolder: string;
   releaseFolder: string;
@@ -63,6 +66,7 @@ export const DEFAULT_SETTINGS: VaultseerSettings = {
   codexWorkingDirectory: "",
   codexModel: "gpt-5.3-codex-spark",
   codexReasoningEffort: "medium",
+  approvedScripts: [],
   managedSourceFolder: DEFAULT_MANAGED_SOURCE_FOLDER,
   planFolder: DEFAULT_PLAN_FOLDER,
   releaseFolder: DEFAULT_RELEASE_FOLDER

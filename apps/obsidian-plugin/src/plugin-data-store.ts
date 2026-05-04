@@ -1,4 +1,5 @@
 import type { StoredVaultIndex, VaultseerStorageBackend } from "@vaultseer/core";
+import { normalizeApprovedScriptDefinitions } from "./approved-script-registry";
 import {
   DEFAULT_SETTINGS,
   normalizeCodexModel,
@@ -186,6 +187,7 @@ function normalizeSettings(raw: unknown): VaultseerSettings {
         : DEFAULT_SETTINGS.codexWorkingDirectory,
     codexModel: normalizeCodexModel(raw.codexModel),
     codexReasoningEffort: normalizeCodexReasoningEffort(raw.codexReasoningEffort),
+    approvedScripts: normalizeApprovedScriptDefinitions(raw.approvedScripts),
     managedSourceFolder: normalizeVaultFolderPath(raw.managedSourceFolder, DEFAULT_SETTINGS.managedSourceFolder),
     planFolder: normalizeVaultFolderPath(raw.planFolder, DEFAULT_SETTINGS.planFolder),
     releaseFolder: normalizeVaultFolderPath(raw.releaseFolder, DEFAULT_SETTINGS.releaseFolder)

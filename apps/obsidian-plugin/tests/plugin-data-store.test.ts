@@ -21,6 +21,7 @@ const defaultSettings = {
   codexWorkingDirectory: "",
   codexModel: "gpt-5.3-codex-spark",
   codexReasoningEffort: "medium",
+  approvedScripts: [],
   managedSourceFolder: "Sources",
   planFolder: "Plans",
   releaseFolder: "Releases"

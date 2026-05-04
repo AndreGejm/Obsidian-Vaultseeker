@@ -20,13 +20,17 @@ describe("dispatchCodexToolRequest", () => {
     expect(isAllowedCodexTool("suggest_current_note_links")).toBe(true);
     expect(isAllowedCodexTool("inspect_note_quality")).toBe(true);
     expect(isAllowedCodexTool("list_current_note_proposals")).toBe(true);
+    expect(isAllowedCodexTool("list_approved_scripts")).toBe(true);
     expect(isAllowedCodexTool("rebuild_note_index")).toBe(true);
     expect(isAllowedCodexTool("plan_semantic_index")).toBe(true);
     expect(isAllowedCodexTool("run_semantic_index_batch")).toBe(true);
     expect(isAllowedCodexTool("run_vaultseer_command")).toBe(true);
+    expect(isAllowedCodexTool("run_approved_script")).toBe(true);
     expect(isAllowedCodexTool("stage_suggestion")).toBe(true);
     expect(isAllowedCodexTool("review_current_note_proposal")).toBe(true);
     expect(isAllowedCodexTool("write_file")).toBe(false);
+    expect(isAllowedCodexTool("run_terminal")).toBe(false);
+    expect(isAllowedCodexTool("execute_command")).toBe(false);
   });
 
   it("classifies read-only and proposal tools separately", () => {
@@ -40,10 +44,12 @@ describe("dispatchCodexToolRequest", () => {
     expect(isReadOnlyCodexTool("suggest_current_note_links")).toBe(true);
     expect(isReadOnlyCodexTool("inspect_note_quality")).toBe(true);
     expect(isReadOnlyCodexTool("list_current_note_proposals")).toBe(true);
+    expect(isReadOnlyCodexTool("list_approved_scripts")).toBe(true);
     expect(isReadOnlyCodexTool("rebuild_note_index")).toBe(false);
     expect(isReadOnlyCodexTool("plan_semantic_index")).toBe(false);
     expect(isReadOnlyCodexTool("run_semantic_index_batch")).toBe(false);
     expect(isReadOnlyCodexTool("run_vaultseer_command")).toBe(false);
+    expect(isReadOnlyCodexTool("run_approved_script")).toBe(false);
     expect(isReadOnlyCodexTool("stage_suggestion")).toBe(false);
     expect(isReadOnlyCodexTool("review_current_note_proposal")).toBe(false);
     expect(isReadOnlyCodexTool("write_file")).toBe(false);
@@ -54,10 +60,12 @@ describe("dispatchCodexToolRequest", () => {
     expect(getCodexToolRequestClass("search_notes")).toBe("read-only");
     expect(getCodexToolRequestClass("semantic_search_notes")).toBe("read-only");
     expect(getCodexToolRequestClass("list_current_note_proposals")).toBe("read-only");
+    expect(getCodexToolRequestClass("list_approved_scripts")).toBe("read-only");
     expect(getCodexToolRequestClass("rebuild_note_index")).toBe("command");
     expect(getCodexToolRequestClass("plan_semantic_index")).toBe("command");
     expect(getCodexToolRequestClass("run_semantic_index_batch")).toBe("command");
     expect(getCodexToolRequestClass("run_vaultseer_command")).toBe("command");
+    expect(getCodexToolRequestClass("run_approved_script")).toBe("command");
     expect(getCodexToolRequestClass("stage_suggestion")).toBe("proposal");
     expect(getCodexToolRequestClass("review_current_note_proposal")).toBe("proposal");
     expect(getCodexToolRequestClass("write_file")).toBeNull();
@@ -74,10 +82,12 @@ describe("dispatchCodexToolRequest", () => {
     expect(isRunnableCodexTool("suggest_current_note_links")).toBe(true);
     expect(isRunnableCodexTool("inspect_note_quality")).toBe(true);
     expect(isRunnableCodexTool("list_current_note_proposals")).toBe(true);
+    expect(isRunnableCodexTool("list_approved_scripts")).toBe(true);
     expect(isRunnableCodexTool("rebuild_note_index")).toBe(true);
     expect(isRunnableCodexTool("plan_semantic_index")).toBe(true);
     expect(isRunnableCodexTool("run_semantic_index_batch")).toBe(true);
     expect(isRunnableCodexTool("run_vaultseer_command")).toBe(true);
+    expect(isRunnableCodexTool("run_approved_script")).toBe(true);
     expect(isRunnableCodexTool("stage_suggestion")).toBe(false);
     expect(isRunnableCodexTool("review_current_note_proposal")).toBe(false);
     expect(isRunnableCodexTool("write_file")).toBe(false);
@@ -103,6 +113,55 @@ describe("dispatchCodexToolRequest", () => {
       output: { message: "Ran command." }
     });
     expect(runVaultseerCommand).toHaveBeenCalledWith({ commandId: "search-index" });
+  });
+
+  it("delegates approved scripts only through the approved script implementation", async () => {
+    const listApprovedScripts = vi.fn(async () => [{ id: "normalize-frontmatter", title: "Normalize frontmatter" }]);
+    const runApprovedScript = vi.fn(async () => ({
+      status: "completed",
+      scriptId: "normalize-frontmatter",
+      output: { proposalCount: 1 }
+    }));
+
+    const tools = {
+      inspectCurrentNote: async () => ({ status: "ready" }),
+      searchNotes: async () => [],
+      searchSources: async () => [],
+      listApprovedScripts,
+      runApprovedScript,
+      stageSuggestion: async () => ({ staged: true })
+    };
+
+    await expect(
+      dispatchCodexToolRequest({ request: { tool: "list_approved_scripts", input: null }, tools })
+    ).resolves.toEqual({
+      ok: true,
+      tool: "list_approved_scripts",
+      output: [{ id: "normalize-frontmatter", title: "Normalize frontmatter" }]
+    });
+    expect(listApprovedScripts).toHaveBeenCalledTimes(1);
+
+    await expect(
+      dispatchCodexToolRequest({
+        request: {
+          tool: "run_approved_script",
+          input: { scriptId: "normalize-frontmatter", input: { targetPath: "Electronics/Resistors.md" } }
+        },
+        tools
+      })
+    ).resolves.toEqual({
+      ok: true,
+      tool: "run_approved_script",
+      output: {
+        status: "completed",
+        scriptId: "normalize-frontmatter",
+        output: { proposalCount: 1 }
+      }
+    });
+    expect(runApprovedScript).toHaveBeenCalledWith({
+      scriptId: "normalize-frontmatter",
+      input: { targetPath: "Electronics/Resistors.md" }
+    });
   });
 
   it("delegates native Vaultseer command tools without using the generic command escape hatch", async () => {
@@ -213,6 +272,13 @@ describe("dispatchCodexToolRequest", () => {
       implementation: "listCurrentNoteProposals",
       output: { status: "ready", cards: [] },
       expectedArguments: []
+    },
+    {
+      tool: "list_approved_scripts",
+      input: null,
+      implementation: "listApprovedScripts",
+      output: [{ id: "normalize-frontmatter" }],
+      expectedArguments: []
     }
   ] as const)("allows $tool and delegates to $implementation", async (scenario) => {
     const tools = {
@@ -226,6 +292,7 @@ describe("dispatchCodexToolRequest", () => {
       suggestCurrentNoteLinks: vi.fn(async () => (scenario.implementation === "suggestCurrentNoteLinks" ? scenario.output : [])),
       inspectNoteQuality: vi.fn(async () => (scenario.implementation === "inspectNoteQuality" ? scenario.output : [])),
       listCurrentNoteProposals: vi.fn(async () => (scenario.implementation === "listCurrentNoteProposals" ? scenario.output : [])),
+      listApprovedScripts: vi.fn(async () => (scenario.implementation === "listApprovedScripts" ? scenario.output : [])),
       stageSuggestion: vi.fn(async () => (scenario.implementation === "stageSuggestion" ? scenario.output : { staged: false }))
     };
 

@@ -7,7 +7,7 @@ import {
   type CodexToolResult
 } from "./codex-tool-dispatcher";
 
-export type VaultseerAgentToolSafety = "read" | "user-approved-command" | "active-note-proposal";
+export type VaultseerAgentToolSafety = "read" | "user-approved-command" | "active-note-proposal" | "approved-script";
 
 export type JsonSchemaObject = {
   type: "object";
@@ -89,6 +89,22 @@ const RUN_COMMAND_SCHEMA: JsonSchemaObject = {
   additionalProperties: false
 };
 
+const RUN_APPROVED_SCRIPT_SCHEMA: JsonSchemaObject = {
+  type: "object",
+  properties: {
+    scriptId: {
+      type: "string",
+      description: "Approved Vaultseer script id from list_approved_scripts."
+    },
+    input: {
+      type: "object",
+      description: "JSON input for the approved script. It is validated by the script manifest and trusted handler."
+    }
+  },
+  required: ["scriptId"],
+  additionalProperties: false
+};
+
 const STAGE_SUGGESTION_SCHEMA: JsonSchemaObject = {
   type: "object",
   properties: {
@@ -159,10 +175,12 @@ const VAULTSEER_AGENT_TOOL_DEFINITIONS: VaultseerAgentToolDefinition[] = [
   readTool("suggest_current_note_links", "Suggest current note links", "Draft deterministic internal-link suggestions for the active note.", EMPTY_INPUT_SCHEMA),
   readTool("inspect_note_quality", "Inspect note quality", "Inspect narrow quality issues such as missing tags, duplicate aliases, malformed tags, and broken links.", EMPTY_INPUT_SCHEMA),
   readTool("list_current_note_proposals", "List current-note proposals", "List staged guarded-write proposals that target the active note.", EMPTY_INPUT_SCHEMA),
+  readTool("list_approved_scripts", "List approved scripts", "List user-approved note-management scripts available to Vaultseer.", EMPTY_INPUT_SCHEMA),
   commandTool("rebuild_note_index", "Rebuild note index", "Request a read-only vault index rebuild.", EMPTY_INPUT_SCHEMA),
   commandTool("plan_semantic_index", "Plan semantic index", "Request semantic indexing queue planning.", EMPTY_INPUT_SCHEMA),
   commandTool("run_semantic_index_batch", "Run semantic index batch", "Request one semantic indexing batch.", EMPTY_INPUT_SCHEMA),
   commandTool("run_vaultseer_command", "Run Vaultseer command", "Request a named Vaultseer Studio command by commandId.", RUN_COMMAND_SCHEMA),
+  approvedScriptTool("run_approved_script", "Run approved script", "Run a user-approved note-management script by script id.", RUN_APPROVED_SCRIPT_SCHEMA),
   proposalTool("stage_suggestion", "Stage suggestion", "Stage tag, link, or full current-note rewrite proposals for user review.", STAGE_SUGGESTION_SCHEMA),
   proposalTool("review_current_note_proposal", "Review current-note proposal", "Approve, defer, reject, or apply a staged proposal for the active note.", REVIEW_CURRENT_NOTE_PROPOSAL_SCHEMA)
 ];
@@ -230,6 +248,22 @@ function commandTool(
     title,
     description,
     safety: "user-approved-command",
+    requestClass: "command",
+    inputSchema
+  };
+}
+
+function approvedScriptTool(
+  id: AllowedCodexTool,
+  title: string,
+  description: string,
+  inputSchema: JsonSchemaObject
+): VaultseerAgentToolDefinition {
+  return {
+    id,
+    title,
+    description,
+    safety: "approved-script",
     requestClass: "command",
     inputSchema
   };

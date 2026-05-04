@@ -19,6 +19,7 @@ import type { SearchModalSemanticSearch } from "./search-modal-query";
 import { buildSearchModalQueryState } from "./search-modal-query";
 import type { SourceSearchModalSemanticSearch } from "./source-search-modal-query";
 import { buildSourceSearchModalQueryState } from "./source-search-modal-query";
+import type { ApprovedScriptRegistry, ApprovedScriptRunRequest } from "./approved-script-registry";
 import type { CodexProposalToolExecutionContext, CodexToolImplementations } from "./codex-tool-dispatcher";
 import { stageNoteLinkUpdateProposal } from "./link-write-proposal-controller";
 import { stageNoteRewriteProposal } from "./note-rewrite-proposal-controller";
@@ -50,6 +51,7 @@ export type CreateCodexReadOnlyToolImplementationsInput = {
   planSemanticIndex?: () => Promise<unknown>;
   runSemanticIndexBatch?: () => Promise<unknown>;
   writePort?: VaultWritePort;
+  approvedScriptRegistry?: ApprovedScriptRegistry;
 };
 
 type ParsedCodexStageSuggestionInput =
@@ -276,6 +278,12 @@ export function createCodexReadOnlyToolImplementations(
       };
     },
     listCurrentNoteProposals: async () => loadCurrentNoteProposalCards(input),
+    ...(input.approvedScriptRegistry === undefined
+      ? {}
+      : {
+          listApprovedScripts: async () => input.approvedScriptRegistry!.list(),
+          runApprovedScript: async (toolInput) => input.approvedScriptRegistry!.run(parseApprovedScriptRunInput(toolInput))
+        }),
     stageSuggestion: async (toolInput, context?: CodexProposalToolExecutionContext) => {
       const activePath = input.getActivePath();
       if (!activePath) {
@@ -541,6 +549,22 @@ function noteRecordsToInputs(notes: NoteRecord[]): NoteRecordInput[] {
 function parseLimitOnlyInput(input: unknown): { limit: number } {
   const rawLimit = isRecord(input) ? input["limit"] : undefined;
   return { limit: normalizeLimit(rawLimit) };
+}
+
+function parseApprovedScriptRunInput(input: unknown): ApprovedScriptRunRequest {
+  if (!isRecord(input)) {
+    throw new Error("Codex run_approved_script input must be an object.");
+  }
+
+  const scriptId = stringProperty(input, "scriptId")?.trim();
+  if (!scriptId) {
+    throw new Error("Codex run_approved_script input must include a nonblank scriptId.");
+  }
+
+  return {
+    scriptId,
+    input: input["input"] ?? {}
+  };
 }
 
 function countEmbeddingJobs(statuses: string[]): Record<string, number> {

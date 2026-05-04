@@ -50,6 +50,7 @@ import type { SourceSearchModalSemanticSearch } from "./source-search-modal-quer
 import { activateVaultseerStudio, VAULTSEER_STUDIO_VIEW_TYPE, VaultseerStudioView } from "./studio-view";
 import { activateVaultseerWorkbench, VAULTSEER_WORKBENCH_VIEW_TYPE, VaultseerWorkbenchView } from "./workbench-view";
 import { buildActiveNoteContextFromStore } from "./active-note-context-controller";
+import { createApprovedScriptRegistry } from "./approved-script-registry";
 import { createCodexReadOnlyToolImplementations } from "./codex-read-only-tool-implementations";
 import { NativeCodexAcpSessionClient } from "./native-codex-acp-session-client";
 import {
@@ -154,6 +155,10 @@ export default class VaultseerPlugin extends Plugin {
       VAULTSEER_STUDIO_VIEW_TYPE,
       (leaf) => {
         const writePort = new ObsidianVaultWritePort(this.app.vault as unknown as ObsidianVaultWriteVault);
+        const approvedScriptRegistry = createApprovedScriptRegistry({
+          definitions: this.settings.approvedScripts,
+          handlers: {}
+        });
         const codexTools = createCodexReadOnlyToolImplementations({
           store: this.store,
           getActivePath: () => this.app.workspace.getActiveFile()?.path ?? null,
@@ -193,7 +198,8 @@ export default class VaultseerPlugin extends Plugin {
               afterJobCount: after.length
             };
           },
-          writePort
+          writePort,
+          approvedScriptRegistry
         });
 
         return new VaultseerStudioView(
