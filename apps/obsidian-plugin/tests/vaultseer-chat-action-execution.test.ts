@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { CodexToolResult } from "../src/codex-tool-dispatcher";
 import {
   appendAssistantRequestedStageSuggestion,
+  buildVaultseerNativeToolLoopMessage,
   buildVaultseerToolContinuationMessage,
   buildVaultseerActionEvidenceMessage,
+  shouldHandleVaultseerActionPlanBeforeNativeToolLoop,
   shouldContinueVaultseerToolLoop,
   splitCodexToolRequestsForExecution,
   splitVaultseerChatActionPlan
@@ -149,5 +151,44 @@ describe("vaultseer chat action execution", () => {
         toolRequests: [explicitRequest]
       })
     ).toEqual([explicitRequest]);
+  });
+
+  it("handles local-only action plans before native Codex tool-loop sends", () => {
+    expect(
+      shouldHandleVaultseerActionPlanBeforeNativeToolLoop({
+        content: "Vaultseer staged the previous draft for review.",
+        toolRequests: [],
+        autoStageToolRequests: [{ tool: "stage_suggestion", input: { kind: "rewrite", markdown: "# Draft" } }],
+        sendToCodex: false
+      })
+    ).toBe(true);
+
+    expect(
+      shouldHandleVaultseerActionPlanBeforeNativeToolLoop({
+        content: "Vaultseer is preparing an active-note rewrite proposal.",
+        toolRequests: [{ tool: "inspect_current_note", input: null }],
+        agentMessage: "Use liveNote.text and request stage_suggestion."
+      })
+    ).toBe(false);
+  });
+
+  it("uses Vaultseer task instructions as the native Codex message when available", () => {
+    expect(
+      buildVaultseerNativeToolLoopMessage({
+        originalMessage: "review this note",
+        actionPlan: {
+          content: "Vaultseer is preparing an active-note rewrite proposal.",
+          toolRequests: [{ tool: "inspect_current_note", input: null }],
+          agentMessage: "Use liveNote.text and request stage_suggestion."
+        }
+      })
+    ).toBe("Use liveNote.text and request stage_suggestion.");
+
+    expect(
+      buildVaultseerNativeToolLoopMessage({
+        originalMessage: "hello",
+        actionPlan: { content: null, toolRequests: [] }
+      })
+    ).toBe("hello");
   });
 });

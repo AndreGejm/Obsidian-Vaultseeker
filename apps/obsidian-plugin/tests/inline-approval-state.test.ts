@@ -14,7 +14,7 @@ describe("buildInlineApprovalState", () => {
     expect(state.message).toContain("current note");
   });
 
-  it("routes current note update_note_links to the review queue", () => {
+  it("routes current note update_note_links inline", () => {
     const state = buildInlineApprovalState({
       operationType: "update_note_links",
       targetPath: "Notes/VHDL.md",
@@ -22,7 +22,20 @@ describe("buildInlineApprovalState", () => {
       touchesMultipleFiles: false
     });
 
-    expect(state.surface).toBe("review_queue");
+    expect(state.surface).toBe("inline");
+    expect(state.message).toContain("current note");
+  });
+
+  it("routes current note rewrite_note_content inline", () => {
+    const state = buildInlineApprovalState({
+      operationType: "rewrite_note_content",
+      targetPath: "Notes/VHDL.md",
+      activePath: "Notes/VHDL.md",
+      touchesMultipleFiles: false
+    });
+
+    expect(state.surface).toBe("inline");
+    expect(state.message).toContain("current note");
   });
 
   it("routes multi-file updates to the review queue", () => {

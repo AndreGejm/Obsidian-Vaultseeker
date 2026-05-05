@@ -6,6 +6,7 @@ export type BuildVaultseerChatActionPlanInput = {
   message: string;
   activePath: string | null;
   lastAssistantMarkdownSuggestion?: string | null;
+  lastAssistantStageableMarkdownSuggestion?: string | null;
 };
 
 export type VaultseerChatActionPlan = {
@@ -36,11 +37,13 @@ export function buildVaultseerChatActionPlan(input: BuildVaultseerChatActionPlan
     };
   }
 
-  if (
-    input.activePath !== null &&
-    mentionsActiveNoteWriteIntent(normalized) &&
-    isNonblank(input.lastAssistantMarkdownSuggestion)
-  ) {
+  const draftToStage = chooseMarkdownDraftToStage({
+    message: normalized,
+    lastAssistantMarkdownSuggestion: input.lastAssistantMarkdownSuggestion ?? null,
+    lastAssistantStageableMarkdownSuggestion: input.lastAssistantStageableMarkdownSuggestion ?? null
+  });
+
+  if (input.activePath !== null && isNonblank(draftToStage)) {
     return {
       content: "Vaultseer staged the previous draft for review. Open the write review queue to inspect the diff and apply it.",
       toolRequests: [],
@@ -50,7 +53,7 @@ export function buildVaultseerChatActionPlan(input: BuildVaultseerChatActionPlan
           input: {
             kind: "rewrite",
             targetPath: input.activePath,
-            markdown: input.lastAssistantMarkdownSuggestion.trim(),
+            markdown: draftToStage.trim(),
             reason: "User explicitly asked Vaultseer chat to write the previous assistant draft to the active note."
           }
         }
@@ -322,6 +325,15 @@ function mentionsActiveNoteWriteIntent(message: string): boolean {
   );
 }
 
+function mentionsDraftConfirmation(message: string): boolean {
+  return (
+    /^(yes|ok|okay|approved|accepted|looks good|sounds good)(,|\.)?\s*(proceed|go ahead|do it|stage it|queue it)?$/.test(
+      message
+    ) ||
+    /^(proceed|go ahead|do it|stage it|queue it|make it so)$/.test(message)
+  );
+}
+
 function mentionsVaultseerCapabilities(message: string): boolean {
   return (
     /\bwhat can you do\b/.test(message) ||
@@ -411,6 +423,24 @@ export function extractLastAssistantMarkdownSuggestion(
   return null;
 }
 
+export function extractLastAssistantStageableMarkdownSuggestion(
+  messages: ExtractLastAssistantMarkdownSuggestionMessage[]
+): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message === undefined || message.role !== "assistant" || !mentionsStageableAssistantDraft(message.content)) {
+      continue;
+    }
+
+    const markdown = extractLastMarkdownFence(message.content);
+    if (markdown !== null) {
+      return markdown;
+    }
+  }
+
+  return null;
+}
+
 export function buildAssistantRequestedStageSuggestion(
   input: BuildAssistantRequestedStageSuggestionInput
 ): CodexChatToolRequest | null {
@@ -448,6 +478,32 @@ function extractLastMarkdownFence(content: string): string | null {
 
 function mentionsAssistantStageSuggestion(content: string): boolean {
   return /\bstage_suggestion\b/i.test(content);
+}
+
+function mentionsStageableAssistantDraft(content: string): boolean {
+  const normalized = normalize(content);
+  return (
+    /\bstage_suggestion\b/.test(normalized) ||
+    /\b(stage|queue|approve|approval|review)\b.*\b(suggestion|proposal|draft|rewrite|write review|review queue)\b/.test(
+      normalized
+    )
+  );
+}
+
+function chooseMarkdownDraftToStage(input: {
+  message: string;
+  lastAssistantMarkdownSuggestion?: string | null;
+  lastAssistantStageableMarkdownSuggestion?: string | null;
+}): string | null {
+  if (mentionsActiveNoteWriteIntent(input.message)) {
+    return input.lastAssistantMarkdownSuggestion ?? null;
+  }
+
+  if (mentionsDraftConfirmation(input.message)) {
+    return input.lastAssistantStageableMarkdownSuggestion ?? null;
+  }
+
+  return null;
 }
 
 function buildVaultseerCapabilitiesMessage(): string {

@@ -61,9 +61,8 @@ export class ObsidianVaultWritePort implements VaultWritePort {
         return this.createNoteFromSource(operation, approval);
       case "update_note_tags":
       case "rewrite_note_content":
-        return this.modifyExistingNote(operation, approval);
       case "update_note_links":
-        throw new VaultWriteVerificationError("note link updates are preview-only in this version");
+        return this.modifyExistingNote(operation, approval);
     }
   }
 

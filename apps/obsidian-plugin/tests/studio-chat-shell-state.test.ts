@@ -17,6 +17,7 @@ describe("buildStudioChatShellState", () => {
     expect(state.activeNoteMention).toBe("@CLAUDE");
     expect(state.activeNoteTitle).toBe("CLAUDE.md");
     expect(state.runtimeLabel).toBe("Connected");
+    expect(state.profileLabel).toBe("Technical writer");
     expect(state.modelLabel).toBe("gpt-5.4");
     expect(state.reasoningLabel).toBe("Medium");
     expect(state.modeLabel).toBe("Commands");

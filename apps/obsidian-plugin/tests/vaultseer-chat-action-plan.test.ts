@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildAssistantRequestedStageSuggestion,
   buildVaultseerChatActionPlan,
-  extractLastAssistantMarkdownSuggestion
+  extractLastAssistantMarkdownSuggestion,
+  extractLastAssistantStageableMarkdownSuggestion
 } from "../src/vaultseer-chat-action-plan";
 
 describe("buildVaultseerChatActionPlan", () => {
@@ -148,6 +149,54 @@ describe("buildVaultseerChatActionPlan", () => {
         }
       }
     ]);
+  });
+
+  it("treats a natural confirmation as approval to stage the previous assistant draft", () => {
+    const lastAssistantStageableMarkdownSuggestion = extractLastAssistantStageableMarkdownSuggestion([
+      {
+        role: "assistant",
+        content: [
+          "Please run Vaultseer `stage_suggestion` with this draft:",
+          "```markdown",
+          "# Resistor types 2",
+          "",
+          "A cleaner active note.",
+          "```"
+        ].join("\n")
+      }
+    ]);
+
+    const plan = buildVaultseerChatActionPlan({
+      message: "yes, proceed",
+      activePath: "Electronics/Resistor types 2.md",
+      lastAssistantMarkdownSuggestion: "# Example\n\nThis is not used for the confirmation.",
+      lastAssistantStageableMarkdownSuggestion
+    });
+
+    expect(plan.sendToCodex).toBe(false);
+    expect(plan.content).toContain("Vaultseer staged the previous draft for review.");
+    expect(plan.autoStageToolRequests).toEqual([
+      {
+        tool: "stage_suggestion",
+        input: {
+          kind: "rewrite",
+          targetPath: "Electronics/Resistor types 2.md",
+          markdown: "# Resistor types 2\n\nA cleaner active note.",
+          reason: "User explicitly asked Vaultseer chat to write the previous assistant draft to the active note."
+        }
+      }
+    ]);
+  });
+
+  it("does not stage ordinary assistant Markdown examples from a vague confirmation", () => {
+    const plan = buildVaultseerChatActionPlan({
+      message: "yes",
+      activePath: "Electronics/Resistor types 2.md",
+      lastAssistantMarkdownSuggestion: "# Example\n\nNot a proposed note rewrite."
+    });
+
+    expect(plan.autoStageToolRequests).toBeUndefined();
+    expect(plan.sendToCodex).toBeUndefined();
   });
 
   it("builds an automatic guarded proposal when an assistant asks to run stage_suggestion with markdown", () => {

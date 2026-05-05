@@ -1,4 +1,5 @@
 import type { CodexRuntimeStatus } from "@vaultseer/core";
+import { DEFAULT_VAULTSEER_AGENT_PROFILE } from "./vaultseer-agent-profile";
 
 export type StudioChatShellState = {
   title: string;
@@ -7,6 +8,7 @@ export type StudioChatShellState = {
   activeNoteMention: string | null;
   activeNoteTitle: string;
   runtimeLabel: string;
+  profileLabel: string;
   modelLabel: string;
   modeLabel: string;
   reasoningLabel: string;
@@ -44,6 +46,7 @@ export function buildStudioChatShellState(input: BuildStudioChatShellStateInput)
     activeNoteMention: input.activeNotePath === null ? null : `@${input.activeNoteLabel}`,
     activeNoteTitle: input.activeNotePath ?? "Open a note",
     runtimeLabel: runtimeLabel(input.codexRuntimeStatus),
+    profileLabel: DEFAULT_VAULTSEER_AGENT_PROFILE.shortTitle,
     modelLabel: input.codexModel,
     modeLabel: "Commands",
     reasoningLabel: titleCase(input.codexReasoningEffort),

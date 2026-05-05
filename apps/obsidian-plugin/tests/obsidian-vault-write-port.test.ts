@@ -3,6 +3,7 @@ import type { GuardedVaultWriteOperation, SourceNoteProposal } from "@vaultseer/
 import {
   hashString,
   planNoteContentRewriteOperation,
+  planNoteLinkUpdateOperation,
   planNoteTagUpdateOperation,
   planSourceNoteCreationOperation
 } from "@vaultseer/core";
@@ -160,6 +161,47 @@ describe("ObsidianVaultWritePort", () => {
       createdAt: "2026-05-03T10:00:00.000Z"
     });
     const vault = new FakeVault([[operation.targetPath, currentContent]], ["Electronics"]);
+    const port = new ObsidianVaultWritePort(vault);
+
+    await expect(port.dryRun(operation)).resolves.toMatchObject({
+      precondition: { ok: true },
+      preview: operation.preview
+    });
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-03T10:10:00.000Z"
+      })
+    ).resolves.toEqual({
+      operationId: operation.id,
+      targetPath: operation.targetPath,
+      beforeHash: operation.expectedCurrentHash,
+      afterHash: operation.preview.afterHash,
+      appliedAt: "2026-05-03T10:10:00.000Z"
+    });
+    expect(vault.modifyCount).toBe(1);
+    expect(vault.files.get(operation.targetPath)).toBe(operation.content);
+  });
+
+  it("applies an approved note link update after a clean dry run and verifies the written hash", async () => {
+    const currentContent = "# VHDL\n\nSee [[Missing Timing Note]].\n";
+    const operation = planNoteLinkUpdateOperation({
+      targetPath: "Notes/VHDL.md",
+      currentContent,
+      replacements: [
+        {
+          rawLink: "[[Missing Timing Note]]",
+          unresolvedTarget: "Missing Timing Note",
+          suggestedPath: "Notes/Timing Closure.md"
+        }
+      ],
+      suggestionIds: ["suggestion:note-link:Notes/VHDL.md:Missing Timing Note:Notes/Timing Closure.md"],
+      createdAt: "2026-05-03T10:00:00.000Z"
+    });
+    const vault = new FakeVault([[operation.targetPath, currentContent]], ["Notes"]);
     const port = new ObsidianVaultWritePort(vault);
 
     await expect(port.dryRun(operation)).resolves.toMatchObject({

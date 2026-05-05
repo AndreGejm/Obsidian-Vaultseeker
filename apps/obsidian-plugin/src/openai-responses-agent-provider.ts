@@ -222,7 +222,7 @@ function normalizeBaseUrl(value: string | undefined): string {
 }
 
 function globalFetch(...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
-  return fetch(...args);
+  return globalThis.fetch(...args);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -75,7 +75,14 @@ import {
   VAULTSEER_STUDIO_COMMAND_DEFINITIONS,
   type VaultseerStudioCommand
 } from "./studio-command-catalog";
+import { registerVaultseerCommands } from "./register-vaultseer-commands";
 import { validateVaultRelativePath } from "./vault-path-policy";
+import {
+  addSelectedNoteActionMenuItems,
+  buildSelectedNoteAgentActionDisplayMessage,
+  buildSelectedNoteAgentActionPrompt,
+  type SelectedNoteAgentActionRequest
+} from "./selected-note-agent-action";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
@@ -313,189 +320,8 @@ export default class VaultseerPlugin extends Plugin {
       }
     );
 
-    this.addCommand({
-      id: "rebuild-index",
-      name: "Rebuild read-only vault index",
-      callback: async () => {
-        await this.rebuildIndex();
-      }
-    });
-
-    this.addCommand({
-      id: "clear-index",
-      name: "Clear read-only vault index",
-      callback: async () => {
-        await this.clearIndex();
-      }
-    });
-
-    this.addCommand({
-      id: "show-index-health",
-      name: "Check read-only vault index health",
-      callback: async () => {
-        await this.showIndexHealth();
-      }
-    });
-
-    this.addCommand({
-      id: "search-index",
-      name: "Search read-only vault index",
-      callback: async () => {
-        await this.showSearch();
-      }
-    });
-
-    this.addCommand({
-      id: "search-source-workspaces",
-      name: "Search stored source workspaces",
-      callback: async () => {
-        await this.showSourceSearch();
-      }
-    });
-
-    this.addCommand({
-      id: "open-write-review-queue",
-      name: "Open guarded write review queue",
-      callback: async () => {
-        await this.showWriteReviewQueue();
-      }
-    });
-
-    this.addCommand({
-      id: "import-active-text-source",
-      name: "Import active text/code file as source workspace",
-      callback: async () => {
-        await this.importActiveTextSource();
-      }
-    });
-
-    this.addCommand({
-      id: "choose-text-source-file",
-      name: "Choose text/code file to import as source workspace",
-      callback: async () => {
-        await this.chooseTextSourceFile();
-      }
-    });
-
-    this.addCommand({
-      id: "plan-source-extraction-queue",
-      name: "Plan PDF source extraction queue",
-      callback: async () => {
-        await this.planSourceExtractionQueue();
-      }
-    });
-
-    this.addCommand({
-      id: "show-source-extraction-queue-status",
-      name: "Show source extraction queue status",
-      callback: async () => {
-        await this.showSourceExtractionQueueStatus();
-      }
-    });
-
-    this.addCommand({
-      id: "run-source-extraction-batch",
-      name: "Run one PDF source extraction batch",
-      callback: async () => {
-        await this.runSourceExtractionBatch();
-      }
-    });
-
-    this.addCommand({
-      id: "recover-source-extraction-queue",
-      name: "Recover interrupted source extraction jobs",
-      callback: async () => {
-        await this.recoverSourceExtractionQueue();
-      }
-    });
-
-    this.addCommand({
-      id: "cancel-source-extraction-queue",
-      name: "Cancel active source extraction jobs",
-      callback: async () => {
-        await this.cancelSourceExtractionQueue();
-      }
-    });
-
-    this.addCommand({
-      id: "open-workbench",
-      name: "Open read-only workbench",
-      callback: async () => {
-        await this.openWorkbench();
-      }
-    });
-
-    this.addCommand({
-      id: "open-studio",
-      name: "Open native Studio",
-      callback: async () => {
-        await this.openStudio();
-      }
-    });
-
-    this.addCommand({
-      id: "check-native-codex-setup",
-      name: "Check native Codex setup",
-      callback: async () => {
-        await this.showNativeCodexSetupCheck();
-      }
-    });
-
-    this.addCommand({
-      id: "reset-native-codex-session",
-      name: "Reset native Codex session",
-      callback: async () => {
-        await this.resetNativeCodexSession();
-      }
-    });
-
-    this.addCommand({
-      id: "plan-semantic-index",
-      name: "Plan semantic indexing queue",
-      callback: async () => {
-        await this.planSemanticIndex();
-      }
-    });
-
-    this.addCommand({
-      id: "run-semantic-index-batch",
-      name: "Run one semantic indexing batch",
-      callback: async () => {
-        await this.runSemanticIndexBatch();
-      }
-    });
-
-    this.addCommand({
-      id: "cancel-semantic-index-queue",
-      name: "Cancel active semantic indexing jobs",
-      callback: async () => {
-        await this.cancelSemanticIndexQueue();
-      }
-    });
-
-    this.addCommand({
-      id: "plan-source-semantic-index",
-      name: "Plan source semantic indexing queue",
-      callback: async () => {
-        await this.planSourceSemanticIndex();
-      }
-    });
-
-    this.addCommand({
-      id: "run-source-semantic-index-batch",
-      name: "Run one source semantic indexing batch",
-      callback: async () => {
-        await this.runSourceSemanticIndexBatch();
-      }
-    });
-
-    this.addCommand({
-      id: "cancel-source-semantic-index-queue",
-      name: "Cancel active source semantic indexing jobs",
-      callback: async () => {
-        await this.cancelSourceSemanticIndexQueue();
-      }
-    });
+    registerVaultseerCommands(this, this.createVaultseerStudioCommands());
+    this.registerSelectedNoteActionMenu();
   }
 
   async saveSettings(): Promise<void> {
@@ -748,6 +574,33 @@ export default class VaultseerPlugin extends Plugin {
     if (!leaf) {
       new Notice("Vaultseer could not open Studio.");
     }
+  }
+
+  private registerSelectedNoteActionMenu(): void {
+    this.registerEvent(
+      this.app.workspace.on("editor-menu", (menu, editor, info) => {
+        addSelectedNoteActionMenuItems({
+          menu,
+          activePath: info.file?.path ?? this.app.workspace.getActiveFile()?.path ?? null,
+          selectedText: editor.getSelection(),
+          onAction: (request) => this.submitSelectedNoteAgentAction(request)
+        });
+      })
+    );
+  }
+
+  private async submitSelectedNoteAgentAction(request: SelectedNoteAgentActionRequest): Promise<void> {
+    const leaf = await activateVaultseerStudio(this.app);
+    const view = leaf?.view;
+    if (!(view instanceof VaultseerStudioView)) {
+      new Notice("Vaultseer could not open Studio for the selected text.");
+      return;
+    }
+
+    await view.submitExternalChatMessage(
+      buildSelectedNoteAgentActionPrompt(request),
+      buildSelectedNoteAgentActionDisplayMessage(request)
+    );
   }
 
   async showNativeCodexSetupCheck(): Promise<void> {

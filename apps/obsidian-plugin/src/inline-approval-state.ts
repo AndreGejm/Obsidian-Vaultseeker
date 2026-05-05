@@ -18,7 +18,7 @@ export function buildInlineApprovalState(input: BuildInlineApprovalStateInput): 
   if (
     input.targetPath !== input.activePath ||
     input.touchesMultipleFiles ||
-    input.operationType !== "update_note_tags"
+    !canReviewInline(input.operationType)
   ) {
     return {
       surface: "review_queue",
@@ -30,4 +30,15 @@ export function buildInlineApprovalState(input: BuildInlineApprovalStateInput): 
     surface: "inline",
     message: "This current note change can be reviewed inline."
   };
+}
+
+function canReviewInline(operationType: VaultWriteOperationType): boolean {
+  switch (operationType) {
+    case "update_note_tags":
+    case "update_note_links":
+    case "rewrite_note_content":
+      return true;
+    case "create_note_from_source":
+      return false;
+  }
 }

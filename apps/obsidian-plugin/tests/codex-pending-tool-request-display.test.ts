@@ -66,7 +66,7 @@ describe("codex pending tool request display", () => {
     expect(items[0]?.title).not.toBe("run_vaultseer_command");
   });
 
-  it("renders Stage and Dismiss controls for proposal tool requests", () => {
+  it("renders Stage for review and Dismiss controls for proposal tool requests", () => {
     const items = buildCodexPendingToolRequestDisplayItems([
       {
         displayId: "codex-tool-request-1-1",
@@ -84,7 +84,7 @@ describe("codex pending tool request display", () => {
     expect(items[0]?.controls).toEqual([
       {
         type: "stage",
-        label: "Stage",
+        label: "Stage for review",
         displayId: "codex-tool-request-1-1"
       },
       {

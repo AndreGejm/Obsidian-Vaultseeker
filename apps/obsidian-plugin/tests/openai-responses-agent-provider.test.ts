@@ -2,6 +2,37 @@ import { describe, expect, it, vi } from "vitest";
 import { OpenAiResponsesAgentProvider } from "../src/openai-responses-agent-provider";
 
 describe("OpenAiResponsesAgentProvider", () => {
+  it("calls the default browser fetch with the global receiver", async () => {
+    const originalFetch = globalThis.fetch;
+    const calls: string[] = [];
+    globalThis.fetch = async function (
+      this: unknown,
+      input: string | URL | Request,
+      _init?: RequestInit
+    ): Promise<Response> {
+      if (this !== globalThis) {
+        throw new TypeError("Illegal invocation");
+      }
+      calls.push(String(input));
+      return Response.json({
+        output: [{ type: "message", content: [{ type: "output_text", text: "Ready." }] }]
+      });
+    } as typeof fetch;
+
+    try {
+      const provider = new OpenAiResponsesAgentProvider({
+        apiKey: "sk-test",
+        model: "gpt-5.4",
+        reasoningEffort: "low"
+      });
+
+      await expect(provider.respond({ messages: [], tools: [] })).resolves.toEqual({ message: "Ready." });
+      expect(calls).toEqual(["https://api.openai.com/v1/responses"]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("posts a Responses API request with function tools and parses text plus tool calls", async () => {
     const fetch = vi.fn(async () => responseJson({
       output: [

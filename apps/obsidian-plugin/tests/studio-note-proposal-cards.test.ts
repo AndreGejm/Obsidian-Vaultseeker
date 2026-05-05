@@ -1,5 +1,10 @@
 import type { GuardedVaultWriteOperation, VaultWriteApplyResultRecord } from "@vaultseer/core";
-import { createVaultWriteDecisionRecord, planNoteContentRewriteOperation, planNoteTagUpdateOperation } from "@vaultseer/core";
+import {
+  createVaultWriteDecisionRecord,
+  planNoteContentRewriteOperation,
+  planNoteLinkUpdateOperation,
+  planNoteTagUpdateOperation
+} from "@vaultseer/core";
 import { describe, expect, it } from "vitest";
 import { buildStudioNoteProposalCards } from "../src/studio-note-proposal-cards";
 
@@ -13,6 +18,7 @@ describe("buildStudioNoteProposalCards", () => {
     expect(state).toEqual({
       status: "empty",
       message: "No proposed changes are waiting for this note.",
+      hiddenHistoryCount: 0,
       cards: []
     });
   });
@@ -71,6 +77,8 @@ describe("buildStudioNoteProposalCards", () => {
     expect(state.cards[0]).toMatchObject({
       id: "write-rewrite-1",
       title: "Note rewrite",
+      reviewSurface: "inline",
+      reviewMessage: "This current note change can be reviewed inline.",
       decisionState: "approved",
       decisionLabel: "Approved for later apply",
       applyState: "not_applied",
@@ -85,7 +93,41 @@ describe("buildStudioNoteProposalCards", () => {
     });
   });
 
-  it("keeps applied current-note proposals visible as history without active controls", () => {
+  it("makes approved current-note link updates directly applicable inline", () => {
+    const operation = linkUpdateOperation();
+    const decision = createVaultWriteDecisionRecord({
+      operation,
+      decision: "approved",
+      decidedAt: "2026-05-03T10:30:00.000Z"
+    });
+
+    const state = buildStudioNoteProposalCards({
+      activePath: "Notes/VHDL.md",
+      writeOperations: [operation],
+      decisions: [decision],
+      applyResults: []
+    });
+
+    expect(state.status).toBe("ready");
+    expect(state.cards[0]).toMatchObject({
+      id: "write-link-1",
+      title: "Link update",
+      reviewSurface: "inline",
+      reviewMessage: "This current note change can be reviewed inline.",
+      decisionState: "approved",
+      applyState: "not_applied",
+      canApply: true,
+      controls: [
+        { type: "approve", label: "Approve", enabled: false },
+        { type: "defer", label: "Defer", enabled: true },
+        { type: "reject", label: "Reject", enabled: true },
+        { type: "approve_apply", label: "Approve and apply", enabled: false },
+        { type: "apply", label: "Apply link update", enabled: true }
+      ]
+    });
+  });
+
+  it("hides applied current-note proposal history by default", () => {
     const operation = tagUpdateOperation();
 
     const state = buildStudioNoteProposalCards({
@@ -101,6 +143,31 @@ describe("buildStudioNoteProposalCards", () => {
       applyResults: [appliedResult(operation)]
     });
 
+    expect(state).toEqual({
+      status: "empty",
+      message: "No proposed changes are waiting for this note. 1 completed change is hidden.",
+      hiddenHistoryCount: 1,
+      cards: []
+    });
+  });
+
+  it("can include applied current-note proposal history without active controls", () => {
+    const operation = tagUpdateOperation();
+
+    const state = buildStudioNoteProposalCards({
+      activePath: "Notes/VHDL.md",
+      writeOperations: [operation],
+      decisions: [
+        createVaultWriteDecisionRecord({
+          operation,
+          decision: "approved",
+          decidedAt: "2026-05-03T10:30:00.000Z"
+        })
+      ],
+      applyResults: [appliedResult(operation)],
+      includeHistory: true
+    });
+
     expect(state.cards[0]).toMatchObject({
       queueSection: "history",
       applyState: "applied",
@@ -114,6 +181,28 @@ describe("buildStudioNoteProposalCards", () => {
         { type: "apply", label: "Tag update applied", enabled: false }
       ]
     });
+  });
+
+  it("shows active current-note proposals before applied history", () => {
+    const appliedOperation = tagUpdateOperation();
+    const pendingOperation = rewriteOperation();
+
+    const state = buildStudioNoteProposalCards({
+      activePath: "Notes/VHDL.md",
+      writeOperations: [appliedOperation, pendingOperation],
+      decisions: [
+        createVaultWriteDecisionRecord({
+          operation: appliedOperation,
+          decision: "approved",
+          decidedAt: "2026-05-03T10:30:00.000Z"
+        })
+      ],
+      applyResults: [appliedResult(appliedOperation)],
+      includeHistory: true
+    });
+
+    expect(state.cards.map((card) => card.id)).toEqual(["write-rewrite-1", "write-1"]);
+    expect(state.cards.map((card) => card.queueSection)).toEqual(["active", "history"]);
   });
 
   it("ignores proposals for other notes", () => {
@@ -156,6 +245,26 @@ function rewriteOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): 
       createdAt: "2026-05-03T10:00:00.000Z"
     }),
     id: "write-rewrite-1",
+    ...overrides
+  };
+}
+
+function linkUpdateOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): GuardedVaultWriteOperation {
+  return {
+    ...planNoteLinkUpdateOperation({
+      targetPath: "Notes/VHDL.md",
+      currentContent: "# VHDL\n\nSee [[Missing Timing Note]].\n",
+      replacements: [
+        {
+          rawLink: "[[Missing Timing Note]]",
+          unresolvedTarget: "Missing Timing Note",
+          suggestedPath: "Notes/Timing Closure.md"
+        }
+      ],
+      suggestionIds: ["suggestion:note-link:Notes/VHDL.md:Missing Timing Note:Notes/Timing Closure.md"],
+      createdAt: "2026-05-03T10:00:00.000Z"
+    }),
+    id: "write-link-1",
     ...overrides
   };
 }

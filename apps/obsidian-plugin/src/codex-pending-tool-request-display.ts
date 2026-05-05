@@ -11,11 +11,11 @@ export type CodexPendingToolRequestDisplayControl =
       label: "Run";
       displayId: string;
     }
-  | {
-      type: "stage";
-      label: "Stage";
-      displayId: string;
-    }
+    | {
+        type: "stage";
+        label: "Stage for review";
+        displayId: string;
+      }
   | {
       type: "dismiss";
       label: "Dismiss";
@@ -47,7 +47,7 @@ export function buildCodexPendingToolRequestDisplayItems(
     if (isProposalCodexTool(request.tool) && request.executionStatus === undefined) {
       controls.push({
         type: "stage",
-        label: "Stage",
+        label: "Stage for review",
         displayId: request.displayId
       });
     }

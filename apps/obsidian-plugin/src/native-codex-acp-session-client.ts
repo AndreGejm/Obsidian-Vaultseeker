@@ -1,4 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { existsSync } from "node:fs";
+import { delimiter, win32 } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
 import type {
   CodexAcpSendPromptInput,
@@ -54,6 +56,15 @@ export type NativeCodexAcpLaunchCommand = {
   args: string[];
 };
 
+export type NativeCodexAcpLaunchEnvironment = {
+  platform?: NodeJS.Platform;
+  arch?: string;
+  pathEnv?: string;
+  appDataPath?: string;
+  pathDelimiter?: string;
+  fileExists?: (path: string) => boolean;
+};
+
 type NativeCodexAcpSessionNotification = {
   sessionId: string;
   update: Record<string, unknown> & { sessionUpdate?: string; content?: unknown };
@@ -77,8 +88,9 @@ const STARTING_STATE: CodexRuntimeState = {
   processId: null
 };
 
-const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
+const DEFAULT_STARTUP_TIMEOUT_MS = 120_000;
 const DEFAULT_PROMPT_TIMEOUT_MS = 10 * 60 * 1000;
+const INHERITED_CODEX_MCP_SERVERS_DISABLED_BY_DEFAULT = ["mimir", "image-console"];
 
 export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
   private connection: NativeCodexAcpConnection | null = null;
@@ -323,18 +335,30 @@ export class NativeCodexAcpSessionClient implements CodexAcpSessionClient {
   }
 }
 
-export function buildCodexAcpLaunchCommand(settings: NativeCodexProcessSettings): NativeCodexAcpLaunchCommand {
+export function buildCodexAcpLaunchCommand(
+  settings: NativeCodexProcessSettings,
+  environment: NativeCodexAcpLaunchEnvironment = {}
+): NativeCodexAcpLaunchCommand {
   const parsed = parseNativeCodexCommand(settings.codexCommand);
+  const launchCommand = resolveWindowsCodexAcpNpmShim(parsed, environment) ?? parsed;
   return {
-    command: parsed.command,
+    command: launchCommand.command,
     args: [
-      ...parsed.args,
+      ...launchCommand.args,
       "-c",
       `model=${tomlString(settings.codexModel)}`,
       "-c",
-      `model_reasoning_effort=${tomlString(settings.codexReasoningEffort)}`
+      `model_reasoning_effort=${tomlString(settings.codexReasoningEffort)}`,
+      ...buildDisabledInheritedMcpServerArgs()
     ]
   };
+}
+
+function buildDisabledInheritedMcpServerArgs(): string[] {
+  return INHERITED_CODEX_MCP_SERVERS_DISABLED_BY_DEFAULT.flatMap((serverName) => [
+    "-c",
+    `mcp_servers.${serverName}.enabled=false`
+  ]);
 }
 
 function tomlString(value: string): string {
@@ -393,16 +417,113 @@ function parseNativeCodexCommand(commandLine: string): NativeCodexAcpLaunchComma
   };
 }
 
+function resolveWindowsCodexAcpNpmShim(
+  parsed: NativeCodexAcpLaunchCommand,
+  environment: NativeCodexAcpLaunchEnvironment
+): NativeCodexAcpLaunchCommand | null {
+  if ((environment.platform ?? process.platform) !== "win32") {
+    return null;
+  }
+
+  const executableName = getExecutableName(parsed.command);
+  if (!isCodexAcpShimName(executableName)) {
+    return null;
+  }
+
+  const fileExists = environment.fileExists ?? existsSync;
+  const launchTarget = findWindowsCodexAcpLaunchTarget(parsed.command, {
+    arch: environment.arch ?? process.arch,
+    pathEnv: environment.pathEnv ?? process.env.PATH ?? "",
+    appDataPath: environment.appDataPath ?? process.env.APPDATA ?? "",
+    pathDelimiter: environment.pathDelimiter ?? delimiter,
+    fileExists
+  });
+  if (launchTarget === null) {
+    return null;
+  }
+
+  return {
+    command: launchTarget.command,
+    args: [...launchTarget.args, ...parsed.args]
+  };
+}
+
+function findWindowsCodexAcpLaunchTarget(
+  command: string,
+  environment: {
+    arch: string;
+    pathEnv: string;
+    appDataPath: string;
+    pathDelimiter: string;
+    fileExists: (path: string) => boolean;
+  }
+): NativeCodexAcpLaunchCommand | null {
+  const appDataNpmBin =
+    environment.appDataPath.trim().length > 0 ? win32.join(environment.appDataPath, "npm") : null;
+  const candidates = isPathLike(command)
+    ? [command]
+    : [
+        ...environment.pathEnv.split(environment.pathDelimiter).filter((entry) => entry.trim().length > 0),
+        ...(appDataNpmBin === null ? [] : [appDataNpmBin])
+      ]
+        .flatMap((entry) => [
+          win32.join(entry, "codex-acp.cmd"),
+          win32.join(entry, "codex-acp.ps1"),
+          win32.join(entry, "codex-acp")
+        ]);
+
+  for (const candidate of candidates) {
+    const packageRoot = win32.join(win32.dirname(candidate), "node_modules", "@zed-industries", "codex-acp");
+    const binaryPackageName = `codex-acp-win32-${environment.arch === "arm64" ? "arm64" : "x64"}`;
+    const binaryPath = win32.join(
+      packageRoot,
+      "node_modules",
+      "@zed-industries",
+      binaryPackageName,
+      "bin",
+      "codex-acp.exe"
+    );
+    if (environment.fileExists(binaryPath)) {
+      return {
+        command: binaryPath,
+        args: []
+      };
+    }
+
+    const scriptPath = win32.join(packageRoot, "bin", "codex-acp.js");
+    if (environment.fileExists(scriptPath)) {
+      return {
+        command: "node",
+        args: [scriptPath]
+      };
+    }
+  }
+
+  return null;
+}
+
+function isPathLike(command: string): boolean {
+  return command.includes("\\") || command.includes("/") || /^[A-Za-z]:/.test(command);
+}
+
 function assertAllowedNativeCodexCommand(command: string | undefined): void {
   if (command === undefined || command.trim().length === 0) {
     return;
   }
 
-  const executableName = command.replace(/\\/g, "/").split("/").pop()?.toLowerCase();
+  const executableName = getExecutableName(command);
   const allowed = new Set(["codex", "codex.exe", "codex.cmd", "codex.bat", "codex-acp", "codex-acp.exe", "codex-acp.cmd", "codex-acp.bat"]);
   if (!executableName || !allowed.has(executableName)) {
     throw new Error("Native Codex command must launch codex or codex-acp.");
   }
+}
+
+function getExecutableName(command: string): string {
+  return command.replace(/\\/g, "/").split("/").pop()?.toLowerCase() ?? "";
+}
+
+function isCodexAcpShimName(executableName: string): boolean {
+  return executableName === "codex-acp" || executableName === "codex-acp.cmd" || executableName === "codex-acp.ps1";
 }
 
 function splitCommandLine(commandLine: string): string[] {

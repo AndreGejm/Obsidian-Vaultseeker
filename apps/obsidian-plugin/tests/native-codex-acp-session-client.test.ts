@@ -45,7 +45,17 @@ describe("NativeCodexAcpSessionClient", () => {
       )
     ).toEqual({
       command: "C:\\Program Files\\Codex\\codex-acp.exe",
-      args: ["--stdio", "-c", 'model="gpt-5.4"', "-c", 'model_reasoning_effort="medium"']
+      args: [
+        "--stdio",
+        "-c",
+        'model="gpt-5.4"',
+        "-c",
+        'model_reasoning_effort="medium"',
+        "-c",
+        "mcp_servers.mimir.enabled=false",
+        "-c",
+        "mcp_servers.image-console.enabled=false"
+      ]
     });
   });
 
@@ -56,11 +66,118 @@ describe("NativeCodexAcpSessionClient", () => {
           codexCommand: "codex-acp ; calc",
           codexModel: "gpt-5.4",
           codexReasoningEffort: "medium"
-        })
+        }),
+        { platform: "linux" }
       )
     ).toEqual({
       command: "codex-acp",
-      args: [";", "calc", "-c", 'model="gpt-5.4"', "-c", 'model_reasoning_effort="medium"']
+      args: [
+        ";",
+        "calc",
+        "-c",
+        'model="gpt-5.4"',
+        "-c",
+        'model_reasoning_effort="medium"',
+        "-c",
+        "mcp_servers.mimir.enabled=false",
+        "-c",
+        "mcp_servers.image-console.enabled=false"
+      ]
+    });
+  });
+
+  it("disables inherited Codex MCP servers so Vaultseer owns the agent tool surface", () => {
+    expect(
+      buildCodexAcpLaunchCommand(
+        settings({
+          codexCommand: "codex-acp",
+          codexModel: "gpt-5.3-codex-spark",
+          codexReasoningEffort: "low"
+        }),
+        { platform: "linux" }
+      )
+    ).toEqual({
+      command: "codex-acp",
+      args: [
+        "-c",
+        'model="gpt-5.3-codex-spark"',
+        "-c",
+        'model_reasoning_effort="low"',
+        "-c",
+        "mcp_servers.mimir.enabled=false",
+        "-c",
+        "mcp_servers.image-console.enabled=false"
+      ]
+    });
+  });
+
+  it("resolves the Windows npm codex-acp shim to the platform binary without shell execution", () => {
+    const npmBin = "C:\\Users\\dev\\AppData\\Roaming\\npm";
+    const binaryPath = `${npmBin}\\node_modules\\@zed-industries\\codex-acp\\node_modules\\@zed-industries\\codex-acp-win32-x64\\bin\\codex-acp.exe`;
+
+    expect(
+      buildCodexAcpLaunchCommand(
+        settings({
+          codexCommand: "codex-acp",
+          codexModel: "gpt-5.4",
+          codexReasoningEffort: "medium"
+        }),
+        {
+          platform: "win32",
+          arch: "x64",
+          pathEnv: npmBin,
+          pathDelimiter: ";",
+          fileExists: (path) => path === binaryPath
+        }
+      )
+    ).toEqual({
+      command: binaryPath,
+      args: [
+        "-c",
+        'model="gpt-5.4"',
+        "-c",
+        'model_reasoning_effort="medium"',
+        "-c",
+        "mcp_servers.mimir.enabled=false",
+        "-c",
+        "mcp_servers.image-console.enabled=false"
+      ]
+    });
+  });
+
+  it("resolves the Windows npm codex-acp shim from APPDATA when PATH omits the npm bin", () => {
+    const appDataPath = "C:\\Users\\dev\\AppData\\Roaming";
+    const npmBin = `${appDataPath}\\npm`;
+    const binaryPath = `${npmBin}\\node_modules\\@zed-industries\\codex-acp\\node_modules\\@zed-industries\\codex-acp-win32-x64\\bin\\codex-acp.exe`;
+
+    expect(
+      buildCodexAcpLaunchCommand(
+        settings({
+          codexCommand: "codex-acp",
+          codexModel: "gpt-5.4",
+          codexReasoningEffort: "medium"
+        }),
+        {
+          platform: "win32",
+          arch: "x64",
+          pathEnv: "",
+          appDataPath,
+          pathDelimiter: ";",
+          fileExists: (path) => path === binaryPath
+        }
+      )
+    ).toEqual({
+      command: binaryPath,
+      args: [
+        "-c",
+        'model="gpt-5.4"',
+        "-c",
+        'model_reasoning_effort="medium"',
+        "-c",
+        "mcp_servers.mimir.enabled=false",
+        "-c",
+        "mcp_servers.image-console.enabled=false"
+      ]
     });
   });
 
@@ -109,8 +226,14 @@ describe("NativeCodexAcpSessionClient", () => {
     expect(createConnection).toHaveBeenCalledTimes(1);
     expect(createConnection).toHaveBeenCalledWith(
       expect.objectContaining({
-        command: "codex-acp",
-        args: ["-c", 'model="gpt-5.5"', "-c", 'model_reasoning_effort="xhigh"'],
+        args: expect.arrayContaining([
+          "-c",
+          'model="gpt-5.5"',
+          "-c",
+          'model_reasoning_effort="xhigh"',
+          "mcp_servers.mimir.enabled=false",
+          "mcp_servers.image-console.enabled=false"
+        ]),
         cwd: "F:\\Vault"
       })
     );
@@ -256,6 +379,29 @@ describe("NativeCodexAcpSessionClient", () => {
     expect(client.getState()).toEqual({
       status: "failed",
       message: "new session rejected",
+      processId: null
+    });
+  });
+
+  it("allows cold native startup to take longer than 30 seconds by default", async () => {
+    vi.useFakeTimers();
+    const fake = createFakeConnection();
+    fake.initialize.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(() => resolve({ protocolVersion: 1 }), 31_000))
+    );
+    const client = new NativeCodexAcpSessionClient({
+      getSettings: () => settings(),
+      getVaultBasePath: () => "F:\\Vault",
+      createConnection: async () => fake.connection
+    });
+
+    const sessionPromise = client.ensureSession();
+    await vi.advanceTimersByTimeAsync(31_000);
+
+    await expect(sessionPromise).resolves.toEqual({ sessionId: "session-a" });
+    expect(client.getState()).toEqual({
+      status: "running",
+      message: "Codex is running.",
       processId: null
     });
   });

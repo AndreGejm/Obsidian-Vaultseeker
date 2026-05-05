@@ -242,10 +242,9 @@ function canApplyOperation(
   switch (operation.type) {
     case "create_note_from_source":
     case "update_note_tags":
+    case "update_note_links":
     case "rewrite_note_content":
       break;
-    case "update_note_links":
-      return false;
   }
   if (decisionState !== "approved") return false;
   if (!applyResult) return true;

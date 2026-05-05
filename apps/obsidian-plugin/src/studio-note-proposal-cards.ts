@@ -40,6 +40,7 @@ export type StudioNoteProposalCard = {
 export type StudioNoteProposalCardState = {
   status: "no_active_note" | "empty" | "ready";
   message: string;
+  hiddenHistoryCount: number;
   cards: StudioNoteProposalCard[];
 };
 
@@ -48,6 +49,7 @@ export type BuildStudioNoteProposalCardsInput = {
   writeOperations: GuardedVaultWriteOperation[];
   decisions?: VaultWriteDecisionRecord[];
   applyResults?: VaultWriteApplyResultRecord[];
+  includeHistory?: boolean;
 };
 
 export function buildStudioNoteProposalCards(
@@ -57,6 +59,7 @@ export function buildStudioNoteProposalCards(
     return {
       status: "no_active_note",
       message: "Open a Markdown note to review current-note proposals.",
+      hiddenHistoryCount: 0,
       cards: []
     };
   }
@@ -68,27 +71,39 @@ export function buildStudioNoteProposalCards(
     decisions: input.decisions ?? [],
     applyResults: input.applyResults ?? []
   });
-  const cards = queueState.items
+  const allCards = queueState.items
     .filter((item) => item.targetPath === activePath)
     .map((item) => {
       const operation = operationsById.get(item.operationId);
       return operation === undefined ? null : buildProposalCard(operation, activePath, item);
     })
     .filter((card): card is StudioNoteProposalCard => card !== null);
+  const hiddenHistoryCount = input.includeHistory === true ? 0 : allCards.filter((card) => card.queueSection === "history").length;
+  const cards = input.includeHistory === true ? allCards : allCards.filter((card) => card.queueSection !== "history");
 
   if (cards.length === 0) {
     return {
       status: "empty",
-      message: "No proposed changes are waiting for this note.",
+      message: `No proposed changes are waiting for this note.${formatHiddenHistoryMessage(hiddenHistoryCount)}`,
+      hiddenHistoryCount,
       cards: []
     };
   }
 
   return {
     status: "ready",
-    message: `${cards.length} proposed change${cards.length === 1 ? "" : "s"} for this note.`,
+    message: `${cards.length} proposed change${cards.length === 1 ? "" : "s"} for this note.${formatHiddenHistoryMessage(hiddenHistoryCount)}`,
+    hiddenHistoryCount,
     cards
   };
+}
+
+function formatHiddenHistoryMessage(count: number): string {
+  if (count === 0) {
+    return "";
+  }
+
+  return ` ${count} completed change${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} hidden.`;
 }
 
 function buildProposalCard(
@@ -154,10 +169,9 @@ function canApproveAndApply(item: WriteReviewQueueItem): boolean {
   switch (item.operationType) {
     case "create_note_from_source":
     case "update_note_tags":
+    case "update_note_links":
     case "rewrite_note_content":
       return true;
-    case "update_note_links":
-      return false;
   }
 }
 
@@ -169,7 +183,9 @@ function applyControlLabel(item: WriteReviewQueueItem): string {
   }
 
   if (item.operationType === "update_note_links") {
-    return "Link update preview only";
+    if (item.applyState === "applied") return "Link update applied";
+    if (item.applyState === "failed" && item.canApply) return "Retry link update";
+    return "Apply link update";
   }
 
   if (item.operationType === "rewrite_note_content") {

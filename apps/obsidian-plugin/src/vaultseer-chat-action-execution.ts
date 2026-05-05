@@ -44,6 +44,17 @@ export function appendAssistantRequestedStageSuggestion(input: {
   return request === null ? input.toolRequests : [...input.toolRequests, request];
 }
 
+export function shouldHandleVaultseerActionPlanBeforeNativeToolLoop(plan: VaultseerChatActionPlan): boolean {
+  return plan.sendToCodex === false || (plan.autoStageToolRequests?.length ?? 0) > 0;
+}
+
+export function buildVaultseerNativeToolLoopMessage(input: {
+  originalMessage: string;
+  actionPlan: VaultseerChatActionPlan;
+}): string {
+  return input.actionPlan.agentMessage ?? input.originalMessage;
+}
+
 export function buildVaultseerActionEvidenceMessage(message: string, results: CodexToolResult[]): string {
   if (results.length === 0) {
     return message;

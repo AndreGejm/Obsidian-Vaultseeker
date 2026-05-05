@@ -28,7 +28,7 @@ export class OllamaEmbeddingProvider implements EmbeddingProviderPort {
       throw new Error("Ollama embedding endpoint is required.");
     }
     this.baseUrl = endpoint.endsWith("/") ? endpoint : `${endpoint}/`;
-    this.fetchImplementation = options.fetchImplementation ?? fetch;
+    this.fetchImplementation = options.fetchImplementation ?? globalFetch;
     this.timeoutMs = options.timeoutMs ?? 20_000;
   }
 
@@ -77,6 +77,10 @@ export class OllamaEmbeddingProvider implements EmbeddingProviderPort {
       clearTimeout(timeout);
     }
   }
+}
+
+function globalFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+  return globalThis.fetch(input, init);
 }
 
 function extractEmbeddings(response: OllamaEmbedResponse): number[][] {

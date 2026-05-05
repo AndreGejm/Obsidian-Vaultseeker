@@ -363,7 +363,7 @@ describe("buildWriteReviewQueueState", () => {
     expect(getNextWriteReviewQueueOperationId(state, pending.id, "previous")).toBe(applied.id);
   });
 
-  it("shows note link updates as reviewable but not applyable yet", () => {
+  it("marks approved note link updates as ready for guarded apply", () => {
     const operation = linkUpdateOperation();
 
     const state = buildWriteReviewQueueState({
@@ -381,7 +381,7 @@ describe("buildWriteReviewQueueState", () => {
         sourcePath: null,
         sourceContentHash: null,
         decisionState: "approved",
-        canApply: false,
+        canApply: true,
         previewDiff: expect.stringContaining("+++ b/Projects/Vaultseer Platform.md")
       })
     ]);
