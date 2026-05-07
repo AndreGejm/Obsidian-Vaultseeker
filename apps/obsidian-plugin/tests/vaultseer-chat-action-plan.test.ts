@@ -33,16 +33,34 @@ describe("buildVaultseerChatActionPlan", () => {
     expect(plan.content).toContain("write-like changes are staged for approval");
   });
 
-  it("does not send underspecified staging requests to generic Codex chat", () => {
+  it("treats natural staging requests as active-note proposal work", () => {
     const plan = buildVaultseerChatActionPlan({
       message: "stage it for review",
       activePath: "Notes/VHDL.md"
     });
 
+    expect(plan.sendToCodex).toBeUndefined();
+    expect(plan.content).toContain("Vaultseer is preparing an active-note proposal for review.");
+    expect(plan.agentMessage).toContain("Create or refine the smallest useful active-note proposal");
+    expect(plan.agentMessage).toContain("request stage_suggestion");
+    expect(plan.agentMessage).toContain("Do not ask the user to run stage_suggestion");
+    expect(plan.toolRequests.map((request) => request.tool)).toEqual([
+      "inspect_current_note",
+      "inspect_current_note_chunks",
+      "inspect_note_quality",
+      "search_notes"
+    ]);
+  });
+
+  it("keeps natural staging requests inside Vaultseer when no note is active", () => {
+    const plan = buildVaultseerChatActionPlan({
+      message: "stage it for review",
+      activePath: null
+    });
+
     expect(plan.sendToCodex).toBe(false);
     expect(plan.toolRequests).toEqual([]);
-    expect(plan.content).toContain("I can stage suggestions here");
-    expect(plan.content).toContain("exact tags or links");
+    expect(plan.content).toContain("Open a note first");
   });
 
   it("stages the previous assistant markdown draft for explicit active-note write requests", () => {

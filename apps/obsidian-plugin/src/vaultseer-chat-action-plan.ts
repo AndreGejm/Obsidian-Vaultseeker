@@ -82,13 +82,23 @@ export function buildVaultseerChatActionPlan(input: BuildVaultseerChatActionPlan
       };
     }
 
+    if (input.activePath === null) {
+      return {
+        content: "Open a note first, then I can stage a reviewable Vaultseer proposal for it.",
+        toolRequests: [],
+        sendToCodex: false
+      };
+    }
+
     return {
-      content: [
-        "I can stage suggestions here, but I need the exact tags or links to stage.",
-        "For example: `stage tags electronics, components` or ask me to review the current note and suggest tags first."
-      ].join("\n"),
-      toolRequests: [],
-      sendToCodex: false
+      content: "Vaultseer is preparing an active-note proposal for review.",
+      toolRequests: [
+        { tool: "inspect_current_note", input: null },
+        { tool: "inspect_current_note_chunks", input: { limit: 8 } },
+        { tool: "inspect_note_quality", input: null },
+        { tool: "search_notes", input: { query: message, limit: 8 } }
+      ],
+      agentMessage: buildStageSuggestionProposalAgentMessage(message)
     };
   }
 
@@ -601,6 +611,21 @@ function buildActiveNoteRewriteProposalAgentMessage(message: string): string {
     "A successful answer for this task stages a proposal; do not end with only instructions for the user to copy, paste, or manually run stage_suggestion.",
     "Do not ask the user to run stage_suggestion, paste content manually, rebuild the index, or open another panel before staging the proposal.",
     "Do not apply the proposal directly. Vaultseer will stage it into the guarded review flow so the user can inspect the diff."
+  ].join("\n");
+}
+
+function buildStageSuggestionProposalAgentMessage(message: string): string {
+  return [
+    message,
+    "",
+    "Vaultseer active-note staging task",
+    "Create or refine the smallest useful active-note proposal that satisfies the user's request.",
+    "Use liveNote.text as the active note body even if indexed chunks are empty.",
+    "If the user refers to a prior draft, reuse that intent, but do not ask them to copy, paste, or manually run commands.",
+    "If the request is broad or ambiguous, prefer a safe active-note rewrite or small cleanup proposal over stopping for exact tags or links.",
+    "When the proposal is ready, request stage_suggestion with kind=rewrite, markdown set to the full replacement Markdown, and a concise reason.",
+    "Do not ask the user to run stage_suggestion, rebuild the index, or open another panel before staging the proposal.",
+    "Do not apply the proposal directly. Vaultseer will show the redline and wait for the user to press Write to note."
   ].join("\n");
 }
 
