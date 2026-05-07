@@ -116,7 +116,15 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
   return {
     status: "ready",
     title: "Review note changes",
-    message: `${pendingCount} pending, ${deferredCount} deferred, ${approvedCount} approved, ${rejectedCount} rejected.`,
+    message: formatQueueMessage({
+      pendingCount,
+      deferredCount,
+      approvedCount,
+      rejectedCount,
+      appliedCount,
+      activeCount,
+      historyCount
+    }),
     totalCount: sortedItems.length,
     pendingCount,
     deferredCount,
@@ -128,6 +136,24 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
     historyCount,
     items: sortedItems
   };
+}
+
+function formatQueueMessage(input: {
+  pendingCount: number;
+  deferredCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  appliedCount: number;
+  activeCount: number;
+  historyCount: number;
+}): string {
+  if (input.activeCount === 0 && input.historyCount > 0 && input.appliedCount === input.historyCount) {
+    return "All note changes are written. Completed changes are kept in history.";
+  }
+  if (input.activeCount === 0 && input.historyCount > 0) {
+    return "No note changes need review. Completed changes are kept in history.";
+  }
+  return `${input.pendingCount} pending, ${input.deferredCount} deferred, ${input.approvedCount} approved, ${input.rejectedCount} rejected.`;
 }
 
 export function getDefaultWriteReviewQueueOperationId(state: WriteReviewQueueState): string | null {

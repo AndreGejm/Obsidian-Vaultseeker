@@ -387,8 +387,27 @@ describe("buildWriteReviewQueueState", () => {
 
     expect(state.activeCount).toBe(0);
     expect(state.historyCount).toBe(1);
+    expect(state.message).toBe("All note changes are written. Completed changes are kept in history.");
     expect(getDefaultWriteReviewQueueOperationId(state)).toBeNull();
     expect(getNextWriteReviewQueueOperationId(state, applied.id, "next")).toBeNull();
+  });
+
+  it("does not describe rejected-only history as written", () => {
+    const rejected = tagUpdateOperation({
+      id: "vault-write:update-note-tags:rejected",
+      createdAt: "2026-05-01T22:00:00.000Z"
+    });
+
+    const state = buildWriteReviewQueueState({
+      operations: [rejected],
+      decisions: [writeDecision({ operationId: rejected.id, targetPath: rejected.targetPath, decision: "rejected" })],
+      applyResults: []
+    });
+
+    expect(state.activeCount).toBe(0);
+    expect(state.historyCount).toBe(1);
+    expect(state.message).toBe("No note changes need review. Completed changes are kept in history.");
+    expect(getDefaultWriteReviewQueueOperationId(state)).toBeNull();
   });
 
   it("marks approved note link updates as ready for guarded apply", () => {

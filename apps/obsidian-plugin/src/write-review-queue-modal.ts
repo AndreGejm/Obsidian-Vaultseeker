@@ -93,7 +93,12 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     const listEl = contentEl.createEl("section", { cls: "vaultseer-write-review-queue-items" });
     listEl.createEl("h3", { text: focusedItem ? "Selected change" : "Changes" });
     if (!focusedItem) {
-      listEl.createEl("p", { text: "No proposal is selected." });
+      listEl.createEl("p", {
+        text:
+          state.historyCount > 0
+            ? "No note changes need review. Completed changes are in history."
+            : "No note changes are waiting for review."
+      });
     } else {
       this.renderItem(listEl, focusedItem, operationById.get(focusedItem.operationId));
     }
@@ -109,7 +114,12 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     navEl.createEl("h3", { text: "Change navigation" });
 
     if (!focusedItem) {
-      navEl.createEl("p", { text: "No note changes are waiting for review." });
+      navEl.createEl("p", {
+        text:
+          state.historyCount > 0
+            ? "No note changes need review. Completed changes are in history."
+            : "No note changes are waiting for review."
+      });
       return;
     }
 
