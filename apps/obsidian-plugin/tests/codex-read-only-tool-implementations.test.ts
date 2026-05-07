@@ -909,7 +909,7 @@ describe("createCodexReadOnlyToolImplementations", () => {
       operationId: operation.id,
       targetPath: operation.targetPath,
       decision: "approved",
-      message: "Accepted and applied Notes/VHDL.md."
+      message: "Wrote Notes/VHDL.md to the note."
     });
 
     expect(writePort.applyCount).toBe(1);
@@ -927,6 +927,56 @@ describe("createCodexReadOnlyToolImplementations", () => {
         status: "applied",
         targetPath: operation.targetPath,
         appliedAt: "2026-05-03T12:00:00.000Z"
+      })
+    ]);
+  });
+
+  it("rebases active current-note proposals before applying from the native Codex tool surface", async () => {
+    const store = new InMemoryVaultseerStore();
+    const operation = rewriteOperation();
+    let dryRunOperation: GuardedVaultWriteOperation | null = null;
+    let appliedOperation: GuardedVaultWriteOperation | null = null;
+    const writePort: VaultWritePort = {
+      async dryRun(candidate) {
+        dryRunOperation = candidate;
+        return okDryRun(candidate);
+      },
+      async apply(candidate, approval) {
+        appliedOperation = candidate;
+        return {
+          operationId: candidate.id,
+          targetPath: candidate.targetPath,
+          beforeHash: candidate.expectedCurrentHash,
+          afterHash: candidate.preview.afterHash,
+          appliedAt: approval.approvedAt
+        };
+      }
+    };
+    await store.replaceVaultWriteOperations([operation]);
+    const tools = createCodexReadOnlyToolImplementations({
+      store,
+      getActivePath: () => operation.targetPath,
+      readActiveNoteContent: async () => "# VHDL\n\nUser typed a new sentence after staging.\n",
+      writePort,
+      now: () => "2026-05-03T12:00:00.000Z"
+    });
+
+    await expect(tools.reviewCurrentNoteProposal?.({ operationId: operation.id, apply: true })).resolves.toMatchObject({
+      status: "applied",
+      targetPath: operation.targetPath,
+      decision: "approved",
+      message: "Wrote Notes/VHDL.md to the note."
+    });
+
+    expect(dryRunOperation?.id).not.toBe(operation.id);
+    expect(dryRunOperation?.expectedCurrentHash).not.toBe(operation.expectedCurrentHash);
+    expect(appliedOperation?.id).toBe(dryRunOperation?.id);
+    await expect(store.getVaultWriteOperations()).resolves.toEqual([expect.objectContaining({ id: dryRunOperation?.id })]);
+    await expect(store.getVaultWriteDecisionRecords()).resolves.toEqual([
+      expect.objectContaining({
+        operationId: dryRunOperation?.id,
+        decision: "approved",
+        targetPath: operation.targetPath
       })
     ]);
   });

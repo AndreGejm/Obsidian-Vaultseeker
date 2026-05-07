@@ -5,6 +5,7 @@ import {
   normalizeNoteRecord,
   suggestLinksForNote,
   suggestTagsForNote,
+  type GuardedVaultWriteOperation,
   type NoteRecord,
   type NoteRecordInput,
   type VaultseerStore,
@@ -37,6 +38,7 @@ import {
   acceptWriteReviewQueueOperation,
   recordWriteReviewQueueDecision
 } from "./write-review-queue-controller";
+import { refreshActiveNoteOperationForCurrentContent } from "./write-operation-edit";
 
 export {
   parseCodexReviewCurrentNoteProposalInput,
@@ -449,17 +451,18 @@ export function createCodexReadOnlyToolImplementations(
         return staleCurrentProposalActionResult(activePath, operation.id);
       }
 
+      const operationToAccept = await refreshCurrentNoteOperationForToolApply(input, operation);
       const acceptSummary = await acceptWriteReviewQueueOperation({
         store: input.store,
         writePort,
-        operation,
+        operation: operationToAccept,
         now
       });
 
       return {
         status: acceptSummary.status,
-        operationId: operation.id,
-        targetPath: operation.targetPath,
+        operationId: acceptSummary.operationId,
+        targetPath: acceptSummary.targetPath,
         decision: request.decision,
         message: acceptSummary.message,
         decisionRecord: acceptSummary.decisionRecord,
@@ -467,6 +470,32 @@ export function createCodexReadOnlyToolImplementations(
       };
     }
   };
+}
+
+async function refreshCurrentNoteOperationForToolApply(
+  input: CreateCodexReadOnlyToolImplementationsInput,
+  operation: GuardedVaultWriteOperation
+): Promise<GuardedVaultWriteOperation> {
+  if (
+    input.readActiveNoteContent === undefined ||
+    (operation.type !== "rewrite_note_content" &&
+      operation.type !== "update_note_tags" &&
+      operation.type !== "update_note_links")
+  ) {
+    return operation;
+  }
+
+  const currentContent = await input.readActiveNoteContent(operation.targetPath);
+  const refreshed = refreshActiveNoteOperationForCurrentContent({ operation, currentContent });
+  if (refreshed.id === operation.id) {
+    return operation;
+  }
+
+  const operations = await input.store.getVaultWriteOperations();
+  await input.store.replaceVaultWriteOperations(
+    operations.map((candidate) => (candidate.id === operation.id ? refreshed : candidate))
+  );
+  return refreshed;
 }
 
 async function loadCurrentNoteProposalCards(

@@ -83,13 +83,13 @@ export async function acceptWriteReviewQueueOperation(
   return {
     decisionRecord: decisionSummary.decisionRecord,
     status: applySummary.status,
-    operationId: input.operation.id,
-    targetPath: input.operation.targetPath,
+    operationId: applySummary.operationId,
+    targetPath: applySummary.targetPath,
     applyResult: applySummary,
     message:
       applySummary.status === "applied"
-        ? `Accepted and applied ${input.operation.targetPath}.`
-        : `Accepted ${input.operation.targetPath}, but apply did not complete: ${applySummary.message}`
+        ? `Wrote ${applySummary.targetPath} to the note.`
+        : `Approved ${applySummary.targetPath}, but writing did not complete: ${applySummary.message}`
   };
 }
 

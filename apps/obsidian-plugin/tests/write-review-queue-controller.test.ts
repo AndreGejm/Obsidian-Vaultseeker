@@ -48,7 +48,7 @@ describe("recordWriteReviewQueueDecision", () => {
     });
 
     expect(summary.status).toBe("applied");
-    expect(summary.message).toBe("Accepted and applied Source Notes/Ragnarok.md.");
+    expect(summary.message).toBe("Wrote Source Notes/Ragnarok.md to the note.");
     expect(port.applyCount).toBe(1);
     await expect(store.getVaultWriteDecisionRecords()).resolves.toEqual([
       {
