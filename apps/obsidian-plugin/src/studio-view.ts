@@ -1,4 +1,4 @@
-import { ItemView, MarkdownRenderer, Menu, Notice, type App, type WorkspaceLeaf } from "obsidian";
+import { ItemView, MarkdownRenderer, Menu, Notice, TFile, type App, type WorkspaceLeaf } from "obsidian";
 import type {
   ActiveNoteContextPacket,
   CodexRuntimeStatus,
@@ -33,7 +33,11 @@ import {
   type CodexToolImplementations,
   type CodexToolResult
 } from "./codex-tool-dispatcher";
-import { buildStudioChatComposerState, buildStudioChatShellState } from "./studio-chat-shell-state";
+import {
+  buildStudioChatComposerState,
+  buildStudioChatContextBarState,
+  buildStudioChatShellState
+} from "./studio-chat-shell-state";
 import { buildPluginStudioState, type PluginStudioState } from "./studio-state";
 import { CODEX_MODEL_OPTIONS, CODEX_REASONING_EFFORT_OPTIONS, type CodexReasoningEffort } from "./settings-model";
 import {
@@ -53,6 +57,8 @@ import {
 } from "./studio-pending-tool-request-view";
 import { buildStudioStatusStrip } from "./studio-status-strip";
 import { renderStudioStatusStrip } from "./studio-status-strip-view";
+import { renderStudioChatPanel } from "./studio-chat-panel-view";
+import { renderStudioCommandPanel } from "./studio-command-panel-view";
 import {
   buildVaultseerChatActionPlan,
   extractLastAssistantMarkdownSuggestion,
@@ -61,6 +67,7 @@ import {
 import {
   appendAssistantRequestedStageSuggestion,
   buildVaultseerNativeToolLoopMessage,
+  buildVaultseerStagedProposalMessage,
   buildVaultseerToolContinuationMessage,
   buildVaultseerActionEvidenceMessage,
   shouldHandleVaultseerActionPlanBeforeNativeToolLoop,
@@ -73,8 +80,16 @@ import {
   applyVaultseerSlashCommandMessage,
   queueVaultseerStudioCommandRequest
 } from "./vaultseer-studio-command-request";
-import { recordWriteReviewQueueDecision } from "./write-review-queue-controller";
-import { applyApprovedVaultWriteOperation } from "./write-apply-controller";
+import {
+  acceptWriteReviewQueueOperation,
+  recordWriteReviewQueueDecision
+} from "./write-review-queue-controller";
+import {
+  editVaultWriteOperationContent,
+  isEditableVaultWriteOperation,
+  refreshRewriteOperationForCurrentContent
+} from "./write-operation-edit";
+import { VaultseerWriteProposalEditModal } from "./write-proposal-edit-modal";
 import {
   canAttachMoreChatImages,
   CHAT_IMAGE_ATTACHMENT_EXTENSIONS,
@@ -82,10 +97,10 @@ import {
   MAX_CHAT_IMAGE_ATTACHMENT_COUNT,
   type ChatImageAttachment
 } from "./chat-image-attachment";
-import { restoreChatComposerFocus } from "./chat-composer-focus";
-import { renderStudioChatMessageBody } from "./studio-chat-message-view";
+import { restoreChatComposerFocus, shouldSubmitChatComposerKey } from "./chat-composer-focus";
 import { VaultseerChatImageAttachmentModal } from "./chat-image-attachment-modal";
 import { readVaultAssetRecords, type VaultAssetReaderApp, type VaultAssetRecord } from "./obsidian-adapter";
+import { formatCodexRuntimeFailure } from "./codex-runtime-state";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 const MAX_CODEX_TOOL_CONTINUATION_ITERATIONS = 3;
@@ -188,19 +203,21 @@ export class VaultseerStudioView extends ItemView {
 
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("h2", { text: state.title });
-    contentEl.createEl("p", { text: `Current note: ${state.activeNoteLabel}` });
-    renderStudioStatusStrip(
-      contentEl,
-      buildStudioStatusStrip({
-        health,
-        activePath,
-        notes,
-        writeOperations,
-        codexRuntimeStatus: this.getCodexRuntimeStatus()
-      })
-    );
-    this.renderModeButtons(contentEl, state);
+    if (state.activeMode !== "chat") {
+      contentEl.createEl("h2", { text: state.title });
+      contentEl.createEl("p", { text: `Current note: ${state.activeNoteLabel}` });
+      renderStudioStatusStrip(
+        contentEl,
+        buildStudioStatusStrip({
+          health,
+          activePath,
+          notes,
+          writeOperations,
+          codexRuntimeStatus: this.getCodexRuntimeStatus()
+        })
+      );
+      this.renderModeButtons(contentEl, state);
+    }
     this.renderSelectedMode(contentEl, state, writeOperations, writeDecisions, writeApplyResults);
   }
 
@@ -338,6 +355,7 @@ export class VaultseerStudioView extends ItemView {
       writeDecisions: VaultWriteDecisionRecord[];
       writeApplyResults: VaultWriteApplyResultRecord[];
       showEmptyState: boolean;
+      surface?: "note" | "chat";
     }
   ): void {
     renderStudioCurrentNoteProposalCards(containerEl, input, (operationId, controlType) =>
@@ -364,58 +382,48 @@ export class VaultseerStudioView extends ItemView {
       focusRequested: this.chatComposerFocusRequested
     });
     const shellEl = containerEl.createDiv({ cls: "vaultseer-codex-shell" });
-    const headerEl = shellEl.createDiv({ cls: "vaultseer-codex-header" });
-    const titleEl = headerEl.createDiv({ cls: "vaultseer-codex-title" });
-    titleEl.createEl("strong", { text: shellState.title });
-    titleEl.createEl("span", { text: shellState.activeNoteTitle, cls: "vaultseer-codex-subtitle" });
-
-    const controlsEl = headerEl.createDiv({ cls: "vaultseer-codex-controls" });
-    controlsEl.createEl("span", { text: shellState.profileLabel, cls: "vaultseer-codex-profile" });
-    controlsEl.createEl("span", { text: shellState.runtimeLabel, cls: "vaultseer-codex-runtime" });
-    const resetButton = controlsEl.createEl("button", {
-      text: "Reset",
-      attr: {
-        type: "button"
+    const contextBar = buildStudioChatContextBarState({
+      activeNoteLabel: state.activeNoteLabel,
+      activeNotePath: state.activeNotePath,
+      activeNoteIndexed: state.activeNoteIndexed,
+      activeProposalCount: writeOperations.filter((operation) => operation.targetPath === state.activeNotePath).length
+    });
+    renderStudioChatPanel(shellEl, {
+      shellState,
+      contextBar,
+      chatState: this.chatState,
+      activeNotePath: state.activeNotePath,
+      chatSending: this.chatSending,
+      onTools: (event) => {
+        this.showStudioModeMenu(event, state);
       },
-      cls: "vaultseer-codex-ghost-button"
-    });
-    resetButton.disabled = this.chatSending;
-    resetButton.addEventListener("click", async () => {
-      this.chatSendId += 1;
-      this.chatSending = false;
-      this.chatState = applyChatEvent(this.chatState, { type: "clear" });
-      this.chatDraftAttachments = [];
-      await this.resetCodexSession();
-      this.chatComposerFocusRequested = true;
-      await this.refresh();
-    });
-
-    const messagesEl = shellEl.createDiv({ cls: "vaultseer-codex-messages" });
-
-    if (this.chatState.messages.length === 0) {
-      messagesEl.createEl("p", { text: shellState.emptyStateText, cls: "vaultseer-codex-empty" });
-    } else {
-      for (const message of this.chatState.messages) {
-        const messageEl = messagesEl.createDiv({ cls: `vaultseer-codex-message vaultseer-chat-${message.role}` });
-        messageEl.createEl("strong", { text: `${capitalize(message.role)}` });
-        renderStudioChatMessageBody(messageEl, {
-          content: message.content,
-          renderMarkdown: (content, bodyEl) =>
-            MarkdownRenderer.render(this.app, content, bodyEl, state.activeNotePath ?? "", this),
-          onRenderError: (error) => {
-            console.warn("Vaultseer could not render chat Markdown.", error);
-          }
-        });
+      onReset: async () => {
+        this.chatSendId += 1;
+        this.chatSending = false;
+        this.chatState = applyChatEvent(this.chatState, { type: "clear" });
+        this.chatDraftAttachments = [];
+        await this.resetCodexSession();
+        this.chatComposerFocusRequested = true;
+        await this.refresh();
+      },
+      onContextBarAction: async () => {
+        await this.handleContextBarAction(contextBar.action?.id ?? null, shellEl);
+      },
+      renderMarkdown: (content, bodyEl, sourcePath) => MarkdownRenderer.render(this.app, content, bodyEl, sourcePath, this),
+      onRenderError: (error) => {
+        console.warn("Vaultseer could not render chat Markdown.", error);
       }
-    }
+    });
 
     this.renderPendingToolRequests(shellEl);
-    this.renderCurrentNoteProposalCards(shellEl, {
+    const proposalAnchorEl = shellEl.createDiv({ cls: "vaultseer-codex-proposals-anchor" });
+    this.renderCurrentNoteProposalCards(proposalAnchorEl, {
       activePath: state.activeNotePath,
       writeOperations,
       writeDecisions,
       writeApplyResults,
-      showEmptyState: false
+      showEmptyState: false,
+      surface: "chat"
     });
 
     if (this.chatState.error) {
@@ -484,54 +492,32 @@ export class VaultseerStudioView extends ItemView {
     input.addEventListener("input", () => {
       this.chatDraft = input?.value ?? "";
     });
+    input.addEventListener("keydown", (event) => {
+      if (!shouldSubmitChatComposerKey(event)) {
+        return;
+      }
+
+      event.preventDefault();
+      requestFormSubmit(form);
+    });
+    composerBodyEl.createEl("span", { text: shellState.composerHint, cls: "vaultseer-codex-composer-hint" });
 
     const footerEl = form.createDiv({ cls: "vaultseer-codex-composer-footer" });
-    const commandButton = footerEl.createEl("button", {
-      text: shellState.modeLabel,
-      attr: {
-        type: "button",
-        "aria-label": "Open Vaultseer commands"
+    renderStudioCommandPanel(footerEl, {
+      shellState,
+      composerState,
+      chatSending: this.chatSending,
+      onCommandMenu: (event) => {
+        this.showCommandMenu(event);
       },
-      cls: "vaultseer-codex-select-button"
-    });
-    commandButton.disabled = this.chatSending;
-    commandButton.addEventListener("click", (event) => {
-      this.showCommandMenu(event);
-    });
-    const modelButton = footerEl.createEl("button", {
-      text: shellState.modelLabel,
-      attr: {
-        type: "button",
-        "aria-label": "Change Codex model"
+      onModelMenu: (event) => {
+        this.showModelMenu(event);
       },
-      cls: "vaultseer-codex-select-button"
-    });
-    modelButton.disabled = this.chatSending;
-    modelButton.addEventListener("click", (event) => {
-      this.showModelMenu(event);
-    });
-    const reasoningButton = footerEl.createEl("button", {
-      text: shellState.reasoningLabel,
-      attr: {
-        type: "button",
-        "aria-label": "Change Codex reasoning effort"
-      },
-      cls: "vaultseer-codex-select-button"
-    });
-    reasoningButton.disabled = this.chatSending;
-    reasoningButton.addEventListener("click", (event) => {
-      this.showReasoningMenu(event);
-    });
-    const sendButton = footerEl.createEl("button", {
-      text: composerState.sendLabel,
-      attr: {
-        type: "submit",
-        "aria-label": "Send message"
-      },
-      cls: "vaultseer-codex-send-button"
+      onReasoningMenu: (event) => {
+        this.showReasoningMenu(event);
+      }
     });
     input.disabled = composerState.inputDisabled;
-    sendButton.disabled = composerState.sendDisabled;
     if (composerState.shouldRestoreFocus) {
       this.chatComposerFocusRequested = false;
       restoreChatComposerFocus(input);
@@ -625,10 +611,7 @@ export class VaultseerStudioView extends ItemView {
         if (stagedProposalResults.length > 0 && this.isCurrentChatSend(sendScope)) {
           this.chatState = applyChatEvent(this.chatState, {
             type: "assistant_message",
-            content: [
-              "Vaultseer staged the active-note proposal for review.",
-              ...stagedProposalResults.map((result) => formatCodexToolResultMessage(result))
-            ].join("\n\n"),
+            content: buildVaultseerStagedProposalMessage(stagedProposalResults),
             createdAt: new Date().toISOString()
           });
         }
@@ -653,7 +636,7 @@ export class VaultseerStudioView extends ItemView {
         if (this.isCurrentChatSend(sendScope)) {
           this.chatState = applyChatEvent(this.chatState, {
             type: "error",
-            message: getErrorMessage(error)
+            message: getCodexProviderErrorMessage(error)
           });
         }
       } finally {
@@ -681,10 +664,7 @@ export class VaultseerStudioView extends ItemView {
     if (stagedProposalResults.length > 0 && this.isCurrentChatSend(sendScope)) {
       this.chatState = applyChatEvent(this.chatState, {
         type: "assistant_message",
-        content: [
-          "Vaultseer staged the active-note proposal for review.",
-          ...stagedProposalResults.map((result) => formatCodexToolResultMessage(result))
-        ].join("\n\n"),
+        content: buildVaultseerStagedProposalMessage(stagedProposalResults),
         createdAt: new Date().toISOString()
       });
     }
@@ -721,7 +701,7 @@ export class VaultseerStudioView extends ItemView {
       if (this.isCurrentChatSend(sendScope)) {
         this.chatState = applyChatEvent(this.chatState, {
           type: "error",
-          message: getErrorMessage(error)
+          message: getCodexProviderErrorMessage(error)
         });
       }
     } finally {
@@ -761,10 +741,7 @@ export class VaultseerStudioView extends ItemView {
     if (stagedProposalResults.length > 0 && this.isCurrentChatSend(sendScope)) {
       this.chatState = applyChatEvent(this.chatState, {
         type: "assistant_message",
-        content: [
-          "Vaultseer staged the active-note proposal for review.",
-          ...stagedProposalResults.map((result) => formatCodexToolResultMessage(result))
-        ].join("\n\n"),
+        content: buildVaultseerStagedProposalMessage(stagedProposalResults),
         createdAt: new Date().toISOString()
       });
       await this.refresh();
@@ -848,7 +825,7 @@ export class VaultseerStudioView extends ItemView {
       if (this.isCurrentChatSend(sendScope)) {
         this.chatState = applyChatEvent(this.chatState, {
           type: "error",
-          message: getErrorMessage(error)
+          message: getCodexProviderErrorMessage(error)
         });
       }
     } finally {
@@ -858,6 +835,40 @@ export class VaultseerStudioView extends ItemView {
       }
       await this.refresh();
     }
+  }
+
+  private async handleContextBarAction(
+    actionId: "review-proposals" | "rebuild-index" | "draft-rewrite" | null,
+    shellEl: HTMLElement
+  ): Promise<void> {
+    if (actionId === "review-proposals") {
+      shellEl.querySelector(".vaultseer-codex-proposals-anchor")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+      return;
+    }
+
+    if (actionId === "draft-rewrite") {
+      await this.submitExternalChatMessage("review this note and make it clearer, better structured, and easier to read");
+      return;
+    }
+
+    if (actionId !== "rebuild-index") {
+      return;
+    }
+
+    const command = this.getVaultseerCommands().find((item) => item.id === "rebuild-index");
+    if (command === undefined) {
+      new Notice("Vaultseer index command is not available.");
+      return;
+    }
+
+    const activePath = this.getActivePath();
+    this.chatState = applyActiveNoteChangeToChatState(this.chatState, activePath);
+    this.chatState = queueVaultseerStudioCommandRequest(this.chatState, command, new Date().toISOString());
+    this.chatComposerFocusRequested = true;
+    await this.refresh();
   }
 
   private async runAutomaticToolRequests(requests: CodexChatToolRequest[]): Promise<CodexToolResult[]> {
@@ -1120,13 +1131,13 @@ export class VaultseerStudioView extends ItemView {
   }
 
   private async handleProposalControl(operationId: string, controlType: StudioNoteProposalControlType): Promise<void> {
-    if (controlType === "approve_apply") {
-      await this.handleProposalApproveAndApply(operationId);
+    if (controlType === "accept") {
+      await this.handleProposalAccept(operationId);
       return;
     }
 
-    if (controlType === "apply") {
-      await this.handleProposalApply(operationId);
+    if (controlType === "edit") {
+      await this.handleProposalEdit(operationId);
       return;
     }
 
@@ -1140,7 +1151,7 @@ export class VaultseerStudioView extends ItemView {
     await this.handleProposalDecision(operationId, decision);
   }
 
-  private async handleProposalApproveAndApply(operationId: string): Promise<void> {
+  private async handleProposalAccept(operationId: string): Promise<void> {
     try {
       const operation = await this.loadProposalOperation(operationId);
       if (operation === null) {
@@ -1150,22 +1161,16 @@ export class VaultseerStudioView extends ItemView {
         return;
       }
 
-      const decisionSummary = await recordWriteReviewQueueDecision({
-        store: this.store,
-        operation,
-        decision: "approved",
-        now: () => new Date().toISOString()
-      });
-      const applySummary = await applyApprovedVaultWriteOperation({
+      const operationToAccept = await this.refreshRewriteBeforeAccept(operation);
+      const summary = await acceptWriteReviewQueueOperation({
         store: this.store,
         writePort: this.writePort,
-        operation,
-        decision: decisionSummary.decisionRecord,
+        operation: operationToAccept,
         now: () => new Date().toISOString()
       });
-      new Notice(`${decisionSummary.message} ${applySummary.message}`);
+      new Notice(summary.message);
     } catch (error) {
-      new Notice(`Vaultseer could not approve and apply the proposal: ${getErrorMessage(error)}`);
+      new Notice(`Vaultseer could not accept the proposal: ${getErrorMessage(error)}`);
     }
 
     this.chatComposerFocusRequested = true;
@@ -1197,7 +1202,7 @@ export class VaultseerStudioView extends ItemView {
     await this.refresh();
   }
 
-  private async handleProposalApply(operationId: string): Promise<void> {
+  private async handleProposalEdit(operationId: string): Promise<void> {
     try {
       const operation = await this.loadProposalOperation(operationId);
       if (operation === null) {
@@ -1207,26 +1212,64 @@ export class VaultseerStudioView extends ItemView {
         return;
       }
 
-      const decisions = await this.store.getVaultWriteDecisionRecords();
-      const summary = await applyApprovedVaultWriteOperation({
-        store: this.store,
-        writePort: this.writePort,
-        operation,
-        decision: findLatestDecision(decisions, operationId),
-        now: () => new Date().toISOString()
-      });
-      new Notice(summary.message);
-    } catch (error) {
-      new Notice(`Vaultseer could not apply the proposal: ${getErrorMessage(error)}`);
-    }
+      if (!isEditableVaultWriteOperation(operation)) {
+        new Notice("Only note rewrites and source-note drafts can be edited here.");
+        return;
+      }
 
-    this.chatComposerFocusRequested = true;
-    await this.refresh();
+      const currentContent = operation.type === "rewrite_note_content" ? await this.readVaultTextFile(operation.targetPath) : undefined;
+      new VaultseerWriteProposalEditModal(this.app, {
+        targetPath: operation.targetPath,
+        initialContent: operation.content,
+        onSave: async (editedContent) => {
+          const editedOperation = editVaultWriteOperationContent({
+            operation,
+            currentContent,
+            editedContent
+          });
+          const operations = await this.store.getVaultWriteOperations();
+          await this.store.replaceVaultWriteOperations(
+            operations.map((candidate) => (candidate.id === operation.id ? editedOperation : candidate))
+          );
+          new Notice(`Updated proposal for ${operation.targetPath}.`);
+          this.chatComposerFocusRequested = true;
+          await this.refresh();
+        }
+      }).open();
+    } catch (error) {
+      new Notice(`Vaultseer could not edit the proposal: ${getErrorMessage(error)}`);
+    }
   }
 
   private async loadProposalOperation(operationId: string): Promise<GuardedVaultWriteOperation | null> {
     const operations = await this.store.getVaultWriteOperations();
     return operations.find((operation) => operation.id === operationId) ?? null;
+  }
+
+  private async refreshRewriteBeforeAccept(operation: GuardedVaultWriteOperation): Promise<GuardedVaultWriteOperation> {
+    if (operation.type !== "rewrite_note_content") {
+      return operation;
+    }
+
+    const currentContent = await this.readVaultTextFile(operation.targetPath);
+    const refreshed = refreshRewriteOperationForCurrentContent({ operation, currentContent });
+    if (refreshed === null || refreshed.id === operation.id) {
+      return operation;
+    }
+
+    const operations = await this.store.getVaultWriteOperations();
+    await this.store.replaceVaultWriteOperations(
+      operations.map((candidate) => (candidate.id === operation.id ? refreshed : candidate))
+    );
+    return refreshed;
+  }
+
+  private async readVaultTextFile(path: string): Promise<string> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      throw new Error(`Could not find ${path} in the vault.`);
+    }
+    return await this.app.vault.read(file);
   }
 
   private showModelMenu(event: MouseEvent): void {
@@ -1240,6 +1283,26 @@ export class VaultseerStudioView extends ItemView {
         item.onClick(async () => {
           await this.updateCodexModelSelection({ codexModel: model });
           this.chatComposerFocusRequested = true;
+          await this.refresh();
+        });
+      });
+    }
+
+    menu.showAtMouseEvent(event);
+  }
+
+  private showStudioModeMenu(event: MouseEvent, state: PluginStudioState): void {
+    event.preventDefault();
+    const menu = new Menu();
+
+    for (const mode of state.modes) {
+      menu.addItem((item) => {
+        item.setTitle(mode.selected ? `Current: ${mode.label}` : mode.label);
+        item.onClick(async () => {
+          this.activeMode = mode.id;
+          if (mode.id === "chat") {
+            this.chatComposerFocusRequested = true;
+          }
           await this.refresh();
         });
       });
@@ -1324,39 +1387,22 @@ export async function activateVaultseerStudio(app: App): Promise<WorkspaceLeaf |
 
 function proposalControlToDecision(controlType: StudioNoteProposalControlType): VaultWriteDecision | null {
   switch (controlType) {
-    case "approve":
-      return "approved";
     case "defer":
       return "deferred";
     case "reject":
       return "rejected";
-    case "approve_apply":
-      return null;
-    case "apply":
+    case "accept":
+    case "edit":
       return null;
   }
-}
-
-function findLatestDecision(
-  decisions: VaultWriteDecisionRecord[],
-  operationId: string
-): VaultWriteDecisionRecord | null {
-  let latest: VaultWriteDecisionRecord | null = null;
-  for (const decision of decisions) {
-    if (decision.operationId !== operationId) continue;
-    if (latest === null || latest.decidedAt.localeCompare(decision.decidedAt) < 0) {
-      latest = decision;
-    }
-  }
-  return latest;
 }
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function capitalize(value: string): string {
-  return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
+function getCodexProviderErrorMessage(error: unknown): string {
+  return formatCodexRuntimeFailure(getErrorMessage(error));
 }
 
 function formatReasoningEffort(value: string): string {

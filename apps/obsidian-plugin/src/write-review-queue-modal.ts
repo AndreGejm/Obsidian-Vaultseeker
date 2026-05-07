@@ -1,7 +1,15 @@
-import { App, Modal, Notice } from "obsidian";
+import { App, Modal, Notice, TFile } from "obsidian";
 import type { GuardedVaultWriteOperation, VaultseerStore, VaultWriteDecision, VaultWritePort } from "@vaultseer/core";
-import { applyApprovedVaultWriteOperation } from "./write-apply-controller";
-import { recordWriteReviewQueueDecision } from "./write-review-queue-controller";
+import {
+  acceptWriteReviewQueueOperation,
+  recordWriteReviewQueueDecision
+} from "./write-review-queue-controller";
+import {
+  editVaultWriteOperationContent,
+  isEditableVaultWriteOperation,
+  refreshRewriteOperationForCurrentContent
+} from "./write-operation-edit";
+import { VaultseerWriteProposalEditModal } from "./write-proposal-edit-modal";
 import {
   buildWriteReviewQueueState,
   getDefaultWriteReviewQueueOperationId,
@@ -67,14 +75,14 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     summaryEl.createEl("div", { text: `Total proposals: ${state.totalCount}` });
     summaryEl.createEl("div", { text: `Pending: ${state.pendingCount}` });
     summaryEl.createEl("div", { text: `Deferred: ${state.deferredCount}` });
-    summaryEl.createEl("div", { text: `Approved for later apply: ${state.approvedCount}` });
+    summaryEl.createEl("div", { text: `Approved: ${state.approvedCount}` });
     summaryEl.createEl("div", { text: `Rejected: ${state.rejectedCount}` });
     summaryEl.createEl("div", { text: `Apply failures: ${state.failedApplyCount}` });
     summaryEl.createEl("div", { text: `Applied records: ${state.appliedCount}` });
     summaryEl.createEl("div", { text: `Needs review: ${state.activeCount}` });
     summaryEl.createEl("div", { text: `History: ${state.historyCount}` });
     summaryEl.createEl("p", {
-      text: "Decision buttons update Vaultseer review metadata only. Apply actions re-check the target before writing."
+      text: "Accept applies the proposal after re-checking the target note. Edit updates the proposed Markdown before accepting."
     });
 
     this.focusedOperationId = normalizeFocusedOperationId(state, this.focusedOperationId);
@@ -101,25 +109,26 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     navEl.createEl("h3", { text: "Queue Navigation" });
 
     if (!focusedItem) {
-      navEl.createEl("p", { text: "No guarded write proposals are available." });
+      navEl.createEl("p", { text: "No active guarded write proposals are available." });
       return;
     }
 
-    const focusedIndex = state.items.findIndex((item) => item.operationId === focusedItem.operationId);
+    const activeItems = state.items.filter((item) => item.queueSection === "active");
+    const focusedIndex = activeItems.findIndex((item) => item.operationId === focusedItem.operationId);
     navEl.createEl("div", {
-      text: `Proposal ${focusedIndex + 1} of ${state.items.length} - ${focusedItem.queueSectionLabel}`
+      text: `Active proposal ${focusedIndex + 1} of ${activeItems.length} - ${focusedItem.queueSectionLabel}`
     });
 
     const actionsEl = navEl.createEl("div", { cls: "vaultseer-write-review-queue-navigation-actions" });
     const previousButton = actionsEl.createEl("button", { text: "Previous proposal" });
-    previousButton.disabled = state.items.length < 2;
+    previousButton.disabled = activeItems.length < 2;
     previousButton.addEventListener("click", () => {
       this.focusedOperationId = getNextWriteReviewQueueOperationId(state, focusedItem.operationId, "previous");
       this.renderState(state, operations);
     });
 
     const nextButton = actionsEl.createEl("button", { text: "Next proposal" });
-    nextButton.disabled = state.items.length < 2;
+    nextButton.disabled = activeItems.length < 2;
     nextButton.addEventListener("click", () => {
       this.focusedOperationId = getNextWriteReviewQueueOperationId(state, focusedItem.operationId, "next");
       this.renderState(state, operations);
@@ -163,20 +172,30 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     }
 
     const actionsEl = itemEl.createEl("div", { cls: "vaultseer-write-review-queue-actions" });
-    for (const decision of ["approved", "deferred", "rejected"] as const) {
+    const acceptButton = actionsEl.createEl("button", {
+      text: item.applyState === "applied" ? "Written" : "Accept and write to note"
+    });
+    acceptButton.disabled = !operation || item.queueSection !== "active";
+    acceptButton.addEventListener("click", () => {
+      if (!operation) return;
+      void this.acceptOperation(operation);
+    });
+
+    const editButton = actionsEl.createEl("button", { text: "Edit" });
+    editButton.disabled = !operation || !item.canEdit;
+    editButton.addEventListener("click", () => {
+      if (!operation) return;
+      void this.editOperation(operation);
+    });
+
+    for (const decision of ["deferred", "rejected"] as const) {
       const button = actionsEl.createEl("button", { text: decisionButtonLabel(decision) });
-      button.disabled = !operation || item.decisionState === decision;
+      button.disabled = !operation || item.queueSection !== "active" || item.decisionState === decision;
       button.addEventListener("click", () => {
         if (!operation) return;
         void this.recordDecision(operation, decision);
       });
     }
-    const applyButton = actionsEl.createEl("button", { text: applyButtonLabel(item) });
-    applyButton.disabled = !operation || !item.canApply;
-    applyButton.addEventListener("click", () => {
-      if (!operation) return;
-      void this.applyOperation(operation, item);
-    });
 
     const diffEl = itemEl.createEl("section", { cls: "vaultseer-write-review-queue-diff" });
     diffEl.createEl("h5", { text: "Preview Diff" });
@@ -198,13 +217,13 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     }
   }
 
-  private async applyOperation(operation: GuardedVaultWriteOperation, item: WriteReviewQueueItem): Promise<void> {
+  private async acceptOperation(operation: GuardedVaultWriteOperation): Promise<void> {
     try {
-      const summary = await applyApprovedVaultWriteOperation({
+      const operationToAccept = await this.refreshRewriteBeforeAccept(operation);
+      const summary = await acceptWriteReviewQueueOperation({
         store: this.store,
         writePort: this.writePort,
-        operation,
-        decision: item.decision,
+        operation: operationToAccept,
         now: this.now
       });
       new Notice(summary.message);
@@ -213,12 +232,69 @@ export class VaultseerWriteReviewQueueModal extends Modal {
       new Notice(`Vaultseer could not apply the guarded write: ${getErrorMessage(error)}`);
     }
   }
+
+  private async editOperation(operation: GuardedVaultWriteOperation): Promise<void> {
+    try {
+      if (!isEditableVaultWriteOperation(operation)) {
+        new Notice("Only note rewrites and source-note drafts can be edited here.");
+        return;
+      }
+
+      const currentContent = operation.type === "rewrite_note_content" ? await this.readVaultTextFile(operation.targetPath) : undefined;
+      new VaultseerWriteProposalEditModal(this.app, {
+        targetPath: operation.targetPath,
+        initialContent: operation.content,
+        onSave: async (editedContent) => {
+          const editedOperation = editVaultWriteOperationContent({
+            operation,
+            currentContent,
+            editedContent
+          });
+          const operations = await this.store.getVaultWriteOperations();
+          await this.store.replaceVaultWriteOperations(
+            operations.map((candidate) => (candidate.id === operation.id ? editedOperation : candidate))
+          );
+          this.focusedOperationId = editedOperation.id;
+          new Notice(`Updated proposal for ${operation.targetPath}.`);
+          await this.loadAndRender();
+        }
+      }).open();
+    } catch (error) {
+      new Notice(`Vaultseer could not edit the proposal: ${getErrorMessage(error)}`);
+    }
+  }
+
+  private async readVaultTextFile(path: string): Promise<string> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      throw new Error(`Could not find ${path} in the vault.`);
+    }
+    return await this.app.vault.read(file);
+  }
+
+  private async refreshRewriteBeforeAccept(operation: GuardedVaultWriteOperation): Promise<GuardedVaultWriteOperation> {
+    if (operation.type !== "rewrite_note_content") {
+      return operation;
+    }
+
+    const currentContent = await this.readVaultTextFile(operation.targetPath);
+    const refreshed = refreshRewriteOperationForCurrentContent({ operation, currentContent });
+    if (refreshed === null || refreshed.id === operation.id) {
+      return operation;
+    }
+
+    const operations = await this.store.getVaultWriteOperations();
+    await this.store.replaceVaultWriteOperations(
+      operations.map((candidate) => (candidate.id === operation.id ? refreshed : candidate))
+    );
+    return refreshed;
+  }
 }
 
 function normalizeFocusedOperationId(state: WriteReviewQueueState, currentOperationId: string | null): string | null {
   if (currentOperationId && state.items.some((item) => item.operationId === currentOperationId)) {
     const currentItem = state.items.find((item) => item.operationId === currentOperationId);
-    if (currentItem?.queueSection === "active" || state.activeCount === 0) return currentOperationId;
+    if (currentItem?.queueSection === "active") return currentOperationId;
   }
   return getDefaultWriteReviewQueueOperationId(state);
 }
@@ -226,31 +302,12 @@ function normalizeFocusedOperationId(state: WriteReviewQueueState, currentOperat
 function decisionButtonLabel(decision: VaultWriteDecision): string {
   switch (decision) {
     case "approved":
-      return "Approve for later";
+      return "Approve";
     case "deferred":
       return "Defer";
     case "rejected":
       return "Reject";
   }
-}
-
-function applyButtonLabel(item: WriteReviewQueueItem): string {
-  if (item.operationType === "update_note_tags") {
-    if (item.applyState === "applied") return "Tag update applied";
-    if (item.applyState === "failed" && item.canApply) return "Retry tag update";
-    return "Apply tag update";
-  }
-  if (item.operationType === "update_note_links") {
-    return "Link update preview only";
-  }
-  if (item.operationType === "rewrite_note_content") {
-    if (item.applyState === "applied") return "Note rewrite applied";
-    if (item.applyState === "failed" && item.canApply) return "Retry note rewrite";
-    return "Apply note rewrite";
-  }
-  if (item.applyState === "applied") return "Already created";
-  if (item.applyState === "failed" && item.canApply) return "Retry create note";
-  return "Create note";
 }
 
 function getErrorMessage(error: unknown): string {

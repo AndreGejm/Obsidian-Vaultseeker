@@ -45,7 +45,7 @@ export function buildVaultseerChatActionPlan(input: BuildVaultseerChatActionPlan
 
   if (input.activePath !== null && isNonblank(draftToStage)) {
     return {
-      content: "Vaultseer staged the previous draft for review. Open the write review queue to inspect the diff and apply it.",
+      content: "Vaultseer staged the previous draft. Review the redline below, then press Accept and write to note.",
       toolRequests: [],
       autoStageToolRequests: [
         {
@@ -237,6 +237,8 @@ function mentionsActiveNoteRewriteProposal(message: string): boolean {
     /\b(rewrite|refactor|reformat|format|make|improve|polish|clean up|cleanup)\b.*\b(note|this note|current note|active note)\b/.test(
       message
     ) ||
+    /\b(write|draft|create)\b.*\b(detailed|complete|full|new)\b.*\bnotes?\b/.test(message) ||
+    /\b(write|draft|create)\s+(a|an|the)\s+.*\bnotes?\b.*\b(for|about|on)\b/.test(message) ||
     /\b(note|this note|current note|active note)\b.*\b(readable|refactored|reformatted|structured|headers?|subheaders?)\b/.test(
       message
     ) ||

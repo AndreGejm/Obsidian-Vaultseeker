@@ -1,5 +1,9 @@
 import type { GuardedVaultWriteOperation, VaultWriteApplyResultRecord } from "@vaultseer/core";
-import { createVaultWriteDecisionRecord, planNoteTagUpdateOperation } from "@vaultseer/core";
+import {
+  createVaultWriteDecisionRecord,
+  planNoteContentRewriteOperation,
+  planNoteTagUpdateOperation
+} from "@vaultseer/core";
 import { describe, expect, it, vi } from "vitest";
 import { renderStudioCurrentNoteProposalCards } from "../src/studio-note-proposal-card-view";
 
@@ -29,7 +33,111 @@ describe("renderStudioCurrentNoteProposalCards", () => {
     expect(textContentTree(container)).toContain("No proposed changes are waiting for this note. 1 completed change is hidden.");
     expect(findText(container, "Show completed changes (1)")).toBeDefined();
     expect(findText(container, "Completed proposal history")).toBeDefined();
-    expect(findText(container, "Tag update")).toBeDefined();
+    expect(findText(container, "Add tags")).toBeDefined();
+  });
+
+  it("opens active proposal diffs by default so the redline is immediately visible", () => {
+    const operation = rewriteOperation();
+    const container = fakeElement("root");
+
+    renderStudioCurrentNoteProposalCards(
+      container as unknown as HTMLElement,
+      {
+        activePath: "Notes/VHDL.md",
+        writeOperations: [operation],
+        writeDecisions: [],
+        writeApplyResults: [],
+        showEmptyState: true
+      },
+      vi.fn()
+    );
+
+    const diffDetails = findElement(container, "details", "vaultseer-studio-proposal-diff");
+    expect(diffDetails?.open).toBe(true);
+    expect(textContentTree(container)).toContain("Write to note");
+    expect(findElement(container, "button", "vaultseer-studio-proposal-control vaultseer-studio-proposal-control-primary")).toBeDefined();
+  });
+
+  it("uses a simpler chat label for active-note proposal cards", () => {
+    const operation = rewriteOperation();
+    const container = fakeElement("root");
+
+    renderStudioCurrentNoteProposalCards(
+      container as unknown as HTMLElement,
+      {
+        activePath: "Notes/VHDL.md",
+        writeOperations: [operation],
+        writeDecisions: [],
+        writeApplyResults: [],
+        showEmptyState: false,
+        surface: "chat"
+      },
+      vi.fn()
+    );
+
+    const renderedText = textContentTree(container);
+    expect(renderedText).toContain("Ready to write");
+    expect(renderedText).toContain("Review the redline below, edit if needed, then write this active note.");
+    expect(renderedText).not.toContain("Current-note proposals");
+    expect(renderedText).not.toContain("Review: Pending review");
+    expect(renderedText).not.toContain("Apply: Not applied");
+  });
+
+  it("hides completed proposal history from the chat surface when there is nothing to write", () => {
+    const operation = tagUpdateOperation();
+    const container = fakeElement("root");
+
+    renderStudioCurrentNoteProposalCards(
+      container as unknown as HTMLElement,
+      {
+        activePath: "Notes/VHDL.md",
+        writeOperations: [operation],
+        writeDecisions: [
+          createVaultWriteDecisionRecord({
+            operation,
+            decision: "approved",
+            decidedAt: "2026-05-03T10:30:00.000Z"
+          })
+        ],
+        writeApplyResults: [appliedResult(operation)],
+        showEmptyState: false,
+        surface: "chat"
+      },
+      vi.fn()
+    );
+
+    expect(textContentTree(container)).toBe("");
+  });
+
+  it("keeps completed proposal history out of the chat surface when an active draft is ready", () => {
+    const completedOperation = tagUpdateOperation();
+    const activeOperation = rewriteOperation();
+    const container = fakeElement("root");
+
+    renderStudioCurrentNoteProposalCards(
+      container as unknown as HTMLElement,
+      {
+        activePath: "Notes/VHDL.md",
+        writeOperations: [completedOperation, activeOperation],
+        writeDecisions: [
+          createVaultWriteDecisionRecord({
+            operation: completedOperation,
+            decision: "approved",
+            decidedAt: "2026-05-03T10:30:00.000Z"
+          })
+        ],
+        writeApplyResults: [appliedResult(completedOperation)],
+        showEmptyState: false,
+        surface: "chat"
+      },
+      vi.fn()
+    );
+
+    const renderedText = textContentTree(container);
+    expect(renderedText).toContain("Ready to write");
+    expect(renderedText).toContain("Rewrite note");
+    expect(renderedText).not.toContain("Completed proposal history");
+    expect(renderedText).not.toContain("Add tags");
   });
 });
 
@@ -43,6 +151,20 @@ function tagUpdateOperation(): GuardedVaultWriteOperation {
       createdAt: "2026-05-03T10:00:00.000Z"
     }),
     id: "write-1"
+  };
+}
+
+function rewriteOperation(): GuardedVaultWriteOperation {
+  return {
+    ...planNoteContentRewriteOperation({
+      targetPath: "Notes/VHDL.md",
+      currentContent: "# VHDL\n\nOld prose.\n",
+      proposedContent: "# VHDL\n\n## Overview\n\nClearer prose.\n",
+      reason: "Improve structure.",
+      suggestionIds: ["suggestion:rewrite"],
+      createdAt: "2026-05-03T10:00:00.000Z"
+    }),
+    id: "write-rewrite-1"
   };
 }
 
@@ -64,6 +186,7 @@ function fakeElement(tagName: string): FakeElement {
     textContent: "",
     children: [],
     disabled: false,
+    open: false,
     createDiv(options: { cls?: string } = {}) {
       const child = fakeElement("div");
       child.className = options.cls ?? "";
@@ -102,12 +225,28 @@ function findText(element: FakeElement, text: string): FakeElement | undefined {
   return undefined;
 }
 
+function findElement(element: FakeElement, tagName: string, className: string): FakeElement | undefined {
+  if (element.tagName === tagName && element.className === className) {
+    return element;
+  }
+
+  for (const child of element.children) {
+    const found = findElement(child, tagName, className);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+
+  return undefined;
+}
+
 interface FakeElement {
   tagName: string;
   className: string;
   textContent: string;
   children: FakeElement[];
   disabled: boolean;
+  open: boolean;
   createDiv(options?: { cls?: string }): HTMLElement;
   createEl(tag: string, options?: { text?: string; cls?: string; attr?: Record<string, string> }): HTMLElement;
   addEventListener(type: string, listener: EventListenerOrEventListenerObject): void;

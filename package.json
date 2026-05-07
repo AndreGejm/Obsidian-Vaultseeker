@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vaultseer",
-  "version": "0.0.0",
+  "version": "0.1.0-local",
   "private": true,
   "description": "Obsidian-native reading, search, and vault gardening workbench.",
   "license": "UNLICENSED",

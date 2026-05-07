@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { GuardedVaultWriteOperation } from "@vaultseer/core";
+import type {
+  GuardedVaultWriteOperation,
+  VaultWriteApplyResult,
+  VaultWriteApproval,
+  VaultWriteDryRunResult,
+  VaultWritePort
+} from "@vaultseer/core";
 import { InMemoryVaultseerStore } from "@vaultseer/core";
-import { recordWriteReviewQueueDecision } from "../src/write-review-queue-controller";
+import { acceptWriteReviewQueueOperation, recordWriteReviewQueueDecision } from "../src/write-review-queue-controller";
 
 describe("recordWriteReviewQueueDecision", () => {
   it("records the latest decision without removing the proposed operation", async () => {
@@ -24,10 +30,72 @@ describe("recordWriteReviewQueueDecision", () => {
 
     await expect(store.getVaultWriteOperations()).resolves.toEqual([operation]);
     await expect(store.getVaultWriteDecisionRecords()).resolves.toEqual([deferred.decisionRecord]);
-    expect(approved.message).toBe("Marked Source Notes/Ragnarok.md as approved for later apply. No note was changed.");
+    expect(approved.message).toBe("Marked Source Notes/Ragnarok.md as approved. No note was changed.");
     expect(deferred.message).toBe("Marked Source Notes/Ragnarok.md as deferred. No note was changed.");
   });
+
+  it("accepts by approving, applying, and leaving the proposal out of active review", async () => {
+    const store = new InMemoryVaultseerStore();
+    const operation = writeOperation();
+    const port = new FakeWritePort(operation);
+    await store.replaceVaultWriteOperations([operation]);
+
+    const summary = await acceptWriteReviewQueueOperation({
+      store,
+      writePort: port,
+      operation,
+      now: () => "2026-05-01T14:00:00.000Z"
+    });
+
+    expect(summary.status).toBe("applied");
+    expect(summary.message).toBe("Accepted and applied Source Notes/Ragnarok.md.");
+    expect(port.applyCount).toBe(1);
+    await expect(store.getVaultWriteDecisionRecords()).resolves.toEqual([
+      {
+        operationId: operation.id,
+        decision: "approved",
+        targetPath: operation.targetPath,
+        suggestionIds: operation.suggestionIds,
+        decidedAt: "2026-05-01T14:00:00.000Z"
+      }
+    ]);
+    await expect(store.getVaultWriteApplyResultRecords()).resolves.toEqual([
+      {
+        operationId: operation.id,
+        status: "applied",
+        targetPath: operation.targetPath,
+        beforeHash: null,
+        afterHash: operation.preview.afterHash,
+        appliedAt: "2026-05-01T14:00:00.000Z"
+      }
+    ]);
+  });
 });
+
+class FakeWritePort implements VaultWritePort {
+  applyCount = 0;
+
+  constructor(private readonly operation: GuardedVaultWriteOperation) {}
+
+  async dryRun(): Promise<VaultWriteDryRunResult> {
+    return {
+      operation: this.operation,
+      preview: this.operation.preview,
+      precondition: { ok: true }
+    };
+  }
+
+  async apply(_operation: GuardedVaultWriteOperation, approval: VaultWriteApproval): Promise<VaultWriteApplyResult> {
+    this.applyCount += 1;
+    return {
+      operationId: this.operation.id,
+      targetPath: this.operation.targetPath,
+      beforeHash: this.operation.expectedCurrentHash,
+      afterHash: this.operation.preview.afterHash,
+      appliedAt: approval.approvedAt
+    };
+  }
+}
 
 function writeOperation(overrides: Partial<GuardedVaultWriteOperation> = {}): GuardedVaultWriteOperation {
   return {

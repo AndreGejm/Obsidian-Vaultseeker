@@ -136,6 +136,11 @@
   font-size: 11px;
 }
 
+.vaultseer-studio-proposal-status {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .vaultseer-studio-proposal-inline {
   border-color: var(--interactive-accent);
   color: var(--text-normal);
@@ -145,6 +150,15 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.vaultseer-studio-proposal-control-primary {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.vaultseer-studio-proposal-control-secondary {
+  color: var(--text-normal);
 }
 
 .vaultseer-studio-proposal-diff {
@@ -175,6 +189,63 @@
   justify-content: space-between;
   gap: 12px;
   min-height: 32px;
+}
+
+.vaultseer-codex-context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.vaultseer-codex-context-bar strong {
+  font-size: 13px;
+}
+
+.vaultseer-codex-context-bar span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vaultseer-codex-context-action {
+  margin-left: auto;
+  height: 28px;
+  max-width: 180px;
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--text-normal);
+  background: var(--background-primary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vaultseer-codex-context-action:hover,
+.vaultseer-codex-context-action:focus-visible {
+  border-color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+}
+
+.vaultseer-codex-context-ready {
+  border-color: var(--interactive-accent);
+}
+
+.vaultseer-codex-context-attention {
+  border-color: var(--text-warning, var(--text-accent));
+}
+
+.vaultseer-codex-context-muted {
+  opacity: 0.82;
 }
 
 .vaultseer-codex-title {
@@ -295,6 +366,9 @@
 
 .vaultseer-codex-composer {
   flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   border: 1px solid var(--background-modifier-border);
   border-radius: 12px;
   background: var(--background-primary);
@@ -418,6 +492,12 @@
   box-shadow: none;
 }
 
+.vaultseer-codex-composer-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
 .vaultseer-codex-composer-footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 40px;
@@ -535,6 +615,20 @@
   max-height: 260px;
   overflow: auto;
   user-select: text;
+}
+
+.vaultseer-write-proposal-edit-textarea {
+  width: 100%;
+  min-height: min(60vh, 560px);
+  resize: vertical;
+  font-family: var(--font-monospace);
+}
+
+.vaultseer-write-proposal-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 @media (max-width: 520px) {

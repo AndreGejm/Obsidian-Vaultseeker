@@ -324,7 +324,7 @@ describe("buildWriteReviewQueueState", () => {
     expect(getDefaultWriteReviewQueueOperationId(state)).toBe(pending.id);
   });
 
-  it("cycles queue focus through active proposals before completed history", () => {
+  it("cycles queue focus through active proposals and excludes completed history", () => {
     const pending = tagUpdateOperation({
       id: "vault-write:update-note-tags:pending",
       createdAt: "2026-05-01T20:00:00.000Z"
@@ -358,9 +358,36 @@ describe("buildWriteReviewQueueState", () => {
 
     expect(state.items.map((item) => item.operationId)).toEqual([pending.id, approved.id, applied.id]);
     expect(getNextWriteReviewQueueOperationId(state, pending.id, "next")).toBe(approved.id);
-    expect(getNextWriteReviewQueueOperationId(state, approved.id, "next")).toBe(applied.id);
+    expect(getNextWriteReviewQueueOperationId(state, approved.id, "next")).toBe(pending.id);
     expect(getNextWriteReviewQueueOperationId(state, applied.id, "next")).toBe(pending.id);
-    expect(getNextWriteReviewQueueOperationId(state, pending.id, "previous")).toBe(applied.id);
+    expect(getNextWriteReviewQueueOperationId(state, pending.id, "previous")).toBe(approved.id);
+  });
+
+  it("does not focus completed history when no active proposals remain", () => {
+    const applied = tagUpdateOperation({
+      id: "vault-write:update-note-tags:applied",
+      createdAt: "2026-05-01T22:00:00.000Z"
+    });
+
+    const state = buildWriteReviewQueueState({
+      operations: [applied],
+      decisions: [writeDecision({ operationId: applied.id, targetPath: applied.targetPath, decision: "approved" })],
+      applyResults: [
+        applyResult({
+          operationId: applied.id,
+          targetPath: applied.targetPath,
+          status: "applied",
+          beforeHash: applied.expectedCurrentHash,
+          afterHash: applied.preview.afterHash,
+          appliedAt: "2026-05-01T22:30:00.000Z"
+        })
+      ]
+    });
+
+    expect(state.activeCount).toBe(0);
+    expect(state.historyCount).toBe(1);
+    expect(getDefaultWriteReviewQueueOperationId(state)).toBeNull();
+    expect(getNextWriteReviewQueueOperationId(state, applied.id, "next")).toBeNull();
   });
 
   it("marks approved note link updates as ready for guarded apply", () => {

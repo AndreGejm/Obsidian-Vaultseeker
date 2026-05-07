@@ -33,8 +33,10 @@ import { stageNoteTagUpdateProposal } from "./tag-write-proposal-controller";
 import { buildStudioNoteProposalCards, type StudioNoteProposalCardState } from "./studio-note-proposal-cards";
 import type { VaultAssetRecord } from "./obsidian-adapter";
 import { validateVaultRelativePath } from "./vault-path-policy";
-import { applyApprovedVaultWriteOperation } from "./write-apply-controller";
-import { recordWriteReviewQueueDecision } from "./write-review-queue-controller";
+import {
+  acceptWriteReviewQueueOperation,
+  recordWriteReviewQueueDecision
+} from "./write-review-queue-controller";
 
 export {
   parseCodexReviewCurrentNoteProposalInput,
@@ -415,14 +417,14 @@ export function createCodexReadOnlyToolImplementations(
       }
 
       const now = input.now ?? (() => new Date().toISOString());
-      const decisionSummary = await recordWriteReviewQueueDecision({
-        store: input.store,
-        operation,
-        decision: request.decision,
-        now
-      });
-
       if (!request.apply) {
+        const decisionSummary = await recordWriteReviewQueueDecision({
+          store: input.store,
+          operation,
+          decision: request.decision,
+          now
+        });
+
         return {
           status: "reviewed",
           operationId: operation.id,
@@ -444,25 +446,24 @@ export function createCodexReadOnlyToolImplementations(
       }
 
       if (!(await isCurrentProposalActionFresh(input, context, activePath))) {
-        return staleCurrentProposalActionResult(activePath, operation.id, decisionSummary.decisionRecord);
+        return staleCurrentProposalActionResult(activePath, operation.id);
       }
 
-      const applySummary = await applyApprovedVaultWriteOperation({
+      const acceptSummary = await acceptWriteReviewQueueOperation({
         store: input.store,
         writePort,
         operation,
-        decision: decisionSummary.decisionRecord,
         now
       });
 
       return {
-        status: applySummary.status,
+        status: acceptSummary.status,
         operationId: operation.id,
         targetPath: operation.targetPath,
         decision: request.decision,
-        message: applySummary.message,
-        decisionRecord: decisionSummary.decisionRecord,
-        applyResult: applySummary
+        message: acceptSummary.message,
+        decisionRecord: acceptSummary.decisionRecord,
+        applyResult: acceptSummary.applyResult
       };
     }
   };

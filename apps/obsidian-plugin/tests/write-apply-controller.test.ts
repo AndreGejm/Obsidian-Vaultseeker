@@ -115,6 +115,40 @@ describe("applyApprovedVaultWriteOperation", () => {
     ]);
   });
 
+  it("records a dry-run exception as an apply failure instead of throwing", async () => {
+    const store = new InMemoryVaultseerStore();
+    const operation = writeOperation();
+    const decision = decisionRecord(operation, "approved");
+    const port = new FakeWritePort({
+      dryRunError: new Error("Obsidian could not read the current file")
+    });
+
+    const summary = await applyApprovedVaultWriteOperation({
+      store,
+      writePort: port,
+      operation,
+      decision,
+      now: () => "2026-05-01T20:00:00.000Z"
+    });
+
+    expect(port.applyCount).toBe(0);
+    expect(summary.status).toBe("failed");
+    expect(summary.message).toBe("Could not create Source Notes/Ragnarok.md: Obsidian could not read the current file.");
+    await expect(store.getVaultWriteApplyResultRecords()).resolves.toEqual([
+      {
+        operationId: operation.id,
+        status: "failed",
+        targetPath: operation.targetPath,
+        stage: "precondition",
+        expectedCurrentHash: operation.expectedCurrentHash,
+        actualCurrentHash: null,
+        message: "Obsidian could not read the current file",
+        retryable: true,
+        failedAt: "2026-05-01T20:00:00.000Z"
+      }
+    ]);
+  });
+
   it("records a retryable write failure when the port throws", async () => {
     const store = new InMemoryVaultseerStore();
     const operation = writeOperation();
@@ -189,13 +223,16 @@ class FakeWritePort implements VaultWritePort {
 
   constructor(
     private readonly options: {
-      dryRun: VaultWriteDryRunResult;
+      dryRun?: VaultWriteDryRunResult;
+      dryRunError?: Error;
       applyResult?: VaultWriteApplyResult;
       applyError?: Error;
     }
   ) {}
 
   async dryRun(): Promise<VaultWriteDryRunResult> {
+    if (this.options.dryRunError) throw this.options.dryRunError;
+    if (!this.options.dryRun) throw new Error("missing fake dry run result");
     return this.options.dryRun;
   }
 

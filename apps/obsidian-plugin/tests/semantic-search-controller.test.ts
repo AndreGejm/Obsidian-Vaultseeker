@@ -151,7 +151,7 @@ describe("searchSemanticIndex", () => {
 
     expect(result).toEqual({
       status: "degraded",
-      message: "Semantic search failed: Ollama offline",
+      message: "Semantic search is unavailable. Lexical search still works.",
       results: []
     });
     await expect(store.getVectorRecords()).resolves.toEqual(beforeVectors);
@@ -171,7 +171,7 @@ describe("searchSemanticIndex", () => {
       })
     ).resolves.toEqual({
       status: "degraded",
-      message: "Semantic search failed: Query embedding returned 2 dimensions; expected 3.",
+      message: "Semantic search is unavailable. Lexical search still works.",
       results: []
     });
   });

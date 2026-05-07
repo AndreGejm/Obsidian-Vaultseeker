@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildStudioChatComposerState, buildStudioChatShellState } from "../src/studio-chat-shell-state";
+import {
+  buildStudioChatComposerState,
+  buildStudioChatContextBarState,
+  buildStudioChatShellState
+} from "../src/studio-chat-shell-state";
 
 describe("buildStudioChatShellState", () => {
   it("builds a note-first Codex chat shell around the active note", () => {
@@ -14,6 +18,11 @@ describe("buildStudioChatShellState", () => {
     expect(state.title).toBe("Vaultseer");
     expect(state.emptyStateText).toBe("Ask Vaultseer to review, search, tag, or create notes.");
     expect(state.composerPlaceholder).toBe("Ask Vaultseer - @ for notes, / for actions");
+    expect(state).toMatchObject({
+      composerHint: "Enter to send - Shift+Enter for a new line",
+      resetLabel: "New chat",
+      resetTitle: "Clear this chat and start fresh"
+    });
     expect(state.activeNoteMention).toBe("@CLAUDE");
     expect(state.activeNoteTitle).toBe("CLAUDE.md");
     expect(state.runtimeLabel).toBe("Connected");
@@ -23,16 +32,16 @@ describe("buildStudioChatShellState", () => {
     expect(state.modeLabel).toBe("Commands");
     expect(state.quickPrompts).toEqual([
       {
-        id: "draft-suggestions",
-        label: "Draft suggestions",
-        prompt: "draft suggestions for this note",
-        title: "Draft tag, link, and cleanup suggestions for the active note"
+        id: "rewrite-note",
+        label: "Rewrite note",
+        prompt: "review this note and make it clearer, better structured, and easier to read",
+        title: "Stage a clearer rewrite for the active note"
       },
       {
-        id: "review-rewrite",
-        label: "Review & rewrite",
-        prompt: "review this note and make it clearer, better structured, and easier to read",
-        title: "Ask Vaultseer to inspect the active note and stage a rewrite proposal"
+        id: "suggest-tags-links",
+        label: "Suggest tags/links",
+        prompt: "suggest tags and links for this note",
+        title: "Find useful tags and links for the active note"
       },
       {
         id: "find-related",
@@ -41,10 +50,10 @@ describe("buildStudioChatShellState", () => {
         title: "Search for connected notes and nearby ideas"
       },
       {
-        id: "source-check",
-        label: "Check sources",
-        prompt: "search sources for claims related to this note",
-        title: "Search extracted literature and source workspaces for supporting context"
+        id: "fact-check",
+        label: "Fact check",
+        prompt: "fact check this note using sources first",
+        title: "Check the active note against source workspaces and available evidence"
       }
     ]);
   });
@@ -93,6 +102,84 @@ describe("buildStudioChatShellState", () => {
       sendDisabled: false,
       sendLabel: ">",
       shouldRestoreFocus: true
+    });
+  });
+});
+
+describe("buildStudioChatContextBarState", () => {
+  it("summarizes the active note state in one compact chat line", () => {
+    expect(
+      buildStudioChatContextBarState({
+        activeNoteLabel: "Resistor Types",
+        activeNotePath: "Electronics/Resistor Types.md",
+        activeNoteIndexed: true,
+        activeProposalCount: 1
+      })
+    ).toEqual({
+      title: "Resistor Types",
+      detail: "Electronics/Resistor Types.md - Indexed - 1 change",
+      tone: "ready",
+      action: {
+        id: "review-proposals",
+        label: "Review 1 change",
+        title: "Show proposed changes for this note"
+      }
+    });
+  });
+
+  it("offers a rebuild action when the active note is not indexed yet", () => {
+    expect(
+      buildStudioChatContextBarState({
+        activeNoteLabel: "New note",
+        activeNotePath: "Inbox/New note.md",
+        activeNoteIndexed: false,
+        activeProposalCount: 0
+      })
+    ).toEqual({
+      title: "New note",
+      detail: "Inbox/New note.md - Not indexed - 0 changes",
+      tone: "attention",
+      action: {
+        id: "rebuild-index",
+        label: "Rebuild index",
+        title: "Refresh Vaultseer's read-only note index"
+      }
+    });
+  });
+
+  it("offers a draft rewrite action when the active note is indexed and has no proposals", () => {
+    expect(
+      buildStudioChatContextBarState({
+        activeNoteLabel: "Ohm's law",
+        activeNotePath: "Electronics/Ohm's law.md",
+        activeNoteIndexed: true,
+        activeProposalCount: 0
+      })
+    ).toEqual({
+      title: "Ohm's law",
+      detail: "Electronics/Ohm's law.md - Indexed - 0 changes",
+      tone: "ready",
+      action: {
+        id: "draft-rewrite",
+        label: "Draft rewrite",
+        title: "Ask Vaultseer to stage a clearer version of this note"
+      }
+    });
+  });
+
+  it("shows a clear no-note state for the chat context line", () => {
+    expect(
+      buildStudioChatContextBarState({
+        activeNoteLabel: "No active note",
+        activeNotePath: null,
+        activeNoteIndexed: false,
+        activeProposalCount: 0
+      })
+    ).toEqual({
+      title: "No active note",
+      detail: "Open a note to let Vaultseer help with it.",
+      tone: "muted",
+      action: null
     });
   });
 });

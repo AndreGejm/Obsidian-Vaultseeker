@@ -26,7 +26,7 @@ export function buildStudioState(input: BuildStudioStateInput): StudioState {
   ) as Record<StudioModeId, StudioModeSummary>;
 
   return {
-    activeMode: input.requestedMode ?? "note",
+    activeMode: input.requestedMode ?? "chat",
     currentNoteStatus,
     availableModes: MODE_ORDER.map((mode) => modeSummaries[mode]),
     modeSummaries

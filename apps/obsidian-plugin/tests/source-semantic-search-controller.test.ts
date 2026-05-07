@@ -112,7 +112,7 @@ describe("searchSourceSemanticIndex", () => {
       })
     ).resolves.toEqual({
       status: "degraded",
-      message: "Source semantic search failed: provider offline",
+      message: "Source semantic search is unavailable. Lexical search still works.",
       results: []
     });
   });

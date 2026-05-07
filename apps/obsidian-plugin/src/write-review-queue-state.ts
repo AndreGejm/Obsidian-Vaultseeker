@@ -25,6 +25,7 @@ export type WriteReviewQueueItem = {
   queueSection: WriteReviewQueueSection;
   queueSectionLabel: string;
   canApply: boolean;
+  canEdit: boolean;
   previewDiff: string;
 };
 
@@ -97,6 +98,7 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
       queueSection,
       queueSectionLabel: formatQueueSection(queueSection),
       canApply: canApplyOperation(operation, decisionState, applyResult),
+      canEdit: canEditOperation(operation, queueSection, applyState),
       previewDiff: operation.preview.diff
     };
   });
@@ -130,7 +132,7 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
 
 export function getDefaultWriteReviewQueueOperationId(state: WriteReviewQueueState): string | null {
   if (state.items.length === 0) return null;
-  return state.items.find((item) => item.queueSection === "active")?.operationId ?? state.items[0]?.operationId ?? null;
+  return state.items.find((item) => item.queueSection === "active")?.operationId ?? null;
 }
 
 export function getNextWriteReviewQueueOperationId(
@@ -138,15 +140,16 @@ export function getNextWriteReviewQueueOperationId(
   currentOperationId: string | null,
   direction: "next" | "previous"
 ): string | null {
-  if (state.items.length === 0) return null;
+  const activeItems = state.items.filter((item) => item.queueSection === "active");
+  if (activeItems.length === 0) return null;
   if (!currentOperationId) return getDefaultWriteReviewQueueOperationId(state);
 
-  const currentIndex = state.items.findIndex((item) => item.operationId === currentOperationId);
+  const currentIndex = activeItems.findIndex((item) => item.operationId === currentOperationId);
   if (currentIndex === -1) return getDefaultWriteReviewQueueOperationId(state);
 
   const offset = direction === "next" ? 1 : -1;
-  const nextIndex = (currentIndex + offset + state.items.length) % state.items.length;
-  return state.items[nextIndex]?.operationId ?? getDefaultWriteReviewQueueOperationId(state);
+  const nextIndex = (currentIndex + offset + activeItems.length) % activeItems.length;
+  return activeItems[nextIndex]?.operationId ?? getDefaultWriteReviewQueueOperationId(state);
 }
 
 function latestDecisionsByOperationId(decisions: VaultWriteDecisionRecord[]): Map<string, VaultWriteDecisionRecord> {
@@ -251,6 +254,15 @@ function canApplyOperation(
   return applyResult.status === "failed" && applyResult.retryable;
 }
 
+function canEditOperation(
+  operation: GuardedVaultWriteOperation,
+  queueSection: WriteReviewQueueSection,
+  applyState: WriteReviewQueueApplyState
+): boolean {
+  if (queueSection !== "active" || applyState === "applied") return false;
+  return operation.type === "create_note_from_source" || operation.type === "rewrite_note_content";
+}
+
 function applyResultTimestamp(result: VaultWriteApplyResultRecord): string {
   return result.status === "applied" ? result.appliedAt : result.failedAt;
 }
@@ -283,7 +295,7 @@ function formatDecisionState(decisionState: WriteReviewQueueDecisionState): stri
     case "deferred":
       return "Deferred";
     case "approved":
-      return "Approved for later apply";
+      return "Approved";
     case "rejected":
       return "Rejected";
   }

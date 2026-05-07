@@ -186,6 +186,39 @@ describe("ObsidianVaultWritePort", () => {
     expect(vault.files.get(operation.targetPath)).toBe(operation.content);
   });
 
+  it("verifies modified notes with an uncached read so stale cached content does not fail apply", async () => {
+    const currentContent = "# Resistor Types\n\nOriginal text.\n";
+    const operation = planNoteContentRewriteOperation({
+      targetPath: "Electronics/Resistor Types.md",
+      currentContent,
+      proposedContent: "# Resistor Types\n\n## Overview\n\nEdited text.\n",
+      reason: "Improve scanability.",
+      suggestionIds: ["suggestion:note-rewrite:Electronics/Resistor Types.md:codex"],
+      createdAt: "2026-05-03T10:00:00.000Z"
+    });
+    const vault = new FakeVault([[operation.targetPath, currentContent]], ["Electronics"]);
+    vault.staleCachedReadAfterWrite = currentContent;
+    const port = new ObsidianVaultWritePort(vault);
+
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-03T10:10:00.000Z"
+      })
+    ).resolves.toEqual({
+      operationId: operation.id,
+      targetPath: operation.targetPath,
+      beforeHash: operation.expectedCurrentHash,
+      afterHash: operation.preview.afterHash,
+      appliedAt: "2026-05-03T10:10:00.000Z"
+    });
+    expect(vault.readCount).toBeGreaterThan(0);
+    expect(vault.files.get(operation.targetPath)).toBe(operation.content);
+  });
+
   it("applies an approved note link update after a clean dry run and verifies the written hash", async () => {
     const currentContent = "# VHDL\n\nSee [[Missing Timing Note]].\n";
     const operation = planNoteLinkUpdateOperation({
@@ -260,7 +293,10 @@ class FakeVault {
   files = new Map<string, string>();
   folders = new Set<string>();
   readOverride: string | null = null;
+  staleCachedReadAfterWrite: string | null = null;
   modifyCount = 0;
+  createCount = 0;
+  readCount = 0;
 
   constructor(entries: Array<[string, string]> = [], folders: string[] = ["Source Notes"]) {
     this.files = new Map(entries);
@@ -274,6 +310,15 @@ class FakeVault {
 
   async cachedRead(file: { path: string }): Promise<string> {
     if (this.readOverride !== null) return this.readOverride;
+    if (this.staleCachedReadAfterWrite !== null && (this.modifyCount > 0 || this.createCount > 0)) {
+      return this.staleCachedReadAfterWrite;
+    }
+    return this.read(file);
+  }
+
+  async read(file: { path: string }): Promise<string> {
+    this.readCount += 1;
+    if (this.readOverride !== null) return this.readOverride;
     const content = this.files.get(file.path);
     if (content === undefined) throw new Error(`missing file ${file.path}`);
     return content;
@@ -284,6 +329,7 @@ class FakeVault {
     const parentPath = path.slice(0, path.lastIndexOf("/"));
     if (parentPath && !this.folders.has(parentPath)) throw new Error(`missing folder: ${parentPath}`);
     this.files.set(path, content);
+    this.createCount += 1;
     return { path };
   }
 

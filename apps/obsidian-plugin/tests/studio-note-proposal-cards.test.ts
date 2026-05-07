@@ -35,7 +35,7 @@ describe("buildStudioNoteProposalCards", () => {
     expect(state.cards).toEqual([
       {
         id: "write-1",
-        title: "Tag update",
+        title: "Add tags",
         targetPath: "Notes/VHDL.md",
         summary: "Add tags: vhdl",
         reviewSurface: "inline",
@@ -45,17 +45,39 @@ describe("buildStudioNoteProposalCards", () => {
         applyState: "not_applied",
         applyLabel: "Not applied",
         canApply: false,
+        canEdit: false,
         queueSection: "active",
         previewDiff: expect.stringContaining("tags:"),
         controls: [
-          { type: "approve", label: "Approve", enabled: true },
-          { type: "defer", label: "Defer", enabled: true },
-          { type: "reject", label: "Reject", enabled: true },
-          { type: "approve_apply", label: "Approve and apply", enabled: true },
-          { type: "apply", label: "Apply tag update", enabled: false }
+          { type: "accept", label: "Write to note", enabled: true, tone: "primary" },
+          { type: "edit", label: "Edit draft", enabled: false, tone: "secondary" },
+          { type: "defer", label: "Later", enabled: true, tone: "secondary" },
+          { type: "reject", label: "Discard", enabled: true, tone: "secondary" }
         ]
       }
     ]);
+  });
+
+  it("allows pending current-note rewrites to be edited before accepting", () => {
+    const operation = rewriteOperation();
+
+    const state = buildStudioNoteProposalCards({
+      activePath: "Notes/VHDL.md",
+      writeOperations: [operation]
+    });
+
+    expect(state.cards[0]).toMatchObject({
+      id: "write-rewrite-1",
+      title: "Rewrite note",
+      canApply: false,
+      canEdit: true,
+      controls: [
+        { type: "accept", label: "Write to note", enabled: true, tone: "primary" },
+        { type: "edit", label: "Edit draft", enabled: true, tone: "secondary" },
+        { type: "defer", label: "Later", enabled: true, tone: "secondary" },
+        { type: "reject", label: "Discard", enabled: true, tone: "secondary" }
+      ]
+    });
   });
 
   it("makes approved current-note rewrites directly applicable inline", () => {
@@ -76,19 +98,19 @@ describe("buildStudioNoteProposalCards", () => {
     expect(state.status).toBe("ready");
     expect(state.cards[0]).toMatchObject({
       id: "write-rewrite-1",
-      title: "Note rewrite",
+      title: "Rewrite note",
       reviewSurface: "inline",
       reviewMessage: "This current note change can be reviewed inline.",
       decisionState: "approved",
-      decisionLabel: "Approved for later apply",
+      decisionLabel: "Approved",
       applyState: "not_applied",
       canApply: true,
+      canEdit: true,
       controls: [
-        { type: "approve", label: "Approve", enabled: false },
-        { type: "defer", label: "Defer", enabled: true },
-        { type: "reject", label: "Reject", enabled: true },
-        { type: "approve_apply", label: "Approve and apply", enabled: false },
-        { type: "apply", label: "Apply note rewrite", enabled: true }
+        { type: "accept", label: "Write to note", enabled: true, tone: "primary" },
+        { type: "edit", label: "Edit draft", enabled: true, tone: "secondary" },
+        { type: "defer", label: "Later", enabled: true, tone: "secondary" },
+        { type: "reject", label: "Discard", enabled: true, tone: "secondary" }
       ]
     });
   });
@@ -111,18 +133,18 @@ describe("buildStudioNoteProposalCards", () => {
     expect(state.status).toBe("ready");
     expect(state.cards[0]).toMatchObject({
       id: "write-link-1",
-      title: "Link update",
+      title: "Fix links",
       reviewSurface: "inline",
       reviewMessage: "This current note change can be reviewed inline.",
       decisionState: "approved",
       applyState: "not_applied",
       canApply: true,
+      canEdit: false,
       controls: [
-        { type: "approve", label: "Approve", enabled: false },
-        { type: "defer", label: "Defer", enabled: true },
-        { type: "reject", label: "Reject", enabled: true },
-        { type: "approve_apply", label: "Approve and apply", enabled: false },
-        { type: "apply", label: "Apply link update", enabled: true }
+        { type: "accept", label: "Write to note", enabled: true, tone: "primary" },
+        { type: "edit", label: "Edit draft", enabled: false, tone: "secondary" },
+        { type: "defer", label: "Later", enabled: true, tone: "secondary" },
+        { type: "reject", label: "Discard", enabled: true, tone: "secondary" }
       ]
     });
   });
@@ -151,7 +173,7 @@ describe("buildStudioNoteProposalCards", () => {
     });
   });
 
-  it("can include applied current-note proposal history without active controls", () => {
+  it("can include applied current-note proposal history as read-only cards", () => {
     const operation = tagUpdateOperation();
 
     const state = buildStudioNoteProposalCards({
@@ -173,13 +195,8 @@ describe("buildStudioNoteProposalCards", () => {
       applyState: "applied",
       applyLabel: "Applied at 2026-05-03T10:45:00.000Z",
       canApply: false,
-      controls: [
-        { type: "approve", label: "Approve", enabled: false },
-        { type: "defer", label: "Defer", enabled: false },
-        { type: "reject", label: "Reject", enabled: false },
-        { type: "approve_apply", label: "Approve and apply", enabled: false },
-        { type: "apply", label: "Tag update applied", enabled: false }
-      ]
+      canEdit: false,
+      controls: []
     });
   });
 

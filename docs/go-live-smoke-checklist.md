@@ -1,95 +1,61 @@
 # Vaultseer Limited Go-Live Smoke Checklist
 
-This checklist is for a small personal vault trial. It verifies that Vaultseer can index, search, stage a preview-only link proposal, review a source-note proposal, apply one approved tag update, and create one approved source note without broad write access.
+This checklist is for a private beta trial on a small personal vault. Use a git-backed vault or a disposable copy.
 
 ## Preconditions
 
 - Obsidian can load the local Vaultseer plugin build.
-- The vault has the configured source note folder. The default folder is `Source Notes`.
 - The vault contains at least one ordinary Markdown note.
-- Optional semantic features can stay disabled for this smoke test.
+- The configured source note folder exists if source-note creation will be tested. The default folder is `Source Notes`.
+- Semantic features may stay disabled unless you are testing embeddings.
+- Marker may stay uninstalled unless you are testing PDF extraction.
 
-Vaultseer does not create missing folders during source-note apply. If the configured source note folder is `Literature/Source Inbox`, create that folder in Obsidian before pressing `Create note`.
+## Private Beta Smoke Test
 
-## Smoke Path
-
-1. Open Obsidian with the test vault.
-   - Expected: Vaultseer settings show a source note folder, defaulting to `Source Notes`.
-   - Verify: change it only if you want approved source notes to land somewhere else, then create that folder manually.
-2. Run `Vaultseer: Rebuild read-only vault index`.
-   - Expected: a notice reports the number of indexed notes.
-   - Verify: run `Vaultseer: Check read-only vault index health`; the mirror should be ready or explain why it is stale/degraded.
-3. Run `Vaultseer: Search read-only vault index`.
-   - Expected: existing vault notes appear for normal search terms.
-   - Verify: clicking a result opens the note and does not edit it.
-4. Run `Vaultseer: Open native Studio`.
-   - Expected: Studio opens in a side pane and shows the current note label.
-   - Verify: switch between Obsidian notes; Studio should follow the active note without writing files.
-5. Run `Vaultseer: Check native Codex setup`.
-   - Expected: if native Codex is enabled and available, the notice says Vaultseer native Codex is ready and shows the command plus working folder.
-   - Verify: the reported working folder is the vault folder or the folder configured in Vaultseer settings.
-   - Recovery: enable native Codex in Vaultseer settings, set the Codex command to `codex-acp` or the full local command path, and leave the working directory blank to use the vault folder as the default.
-   - Limit: this check does not start Codex or prove the ACP handshake; the first Studio chat message is still the live startup test.
-6. In Studio, open Chat mode.
-   - Expected: chat accepts a message when native Codex is enabled and `codex-acp` can start from the configured working directory. If Codex is stopped, the first sent message starts the native session. If Codex is disabled, starting, stopping, or failed, Chat mode explains that state.
-   - Verify: no Markdown file changes occur, Codex tool requests appear as explicit requested actions, and chat history clears when the active note changes.
-   - Recovery: enable native Codex in Vaultseer settings, set the Codex command to `codex-acp` or the full local command path, and leave the working directory blank to use the vault folder as the default.
-7. In Studio, open Note mode before staging any proposal.
-   - Expected: it says there are no current-note proposals to review.
-   - Verify: it does not claim an inline-reviewable change exists until a proposal is actually staged.
-8. Run `Vaultseer: Open read-only workbench` on a note that has suggested tags.
-   - Expected: the workbench shows suggested tags and a `Stage tag review` button.
-   - Verify: pressing `Stage tag review` stores a guarded tag-update proposal and reports that no note was changed.
-9. Open Studio Note mode on that same note.
-   - Expected: the staged tag proposal is labeled as current-note inline-reviewable guidance.
-   - Verify: approval and apply still happen through the guarded write review queue.
-10. Run `Vaultseer: Open guarded write review queue`.
-   - Expected: the tag-update proposal appears as `Update note tags`.
-   - Verify: the preview diff shows the proposed frontmatter change.
-11. Approve the tag-update proposal, then press `Apply tag update`.
-   - Expected: Vaultseer updates the note tags and records an applied result.
-   - Verify: the note frontmatter contains the added tag, the queue shows an applied record, and pressing apply again is disabled.
-12. Open a note that has an unresolved link matching an existing note title or alias, then run `Vaultseer: Open read-only workbench`.
-   - Expected: the workbench shows suggested links and a `Stage link review` button.
-   - Verify: pressing `Stage link review` stores a guarded link-update proposal and reports that no note was changed.
-13. Open Studio Note mode on that same note.
-   - Expected: the staged link proposal is routed to the guarded review queue, not labeled inline-safe.
-   - Verify: no inline link apply control appears.
-14. Run `Vaultseer: Open guarded write review queue`.
-   - Expected: the link-update proposal appears as `Update note links`.
-   - Verify: the preview diff shows the proposed wiki-link replacement, but apply is not available for this operation yet.
-15. Open or choose a text/code source file and run one source intake command:
-   - `Vaultseer: Import active text/code file as source workspace`
-   - `Vaultseer: Choose text/code file to import as source workspace`
-   - Expected: a source workspace is stored.
-16. Run `Vaultseer: Search stored source workspaces`.
-   - Expected: the imported source appears in search results.
-   - Verify: opening the source preview shows extracted text and a deterministic note proposal.
-17. From the source preview, review the source-note creation proposal.
-   - Expected: the preview shows the target path, source provenance, linked suggestions, and an added-file diff.
-   - Verify: no Markdown note is created at this point.
-18. Run `Vaultseer: Open guarded write review queue`.
-   - Expected: the stored source-note write proposal appears.
-19. Approve the source-note proposal, then press `Create note`.
-   - Expected: Vaultseer creates exactly one new Markdown note at the target path and records an applied result.
-   - Verify: the note exists in Obsidian, the queue shows an applied record, and pressing create again is disabled.
+1. Plugin loads in Obsidian without a startup error.
+   - Verify: disable and re-enable Vaultseer from Community Plugins.
+2. Studio opens.
+   - Verify: run `Vaultseer: Open native Studio`.
+3. Index rebuild completes.
+   - Verify: run `Rebuild read-only vault index`; the status strip shows `Ready`.
+4. Search returns a known note.
+   - Verify: run `Search read-only vault index` or search from Studio.
+5. Chat can inspect the active note.
+   - Verify: ask `review this note`; the response should mention active-note context.
+6. Chat can draft a rewrite proposal.
+   - Verify: ask `make this note clearer`; a redline proposal appears.
+7. Redline diff is visible.
+   - Verify: the proposal card shows `Preview diff`.
+8. Edit draft opens and saves changed proposed Markdown.
+   - Verify: press `Edit draft`, change a heading, save, and confirm the diff updates.
+9. Write to note updates the active Markdown file.
+   - Verify: press `Write to note`; the note content changes in Obsidian.
+10. Completed proposal disappears from the active chat proposal list.
+    - Verify: the current note says no proposed changes are waiting, or shows completed changes only in history.
+11. Completed proposal remains visible in review/history.
+    - Verify: expand completed changes or open the guarded write review queue.
+12. Selected-text `Suggest rewrite` opens Studio with selected text context.
+    - Verify: select text in a note, right-click, choose `Vaultseer: Suggest rewrite`.
+13. Selected-text `Fact check` opens Studio with web-first wording.
+    - Verify: select a factual claim, right-click, choose `Vaultseer: Fact check`.
+14. Semantic provider disabled or unavailable shows clean degradation.
+    - Verify: search still returns lexical results and says semantic search is unavailable, without raw `Failed to fetch` text.
+15. Marker missing shows a clean setup diagnostic, or Marker installed extracts one small PDF.
+    - Verify: run one PDF source extraction batch and inspect the source extraction status.
 
 ## Expected Failure Checks
 
-- If the target note already exists, apply should fail before writing and record `target already exists`.
-- If the target folder does not exist, apply should fail before writing and record `target folder does not exist`.
-- If an existing note changed after a tag update was staged, apply should fail before writing and record `target changed since review`.
-- If the approved preview hash does not match the operation, apply should fail before writing.
-- If Obsidian writes different content than expected, apply should fail verification instead of recording success.
+- If the target note changed after a proposal was staged, writing should fail before changing the note.
+- If the target folder for a new source note does not exist, source-note creation should fail before writing.
+- If Marker is missing, the diagnostic should say Marker is not available and mention `marker_single`.
+- If Marker times out, the diagnostic should say Marker extraction timed out.
+- If OpenAI quota or billing is unavailable, Studio should show a quota/billing message without exposing secrets.
 
-## Current Write Limits
+## Current Beta Limits
 
-The limited go-live write surface can create a new Markdown note from an approved source-note proposal and apply an approved current-note tag update. It cannot:
-
-- edit existing notes except for approved tag additions generated by the guarded tag-update path;
-- apply tag renames;
-- insert links, even though unresolved-link suggestions can now be staged as preview-only guarded proposals;
-- apply arbitrary frontmatter updates;
-- copy staged images or attachments;
-- batch apply proposals;
-- apply anything automatically.
+- Use the beta on a git-backed vault.
+- Background multi-note edits are not part of the beta.
+- Link insertion proposals exist, but link maintenance is still not a full vault-wide cleanup workflow.
+- Source image/table preview is basic.
+- Office, EPUB, and broad document intake are not beta-ready.
+- Public Obsidian release packaging is not complete.

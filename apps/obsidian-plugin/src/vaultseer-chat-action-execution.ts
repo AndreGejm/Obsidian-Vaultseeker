@@ -90,3 +90,15 @@ export function buildVaultseerToolContinuationMessage(results: CodexToolResult[]
     "Continue the same task using these results. If more Vaultseer work is useful, request the next native tool. If a write is needed, stage a proposal for review instead of claiming you cannot access Vaultseer."
   ].join("\n");
 }
+
+export function buildVaultseerStagedProposalMessage(results: CodexToolResult[]): string {
+  const failures = results.filter((result) => !result.ok);
+  if (failures.length === 0) {
+    return "Vaultseer drafted the active-note change. Review the redline below, edit if needed, then press Accept and write to note.";
+  }
+
+  return [
+    "Vaultseer could not stage the active-note proposal.",
+    ...failures.map((result) => formatCodexToolResultMessage(result))
+  ].join("\n\n");
+}

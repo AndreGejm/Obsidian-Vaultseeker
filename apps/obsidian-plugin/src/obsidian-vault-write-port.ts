@@ -20,6 +20,7 @@ export type ObsidianVaultWriteFolder = {
 
 export type ObsidianVaultWriteVault = {
   getAbstractFileByPath(path: string): unknown;
+  read(file: ObsidianVaultWriteFile): Promise<string>;
   cachedRead(file: ObsidianVaultWriteFile): Promise<string>;
   create(path: string, content: string): Promise<ObsidianVaultWriteFile>;
   modify(file: ObsidianVaultWriteFile, content: string): Promise<void>;
@@ -71,7 +72,7 @@ export class ObsidianVaultWritePort implements VaultWritePort {
     approval: VaultWriteApproval
   ): Promise<VaultWriteApplyResult> {
     const createdFile = await this.vault.create(operation.targetPath, operation.content);
-    const writtenContent = await this.vault.cachedRead(createdFile);
+    const writtenContent = await this.vault.read(createdFile);
     const afterHash = hashString(writtenContent);
 
     if (afterHash !== approval.afterHash) {
@@ -99,7 +100,7 @@ export class ObsidianVaultWritePort implements VaultWritePort {
     }
 
     await this.vault.modify(file, operation.content);
-    const writtenContent = await this.vault.cachedRead(file);
+    const writtenContent = await this.vault.read(file);
     const afterHash = hashString(writtenContent);
 
     if (afterHash !== approval.afterHash) {
@@ -173,7 +174,7 @@ export class ObsidianVaultWritePort implements VaultWritePort {
     const file = this.vault.getAbstractFileByPath(path);
     if (!isVaultWriteFile(file)) return null;
 
-    const content = await this.vault.cachedRead(file);
+    const content = await this.vault.read(file);
     return hashString(content);
   }
 

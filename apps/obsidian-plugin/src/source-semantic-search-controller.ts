@@ -90,10 +90,10 @@ export async function searchSourceSemanticIndex(
       message: formatReadyMessage(results.length),
       results
     };
-  } catch (error) {
+  } catch {
     return {
       status: "degraded",
-      message: `Source semantic search failed: ${getErrorMessage(error)}`,
+      message: "Source semantic search is unavailable. Lexical search still works.",
       results: []
     };
   }
@@ -148,8 +148,4 @@ async function embedQuery(
 function formatReadyMessage(resultCount: number): string {
   if (resultCount === 0) return "No source semantic results found.";
   return `${resultCount} source semantic ${resultCount === 1 ? "result" : "results"} found.`;
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

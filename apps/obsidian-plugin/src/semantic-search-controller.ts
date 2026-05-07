@@ -71,10 +71,10 @@ export async function searchSemanticIndex(options: SearchSemanticIndexOptions): 
       message: formatReadyMessage(results.length),
       results
     };
-  } catch (error) {
+  } catch {
     return {
       status: "degraded",
-      message: `Semantic search failed: ${getErrorMessage(error)}`,
+      message: "Semantic search is unavailable. Lexical search still works.",
       results: []
     };
   }
@@ -102,8 +102,4 @@ async function embedQuery(
 function formatReadyMessage(resultCount: number): string {
   if (resultCount === 0) return "No semantic results found.";
   return `${resultCount} semantic ${resultCount === 1 ? "result" : "results"} found.`;
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

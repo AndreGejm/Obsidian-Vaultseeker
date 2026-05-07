@@ -12,12 +12,13 @@ import {
   type WriteReviewQueueSection
 } from "./write-review-queue-state";
 
-export type StudioNoteProposalControlType = "approve" | "defer" | "reject" | "approve_apply" | "apply";
+export type StudioNoteProposalControlType = "accept" | "edit" | "defer" | "reject";
 
 export type StudioNoteProposalControl = {
   type: StudioNoteProposalControlType;
   label: string;
   enabled: boolean;
+  tone: "primary" | "secondary";
 };
 
 export type StudioNoteProposalCard = {
@@ -32,6 +33,7 @@ export type StudioNoteProposalCard = {
   applyState: WriteReviewQueueApplyState;
   applyLabel: string;
   canApply: boolean;
+  canEdit: boolean;
   queueSection: WriteReviewQueueSection;
   previewDiff: string;
   controls: StudioNoteProposalControl[];
@@ -130,6 +132,7 @@ function buildProposalCard(
     applyState: queueItem.applyState,
     applyLabel: queueItem.applyLabel,
     canApply: queueItem.canApply,
+    canEdit: queueItem.canEdit,
     queueSection: queueItem.queueSection,
     previewDiff: queueItem.previewDiff,
     controls: buildControls(queueItem)
@@ -137,34 +140,40 @@ function buildProposalCard(
 }
 
 function buildControls(item: WriteReviewQueueItem): StudioNoteProposalControl[] {
-  const decisionControls: StudioNoteProposalControl[] = ([
-    { type: "approve", decision: "approved", label: "Approve" },
-    { type: "defer", decision: "deferred", label: "Defer" },
-    { type: "reject", decision: "rejected", label: "Reject" }
-  ] as const).map((control) => ({
-    type: control.type,
-    label: control.label,
-    enabled: item.queueSection === "active" && item.decisionState !== control.decision
-  }));
+  if (item.queueSection === "history") {
+    return [];
+  }
 
   return [
-    ...decisionControls,
     {
-      type: "approve_apply",
-      label: "Approve and apply",
-      enabled: canApproveAndApply(item)
+      type: "accept",
+      label: item.applyState === "applied" ? "Written" : "Write to note",
+      enabled: canAccept(item),
+      tone: "primary"
     },
     {
-      type: "apply",
-      label: applyControlLabel(item),
-      enabled: item.canApply
+      type: "edit",
+      label: "Edit draft",
+      enabled: item.canEdit,
+      tone: "secondary"
+    },
+    {
+      type: "defer",
+      label: "Later",
+      enabled: item.queueSection === "active" && item.decisionState !== "deferred",
+      tone: "secondary"
+    },
+    {
+      type: "reject",
+      label: "Discard",
+      enabled: item.queueSection === "active" && item.decisionState !== "rejected",
+      tone: "secondary"
     }
   ];
 }
 
-function canApproveAndApply(item: WriteReviewQueueItem): boolean {
+function canAccept(item: WriteReviewQueueItem): boolean {
   if (item.queueSection !== "active") return false;
-  if (item.decisionState === "approved") return false;
   if (item.applyState === "applied") return false;
   switch (item.operationType) {
     case "create_note_from_source":
@@ -173,30 +182,6 @@ function canApproveAndApply(item: WriteReviewQueueItem): boolean {
     case "rewrite_note_content":
       return true;
   }
-}
-
-function applyControlLabel(item: WriteReviewQueueItem): string {
-  if (item.operationType === "update_note_tags") {
-    if (item.applyState === "applied") return "Tag update applied";
-    if (item.applyState === "failed" && item.canApply) return "Retry tag update";
-    return "Apply tag update";
-  }
-
-  if (item.operationType === "update_note_links") {
-    if (item.applyState === "applied") return "Link update applied";
-    if (item.applyState === "failed" && item.canApply) return "Retry link update";
-    return "Apply link update";
-  }
-
-  if (item.operationType === "rewrite_note_content") {
-    if (item.applyState === "applied") return "Note rewrite applied";
-    if (item.applyState === "failed" && item.canApply) return "Retry note rewrite";
-    return "Apply note rewrite";
-  }
-
-  if (item.applyState === "applied") return "Already created";
-  if (item.applyState === "failed" && item.canApply) return "Retry create note";
-  return "Create note";
 }
 
 function summarizeOperation(operation: GuardedVaultWriteOperation): string {
@@ -234,11 +219,11 @@ function summarizeOperation(operation: GuardedVaultWriteOperation): string {
 function formatOperationTitle(type: GuardedVaultWriteOperation["type"]): string {
   switch (type) {
     case "update_note_tags":
-      return "Tag update";
+      return "Add tags";
     case "update_note_links":
-      return "Link update";
+      return "Fix links";
     case "rewrite_note_content":
-      return "Note rewrite";
+      return "Rewrite note";
     case "create_note_from_source":
       return "Source note";
   }

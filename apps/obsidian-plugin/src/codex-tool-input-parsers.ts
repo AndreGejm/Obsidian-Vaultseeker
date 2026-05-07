@@ -78,7 +78,7 @@ export function parseCodexStageSuggestionInput(
   }
 
   const targetPath = parseStageSuggestionTargetPath(input, activePath);
-  const kind = normalizeKind(stringProperty(input, "kind") ?? stringProperty(input, "type"));
+  const kind = inferStageSuggestionKind(input);
 
   if (kind === "tag") {
     return {
@@ -153,10 +153,19 @@ function normalizeVaultWriteDecision(value: string | null): VaultWriteDecision |
   if (normalized === "approved" || normalized === "deferred" || normalized === "rejected") {
     return normalized;
   }
+  if (normalized === "accept" || normalized === "accepted" || normalized === "approve" || normalized === "apply") {
+    return "approved";
+  }
+  if (normalized === "defer") {
+    return "deferred";
+  }
+  if (normalized === "reject") {
+    return "rejected";
+  }
   if (normalized === null || normalized === undefined || normalized.length === 0) {
     return null;
   }
-  throw new Error("Codex review_current_note_proposal decision must be approved, deferred, or rejected.");
+  throw new Error("Codex review_current_note_proposal decision must be approved, accepted, deferred, or rejected.");
 }
 
 function parseStageSuggestionTargetPath(input: Record<string, unknown>, activePath: string): string {
@@ -281,11 +290,42 @@ function parseLinkSuggestion(input: unknown): LinkSuggestion | null {
 }
 
 function parseRewriteContent(input: Record<string, unknown>): string {
-  const content = stringProperty(input, "markdown") ?? stringProperty(input, "content");
+  const content = rewriteContentProperty(input);
   if (content === null || content.trim().length === 0) {
-    throw new Error("Codex rewrite proposal must include nonblank markdown or content.");
+    throw new Error("Codex rewrite proposal must include nonblank markdown, content, or proposedContent.");
   }
   return content;
+}
+
+function rewriteContentProperty(input: Record<string, unknown>): string | null {
+  return (
+    stringProperty(input, "markdown") ??
+    stringProperty(input, "content") ??
+    stringProperty(input, "proposedContent") ??
+    stringProperty(input, "replacementMarkdown") ??
+    stringProperty(input, "draft")
+  );
+}
+
+function inferStageSuggestionKind(input: Record<string, unknown>): "tag" | "link" | "rewrite" | null {
+  const rawExplicitKind = stringProperty(input, "kind") ?? stringProperty(input, "type");
+  const explicit = normalizeKind(rawExplicitKind);
+  if (explicit !== null) {
+    return explicit;
+  }
+  if (rawExplicitKind !== null && rawExplicitKind.trim().length > 0) {
+    return null;
+  }
+  if (rewriteContentProperty(input) !== null) {
+    return "rewrite";
+  }
+  if (Array.isArray(input["links"])) {
+    return "link";
+  }
+  if (Array.isArray(input["tags"]) || Array.isArray(input["suggestions"])) {
+    return "tag";
+  }
+  return null;
 }
 
 function normalizeKind(value: string | null): "tag" | "link" | "rewrite" | null {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canStartCodexRuntime, transitionCodexRuntime } from "../src/codex-runtime-state";
+import { canStartCodexRuntime, formatCodexRuntimeFailure, transitionCodexRuntime } from "../src/codex-runtime-state";
 
 describe("codex runtime state", () => {
   it("allows start from stopped when launcher is configured", () => {
@@ -19,5 +19,18 @@ describe("codex runtime state", () => {
 
     expect(state.status).toBe("failed");
     expect(state.message).toContain("codex.exe");
+  });
+
+  it("labels OpenAI quota failures as provider quota issues", () => {
+    expect(formatCodexRuntimeFailure("OpenAI Responses API request failed with status 429")).toBe(
+      "OpenAI quota or billing is not available."
+    );
+    expect(formatCodexRuntimeFailure("insufficient_quota")).toBe("OpenAI quota or billing is not available.");
+  });
+
+  it("labels native bridge timeouts as bridge startup timeouts", () => {
+    expect(formatCodexRuntimeFailure("Native Codex startup timed out after 120000ms.")).toBe(
+      "Native Codex bridge timed out while starting."
+    );
   });
 });

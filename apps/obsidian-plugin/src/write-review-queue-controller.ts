@@ -2,9 +2,15 @@ import type {
   GuardedVaultWriteOperation,
   VaultseerStore,
   VaultWriteDecision,
-  VaultWriteDecisionRecord
+  VaultWriteDecisionRecord,
+  VaultWritePort
 } from "@vaultseer/core";
 import { createVaultWriteDecisionRecord } from "@vaultseer/core";
+import {
+  applyApprovedVaultWriteOperation,
+  type ApplyApprovedVaultWriteOperationSummary,
+  type ApplyApprovedVaultWriteOperationStatus
+} from "./write-apply-controller";
 
 export type RecordWriteReviewQueueDecisionInput = {
   store: VaultseerStore;
@@ -18,6 +24,22 @@ export type RecordWriteReviewQueueDecisionSummary = {
   decisionCount: number;
   operationCount: number;
   message: string;
+};
+
+export type AcceptWriteReviewQueueOperationInput = {
+  store: VaultseerStore;
+  writePort: VaultWritePort;
+  operation: GuardedVaultWriteOperation;
+  now: () => string;
+};
+
+export type AcceptWriteReviewQueueOperationSummary = {
+  decisionRecord: VaultWriteDecisionRecord;
+  status: ApplyApprovedVaultWriteOperationStatus;
+  operationId: string;
+  targetPath: string;
+  message: string;
+  applyResult: ApplyApprovedVaultWriteOperationSummary;
 };
 
 export async function recordWriteReviewQueueDecision(
@@ -41,10 +63,40 @@ export async function recordWriteReviewQueueDecision(
   };
 }
 
+export async function acceptWriteReviewQueueOperation(
+  input: AcceptWriteReviewQueueOperationInput
+): Promise<AcceptWriteReviewQueueOperationSummary> {
+  const decisionSummary = await recordWriteReviewQueueDecision({
+    store: input.store,
+    operation: input.operation,
+    decision: "approved",
+    now: input.now
+  });
+  const applySummary = await applyApprovedVaultWriteOperation({
+    store: input.store,
+    writePort: input.writePort,
+    operation: input.operation,
+    decision: decisionSummary.decisionRecord,
+    now: input.now
+  });
+
+  return {
+    decisionRecord: decisionSummary.decisionRecord,
+    status: applySummary.status,
+    operationId: input.operation.id,
+    targetPath: input.operation.targetPath,
+    applyResult: applySummary,
+    message:
+      applySummary.status === "applied"
+        ? `Accepted and applied ${input.operation.targetPath}.`
+        : `Accepted ${input.operation.targetPath}, but apply did not complete: ${applySummary.message}`
+  };
+}
+
 function formatDecision(decision: VaultWriteDecision): string {
   switch (decision) {
     case "approved":
-      return "approved for later apply";
+      return "approved";
     case "deferred":
       return "deferred";
     case "rejected":

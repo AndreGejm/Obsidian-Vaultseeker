@@ -26,6 +26,7 @@ export type PluginStudioState = {
   activeMode: StudioModeId;
   activeNoteLabel: string;
   activeNotePath: string | null;
+  activeNoteIndexed: boolean;
   modes: Array<{
     id: StudioModeId;
     label: string;
@@ -50,6 +51,7 @@ export function buildPluginStudioState(input: BuildPluginStudioStateInput): Plug
     activeMode: coreState.activeMode,
     activeNoteLabel: activeNote?.title ?? (input.activePath ? "Active note not indexed" : "No active note"),
     activeNotePath: input.activePath,
+    activeNoteIndexed: activeNote !== undefined,
     modes: coreState.availableModes.map((mode) => ({
       id: mode.id,
       label: mode.label,

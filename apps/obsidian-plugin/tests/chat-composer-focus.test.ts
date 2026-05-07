@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { restoreChatComposerFocus } from "../src/chat-composer-focus";
+import { restoreChatComposerFocus, shouldSubmitChatComposerKey } from "../src/chat-composer-focus";
 
 describe("restoreChatComposerFocus", () => {
   it("schedules multiple focus attempts so Obsidian pane updates do not strand the composer", () => {
@@ -45,6 +45,24 @@ describe("restoreChatComposerFocus", () => {
   });
 });
 
+describe("shouldSubmitChatComposerKey", () => {
+  it("submits on plain Enter", () => {
+    expect(shouldSubmitChatComposerKey(fakeKeyboardEvent({ key: "Enter" }))).toBe(true);
+  });
+
+  it("keeps a newline on Shift+Enter", () => {
+    expect(shouldSubmitChatComposerKey(fakeKeyboardEvent({ key: "Enter", shiftKey: true }))).toBe(false);
+  });
+
+  it("does not submit modified, composing, or non-Enter key presses", () => {
+    expect(shouldSubmitChatComposerKey(fakeKeyboardEvent({ key: "Enter", ctrlKey: true }))).toBe(false);
+    expect(shouldSubmitChatComposerKey(fakeKeyboardEvent({ key: "Enter", altKey: true }))).toBe(false);
+    expect(shouldSubmitChatComposerKey(fakeKeyboardEvent({ key: "Enter", metaKey: true }))).toBe(false);
+    expect(shouldSubmitChatComposerKey(fakeKeyboardEvent({ key: "Enter", isComposing: true }))).toBe(false);
+    expect(shouldSubmitChatComposerKey(fakeKeyboardEvent({ key: "a" }))).toBe(false);
+  });
+});
+
 function fakeTextarea(
   value: string,
   overrides: Partial<Pick<HTMLTextAreaElement, "disabled" | "isConnected">> = {}
@@ -56,4 +74,15 @@ function fakeTextarea(
     focus: vi.fn(),
     setSelectionRange: vi.fn()
   } as unknown as HTMLTextAreaElement;
+}
+
+function fakeKeyboardEvent(overrides: Partial<KeyboardEvent>): KeyboardEvent {
+  return {
+    key: overrides.key ?? "",
+    shiftKey: overrides.shiftKey ?? false,
+    ctrlKey: overrides.ctrlKey ?? false,
+    altKey: overrides.altKey ?? false,
+    metaKey: overrides.metaKey ?? false,
+    isComposing: overrides.isComposing ?? false
+  } as KeyboardEvent;
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CodexToolResult } from "../src/codex-tool-dispatcher";
 import {
   appendAssistantRequestedStageSuggestion,
+  buildVaultseerStagedProposalMessage,
   buildVaultseerNativeToolLoopMessage,
   buildVaultseerToolContinuationMessage,
   buildVaultseerActionEvidenceMessage,
@@ -105,6 +106,37 @@ describe("vaultseer chat action execution", () => {
     expect(message).toContain("Tool result (stage_suggestion)");
     expect(message).toContain("Staged a refactor proposal for review. No note was changed.");
     expect(message).toContain("Continue the same task");
+  });
+
+  it("summarizes successful staged proposals without noisy raw tool output", () => {
+    const message = buildVaultseerStagedProposalMessage([
+      {
+        ok: true,
+        tool: "stage_suggestion",
+        output: {
+          status: "planned",
+          message: "Staged a refactor proposal for review. No note was changed."
+        }
+      }
+    ]);
+
+    expect(message).toBe(
+      "Vaultseer drafted the active-note change. Review the redline below, edit if needed, then press Accept and write to note."
+    );
+    expect(message).not.toContain("Tool result");
+  });
+
+  it("keeps diagnostic detail when proposal staging fails", () => {
+    const message = buildVaultseerStagedProposalMessage([
+      {
+        ok: false,
+        tool: "stage_suggestion",
+        message: "No active note"
+      }
+    ]);
+
+    expect(message).toContain("Vaultseer could not stage the active-note proposal.");
+    expect(message).toContain("Tool result (stage_suggestion) failed: No active note");
   });
 
   it("stops automatic continuation before the tool loop can run forever", () => {

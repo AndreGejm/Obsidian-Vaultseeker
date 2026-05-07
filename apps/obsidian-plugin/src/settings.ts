@@ -218,6 +218,12 @@ export class VaultseerSettingTab extends PluginSettingTab {
           })
       );
 
+    containerEl.createEl("p", {
+      text:
+        "Marker runs as a local external tool for PDF extraction. Use it only for documents you trust. Vaultseer stores extracted source workspaces locally before any note is written.",
+      cls: "setting-item-description"
+    });
+
     new Setting(containerEl)
       .setName("Plan folder")
       .setDesc("Vault folder for plans in experimental Windows native Studio workflows. Writes still require approval.")

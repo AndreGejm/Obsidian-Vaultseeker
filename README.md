@@ -4,6 +4,12 @@ Vaultseer is an Obsidian-native workbench for reading, finding, searching, and o
 
 The project goal is not to ship the fastest possible plugin. The goal is to build a stable personal note-management platform that can safely become the main way to inspect, search, and garden an Obsidian vault.
 
+## Private Beta Status
+
+Vaultseer is currently a private local beta. It is intended for a git-backed personal vault and is not ready for public Obsidian community release.
+
+See [Private Beta](docs/private-beta.md) and [Limited go-live smoke checklist](docs/go-live-smoke-checklist.md).
+
 The project is intentionally split into:
 
 - `packages/core`: Obsidian-free indexing, normalization, search, and suggestion logic.
@@ -13,7 +19,7 @@ Markdown notes remain the source of truth. Generated indexes are disposable and 
 
 Vaultseer stores lightweight plugin settings in Obsidian's normal plugin `data.json`. The heavier rebuildable mirror, including note chunks, source workspaces, embedding queues, vectors, suggestions, and guarded write records, is stored separately as `.obsidian/plugins/vaultseer/vaultseer-index.json` on desktop vaults. On first load after upgrading from an older build, Vaultseer migrates any legacy embedded index out of `data.json` and leaves settings behind. If the index file is deleted, rebuild the read-only index and rerun any source or semantic jobs you still need.
 
-The current write scope is deliberately small: Vaultseer can create a new Markdown note from an approved source-note proposal through the guarded write review queue. The workbench can also stage current-note tag suggestions as guarded tag/frontmatter update proposals in the same queue; approved tag updates re-check the current file hash before editing the note. Link suggestions can be staged as preview-only guarded link-update proposals, but they are not applyable yet. Vaultseer does not yet insert links, rename tags, clean arbitrary frontmatter, edit aliases, copy attachments, batch apply proposals, or apply anything automatically.
+The current write scope is active-note-first and reviewable. Vaultseer can stage an active-note rewrite, show a redline preview, let the user edit the proposed Markdown, and write the approved proposal to the current note. It can also create a new Markdown note from an approved source-note proposal, stage tag/frontmatter updates, and stage link-update proposals. Writes re-check the current file hash before editing existing notes. Vaultseer does not yet rename tags, clean arbitrary frontmatter, copy attachments, batch apply proposals, or apply background changes automatically.
 
 Approved source notes are created in the configured source note folder. The default is `Source Notes`, and Vaultseer expects that folder to already exist before an approved write is applied.
 

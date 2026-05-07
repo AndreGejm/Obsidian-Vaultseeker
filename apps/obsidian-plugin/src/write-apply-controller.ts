@@ -39,7 +39,30 @@ export async function applyApprovedVaultWriteOperation(
     };
   }
 
-  const dryRun = await input.writePort.dryRun(input.operation);
+  let dryRun;
+  try {
+    dryRun = await input.writePort.dryRun(input.operation);
+  } catch (error) {
+    const message = getErrorMessage(error);
+    await input.store.recordVaultWriteApplyResult(
+      createVaultWriteApplyFailureRecord({
+        operation: input.operation,
+        stage: "precondition",
+        expectedCurrentHash: input.operation.expectedCurrentHash,
+        actualCurrentHash: null,
+        message,
+        retryable: true,
+        failedAt: input.now()
+      })
+    );
+    return {
+      status: "failed",
+      operationId: input.operation.id,
+      targetPath: input.operation.targetPath,
+      message: `${failureMessagePrefix(input.operation)}: ${message}.`
+    };
+  }
+
   if (!dryRun.precondition.ok) {
     const message = formatPreconditionReason(dryRun.precondition.reason);
     await input.store.recordVaultWriteApplyResult(

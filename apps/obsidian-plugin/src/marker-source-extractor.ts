@@ -123,7 +123,7 @@ export class MarkerSourceExtractor implements SourceExtractorPort {
         }
       );
     } catch (error) {
-      return failedResult(input, "extraction_failed", getErrorMessage(error), this.version);
+      return failedResult(input, "extraction_failed", formatMarkerProcessError(error), this.version);
     }
 
     if (result.exitCode !== 0) {
@@ -365,6 +365,19 @@ function normalizePath(filePath: string): string {
 
 function firstNonEmpty(...values: string[]): string {
   return values.map((value) => value.trim()).find(Boolean) ?? "";
+}
+
+function formatMarkerProcessError(error: unknown): string {
+  const message = getErrorMessage(error);
+  const lowerMessage = message.toLowerCase();
+  if (lowerMessage.includes("timed out") || lowerMessage.includes("timeout")) {
+    return "Marker extraction timed out.";
+  }
+  if (lowerMessage.includes("enoent")) {
+    return "Marker is not available. Install marker_single and check Vaultseer settings.";
+  }
+
+  return "Marker extraction failed. See source extraction diagnostics.";
 }
 
 function getErrorMessage(error: unknown): string {

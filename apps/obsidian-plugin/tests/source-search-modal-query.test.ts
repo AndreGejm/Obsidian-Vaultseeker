@@ -70,7 +70,8 @@ describe("buildSourceSearchModalQueryState", () => {
       }
     });
 
-    expect(state.message).toBe("1 source result found. Source semantic search failed: provider offline");
+    expect(state.message).toBe("1 source result found. Source semantic search is unavailable. Lexical search still works.");
+    expect(state.message).not.toContain("provider offline");
     expect(state.results).toHaveLength(1);
   });
 

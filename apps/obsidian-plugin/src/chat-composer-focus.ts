@@ -19,6 +19,17 @@ export function restoreChatComposerFocus(
   }
 }
 
+export function shouldSubmitChatComposerKey(event: KeyboardEvent): boolean {
+  return (
+    event.key === "Enter" &&
+    !event.shiftKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !event.metaKey &&
+    !event.isComposing
+  );
+}
+
 function focusComposerIfAvailable(input: HTMLTextAreaElement): void {
   if (!input.isConnected || input.disabled) {
     return;

@@ -65,7 +65,8 @@ describe("buildVaultseerChatActionPlan", () => {
     });
 
     expect(plan.sendToCodex).toBe(false);
-    expect(plan.content).toContain("Vaultseer staged the previous draft for review.");
+    expect(plan.content).toContain("Vaultseer staged the previous draft.");
+    expect(plan.content).toContain("Review the redline below, then press Accept and write to note.");
     expect(plan.autoStageToolRequests).toEqual([
       {
         tool: "stage_suggestion",
@@ -137,7 +138,8 @@ describe("buildVaultseerChatActionPlan", () => {
     });
 
     expect(plan.sendToCodex).toBe(false);
-    expect(plan.content).toContain("Vaultseer staged the previous draft for review.");
+    expect(plan.content).toContain("Vaultseer staged the previous draft.");
+    expect(plan.content).toContain("Review the redline below, then press Accept and write to note.");
     expect(plan.autoStageToolRequests).toEqual([
       {
         tool: "stage_suggestion",
@@ -174,7 +176,8 @@ describe("buildVaultseerChatActionPlan", () => {
     });
 
     expect(plan.sendToCodex).toBe(false);
-    expect(plan.content).toContain("Vaultseer staged the previous draft for review.");
+    expect(plan.content).toContain("Vaultseer staged the previous draft.");
+    expect(plan.content).toContain("Review the redline below, then press Accept and write to note.");
     expect(plan.autoStageToolRequests).toEqual([
       {
         tool: "stage_suggestion",
@@ -282,6 +285,23 @@ describe("buildVaultseerChatActionPlan", () => {
 
     expect(plan.content).toContain("Vaultseer is preparing an active-note rewrite proposal.");
     expect(plan.agentMessage).toContain("Use liveNote.text as the active note body");
+    expect(plan.agentMessage).toContain("request stage_suggestion with kind=rewrite");
+    expect(plan.agentMessage).toContain("Do not ask the user to run stage_suggestion");
+    expect(plan.toolRequests.map((request) => request.tool)).toEqual([
+      "inspect_current_note",
+      "inspect_current_note_chunks",
+      "inspect_note_quality",
+      "search_notes"
+    ]);
+  });
+
+  it("treats active-note creation wording as a write-review proposal task", () => {
+    const plan = buildVaultseerChatActionPlan({
+      message: "write a detailed note for Ohm's law",
+      activePath: "Electronics/Ohm's law.md"
+    });
+
+    expect(plan.content).toContain("Vaultseer is preparing an active-note rewrite proposal.");
     expect(plan.agentMessage).toContain("request stage_suggestion with kind=rewrite");
     expect(plan.agentMessage).toContain("Do not ask the user to run stage_suggestion");
     expect(plan.toolRequests.map((request) => request.tool)).toEqual([

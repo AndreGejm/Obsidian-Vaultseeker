@@ -14,17 +14,13 @@ export async function buildSearchModalQueryState(input: BuildSearchModalQuerySta
     return initialState;
   }
 
-  const semantic = await input.semanticSearch(input.query.trim()).catch((error: unknown) => ({
+  const semantic = await input.semanticSearch(input.query.trim()).catch(() => ({
     status: "degraded" as const,
-    message: `Semantic search failed: ${getErrorMessage(error)}`,
+    message: "Semantic search is unavailable. Lexical search still works.",
     results: []
   }));
   return buildSearchModalState({
     ...input,
     semantic
   });
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

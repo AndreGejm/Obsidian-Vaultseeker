@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildStudioState } from "../src/studio/studio-state";
 
 describe("buildStudioState", () => {
-  it("opens current-note first when an active indexed note exists", () => {
+  it("opens chat first when an active indexed note exists", () => {
     const state = buildStudioState({
       requestedMode: null,
       activePath: "Notes/VHDL.md",
@@ -11,7 +11,7 @@ describe("buildStudioState", () => {
       indexStatus: "ready"
     });
 
-    expect(state.activeMode).toBe("note");
+    expect(state.activeMode).toBe("chat");
     expect(state.currentNoteStatus).toBe("indexed");
     expect(state.availableModes.map((mode) => mode.id)).toEqual([
       "note",
@@ -72,5 +72,6 @@ describe("buildStudioState", () => {
 
     expect(state.currentNoteStatus).toBe("none");
     expect(state.modeSummaries.note.status).toBe("blocked");
+    expect(state.activeMode).toBe("chat");
   });
 });

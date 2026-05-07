@@ -156,7 +156,7 @@ describe("MarkerSourceExtractor", () => {
 
   it("returns a failed source when marker execution throws", async () => {
     const runner = new FakeMarkerRunner(async () => {
-      throw new Error("marker timeout");
+      throw new Error("marker crashed");
     });
     const extractor = createExtractor(runner);
 
@@ -180,7 +180,65 @@ describe("MarkerSourceExtractor", () => {
           expect.objectContaining({
             severity: "error",
             code: "extraction_failed",
-            message: "marker timeout"
+            message: "Marker extraction failed. See source extraction diagnostics."
+          })
+        ]
+      }
+    });
+  });
+
+  it("returns a clear diagnostic when marker execution times out", async () => {
+    const runner = new FakeMarkerRunner(async () => {
+      throw new Error("marker_single timed out after 1ms.");
+    });
+    const extractor = createExtractor(runner);
+
+    const result = await extractor.extract({
+      sourcePath: "Sources/Papers/timeout.pdf",
+      filename: "timeout.pdf",
+      extension: ".pdf",
+      sizeBytes: 1024,
+      contentHash: "vault-file:100:10",
+      importedAt,
+      options: {}
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      failureMode: "extraction_failed",
+      source: {
+        diagnostics: [
+          expect.objectContaining({
+            message: "Marker extraction timed out."
+          })
+        ]
+      }
+    });
+  });
+
+  it("explains when marker_single is missing", async () => {
+    const runner = new FakeMarkerRunner(async () => {
+      throw new Error("ENOENT");
+    });
+    const extractor = createExtractor(runner);
+
+    const result = await extractor.extract({
+      sourcePath: "Sources/Papers/missing-marker.pdf",
+      filename: "missing-marker.pdf",
+      extension: ".pdf",
+      sizeBytes: 1024,
+      contentHash: "vault-file:100:10",
+      importedAt,
+      options: {}
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      failureMode: "extraction_failed",
+      source: {
+        diagnostics: [
+          expect.objectContaining({
+            message: "Marker is not available. Install marker_single and check Vaultseer settings."
           })
         ]
       }

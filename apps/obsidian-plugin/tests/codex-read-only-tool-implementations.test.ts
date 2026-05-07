@@ -16,6 +16,7 @@ import {
 } from "@vaultseer/core";
 import {
   createCodexReadOnlyToolImplementations,
+  parseCodexReviewCurrentNoteProposalInput,
   parseCodexStageSuggestionInput,
   parseCodexSearchToolInput
 } from "../src/codex-read-only-tool-implementations";
@@ -142,6 +143,23 @@ describe("parseCodexStageSuggestionInput", () => {
     });
   });
 
+  it("infers note rewrite proposals when the model sends proposedContent without kind", () => {
+    const parsed = parseCodexStageSuggestionInput(
+      {
+        proposedContent: "# Resistor Types\n\n## Overview\n\nEdited note.",
+        reason: "User asked for a clearer note."
+      },
+      "Electronics/Resistor Types.md"
+    );
+
+    expect(parsed).toEqual({
+      kind: "rewrite",
+      targetPath: "Electronics/Resistor Types.md",
+      proposedContent: "# Resistor Types\n\n## Overview\n\nEdited note.",
+      reason: "User asked for a clearer note."
+    });
+  });
+
   it("rejects stage_suggestion targets that are not safe vault-relative Markdown paths", () => {
     expect(() =>
       parseCodexStageSuggestionInput(
@@ -153,6 +171,21 @@ describe("parseCodexStageSuggestionInput", () => {
         "../outside.md"
       )
     ).toThrow("vault-relative");
+  });
+});
+
+describe("parseCodexReviewCurrentNoteProposalInput", () => {
+  it("treats accept as approved so model wording matches the UI button", () => {
+    expect(parseCodexReviewCurrentNoteProposalInput({ decision: "accept", apply: true })).toEqual({
+      operationId: null,
+      decision: "approved",
+      apply: true
+    });
+    expect(parseCodexReviewCurrentNoteProposalInput({ decision: "accepted", apply: true })).toEqual({
+      operationId: null,
+      decision: "approved",
+      apply: true
+    });
   });
 });
 
@@ -848,10 +881,11 @@ describe("createCodexReadOnlyToolImplementations", () => {
         expect.objectContaining({
           id: operation.id,
           targetPath: "Electronics/Resistor Types.md",
-          title: "Note rewrite",
+          title: "Rewrite note",
           queueSection: "active",
           controls: expect.arrayContaining([
-            expect.objectContaining({ type: "approve_apply", enabled: true })
+            expect.objectContaining({ type: "accept", enabled: true }),
+            expect.objectContaining({ type: "edit", enabled: true })
           ])
         })
       ]
@@ -875,7 +909,7 @@ describe("createCodexReadOnlyToolImplementations", () => {
       operationId: operation.id,
       targetPath: operation.targetPath,
       decision: "approved",
-      message: "Applied note rewrite to Notes/VHDL.md."
+      message: "Accepted and applied Notes/VHDL.md."
     });
 
     expect(writePort.applyCount).toBe(1);

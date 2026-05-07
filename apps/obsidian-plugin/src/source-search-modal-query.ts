@@ -17,17 +17,13 @@ export async function buildSourceSearchModalQueryState(
     return initialState;
   }
 
-  const semantic = await input.semanticSearch(input.query.trim()).catch((error: unknown) => ({
+  const semantic = await input.semanticSearch(input.query.trim()).catch(() => ({
     status: "degraded" as const,
-    message: `Source semantic search failed: ${getErrorMessage(error)}`,
+    message: "Source semantic search is unavailable. Lexical search still works.",
     results: []
   }));
   return buildSourceSearchModalState({
     ...input,
     semantic
   });
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

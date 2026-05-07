@@ -130,8 +130,9 @@ describe("buildSearchModalQueryState", () => {
 
     expect(state).toMatchObject({
       status: "ready",
-      message: "1 result found. Semantic search failed: provider process crashed"
+      message: "1 result found. Semantic search is unavailable. Lexical search still works."
     });
+    expect(state.message).not.toContain("provider process crashed");
     expect(state.results).toHaveLength(1);
   });
 });
