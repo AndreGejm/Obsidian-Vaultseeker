@@ -101,6 +101,7 @@ import { restoreChatComposerFocus, shouldSubmitChatComposerKey } from "./chat-co
 import { VaultseerChatImageAttachmentModal } from "./chat-image-attachment-modal";
 import { readVaultAssetRecords, type VaultAssetReaderApp, type VaultAssetRecord } from "./obsidian-adapter";
 import { formatCodexRuntimeFailure } from "./codex-runtime-state";
+import { shouldRefreshIndexAfterAcceptedWrite } from "./write-review-followup";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 const MAX_CODEX_TOOL_CONTINUATION_ITERATIONS = 3;
@@ -125,6 +126,7 @@ export class VaultseerStudioView extends ItemView {
       patch: Partial<{ codexModel: string; codexReasoningEffort: CodexReasoningEffort }>
     ) => Promise<void>,
     private readonly getVaultseerCommands: () => VaultseerStudioCommand[],
+    private readonly refreshIndexAfterActiveNoteWrite: () => Promise<void>,
     private readonly buildActiveNoteContext: () => Promise<ActiveNoteContextPacket>,
     private readonly chatAdapter: CodexChatAdapter,
     private readonly codexTools: CodexToolImplementations,
@@ -1170,6 +1172,15 @@ export class VaultseerStudioView extends ItemView {
         now: () => new Date().toISOString()
       });
       new Notice(summary.message);
+      if (
+        shouldRefreshIndexAfterAcceptedWrite({
+          status: summary.status,
+          targetPath: summary.targetPath,
+          activePath: this.getActivePath()
+        })
+      ) {
+        await this.refreshIndexAfterActiveNoteWrite();
+      }
     } catch (error) {
       new Notice(`Vaultseer could not accept the proposal: ${getErrorMessage(error)}`);
     }

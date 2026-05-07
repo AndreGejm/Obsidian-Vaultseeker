@@ -302,6 +302,9 @@ export default class VaultseerPlugin extends Plugin {
             }
           },
           () => this.createVaultseerStudioCommands(),
+          async () => {
+            await this.rebuildIndex();
+          },
           async () =>
             buildActiveNoteContextFromStore({
               store: this.store,
