@@ -100,6 +100,10 @@ export function buildStudioNoteProposalCards(
   };
 }
 
+export function countActiveCurrentNoteProposals(input: BuildStudioNoteProposalCardsInput): number {
+  return buildStudioNoteProposalCards(input).cards.length;
+}
+
 function formatHiddenHistoryMessage(count: number): string {
   if (count === 0) {
     return "";

@@ -49,7 +49,7 @@ import {
   buildStudioModeDashboard,
   type StudioModeDashboardActionCard
 } from "./studio-mode-dashboard";
-import type { StudioNoteProposalControlType } from "./studio-note-proposal-cards";
+import { countActiveCurrentNoteProposals, type StudioNoteProposalControlType } from "./studio-note-proposal-cards";
 import { renderStudioCurrentNoteProposalCards } from "./studio-note-proposal-card-view";
 import {
   renderStudioPendingToolRequests,
@@ -389,7 +389,12 @@ export class VaultseerStudioView extends ItemView {
       activeNoteLabel: state.activeNoteLabel,
       activeNotePath: state.activeNotePath,
       activeNoteIndexed: state.activeNoteIndexed,
-      activeProposalCount: writeOperations.filter((operation) => operation.targetPath === state.activeNotePath).length
+      activeProposalCount: countActiveCurrentNoteProposals({
+        activePath: state.activeNotePath,
+        writeOperations,
+        decisions: writeDecisions,
+        applyResults: writeApplyResults
+      })
     });
     renderStudioChatPanel(shellEl, {
       shellState,

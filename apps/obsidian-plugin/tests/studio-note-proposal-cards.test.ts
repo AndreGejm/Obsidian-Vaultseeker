@@ -6,7 +6,7 @@ import {
   planNoteTagUpdateOperation
 } from "@vaultseer/core";
 import { describe, expect, it } from "vitest";
-import { buildStudioNoteProposalCards } from "../src/studio-note-proposal-cards";
+import { buildStudioNoteProposalCards, countActiveCurrentNoteProposals } from "../src/studio-note-proposal-cards";
 
 describe("buildStudioNoteProposalCards", () => {
   it("explains the empty proposal state for the active note", () => {
@@ -220,6 +220,45 @@ describe("buildStudioNoteProposalCards", () => {
 
     expect(state.cards.map((card) => card.id)).toEqual(["write-rewrite-1", "write-1"]);
     expect(state.cards.map((card) => card.queueSection)).toEqual(["active", "history"]);
+  });
+
+  it("counts only actionable current-note proposals for chat badges", () => {
+    const completedOperation = tagUpdateOperation();
+    const activeOperation = rewriteOperation();
+
+    expect(
+      countActiveCurrentNoteProposals({
+        activePath: "Notes/VHDL.md",
+        writeOperations: [completedOperation, activeOperation],
+        decisions: [
+          createVaultWriteDecisionRecord({
+            operation: completedOperation,
+            decision: "approved",
+            decidedAt: "2026-05-03T10:30:00.000Z"
+          })
+        ],
+        applyResults: [appliedResult(completedOperation)]
+      })
+    ).toBe(1);
+  });
+
+  it("does not count completed proposal history as active work", () => {
+    const completedOperation = tagUpdateOperation();
+
+    expect(
+      countActiveCurrentNoteProposals({
+        activePath: "Notes/VHDL.md",
+        writeOperations: [completedOperation],
+        decisions: [
+          createVaultWriteDecisionRecord({
+            operation: completedOperation,
+            decision: "approved",
+            decidedAt: "2026-05-03T10:30:00.000Z"
+          })
+        ],
+        applyResults: [appliedResult(completedOperation)]
+      })
+    ).toBe(0);
   });
 
   it("ignores proposals for other notes", () => {
