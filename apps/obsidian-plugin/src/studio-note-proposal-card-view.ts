@@ -38,7 +38,7 @@ export function renderStudioCurrentNoteProposalCards(
   proposalsEl.createEl("p", {
     text:
       surface === "chat" && proposalState.cards.some((card) => card.queueSection === "active")
-        ? "Review the redline, edit if needed, then press Accept and write."
+        ? "Review the redline, edit if needed, then press Write to note."
         : proposalState.message
   });
 

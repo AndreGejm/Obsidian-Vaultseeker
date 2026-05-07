@@ -54,7 +54,7 @@ describe("renderStudioCurrentNoteProposalCards", () => {
 
     const diffDetails = findElement(container, "details", "vaultseer-studio-proposal-diff");
     expect(diffDetails?.open).toBe(true);
-    expect(textContentTree(container)).toContain("Accept and write");
+    expect(textContentTree(container)).toContain("Write to note");
     expect(findElement(container, "button", "vaultseer-studio-proposal-control vaultseer-studio-proposal-control-primary")).toBeDefined();
   });
 
@@ -77,7 +77,7 @@ describe("renderStudioCurrentNoteProposalCards", () => {
 
     const renderedText = textContentTree(container);
     expect(renderedText).toContain("Ready to write to active note");
-    expect(renderedText).toContain("Review the redline, edit if needed, then press Accept and write.");
+    expect(renderedText).toContain("Review the redline, edit if needed, then press Write to note.");
     expect(renderedText).not.toContain("Current-note proposals");
     expect(renderedText).not.toContain("Review: Pending review");
     expect(renderedText).not.toContain("Apply: Not applied");
