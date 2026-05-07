@@ -31,15 +31,21 @@ export function appendAssistantRequestedStageSuggestion(input: {
   content: string;
   activePath: string | null;
   toolRequests: CodexChatToolRequest[];
+  allowUnfencedRewriteDraft?: boolean;
 }): CodexChatToolRequest[] {
   if (input.toolRequests.some((request) => request.tool === "stage_suggestion")) {
     return input.toolRequests;
   }
 
-  const request = buildAssistantRequestedStageSuggestion({
+  const requestInput = {
     content: input.content,
     activePath: input.activePath
-  });
+  };
+  const request = buildAssistantRequestedStageSuggestion(
+    input.allowUnfencedRewriteDraft === undefined
+      ? requestInput
+      : { ...requestInput, allowUnfencedRewriteDraft: input.allowUnfencedRewriteDraft }
+  );
 
   return request === null ? input.toolRequests : [...input.toolRequests, request];
 }

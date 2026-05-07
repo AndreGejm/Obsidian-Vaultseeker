@@ -303,6 +303,7 @@ describe("buildVaultseerChatActionPlan", () => {
 
     expect(plan.content).toContain("Vaultseer is preparing an active-note rewrite proposal.");
     expect(plan.agentMessage).toContain("request stage_suggestion with kind=rewrite");
+    expect(plan.agentMessage).toContain("If liveNote.text is empty");
     expect(plan.agentMessage).toContain("Do not ask the user to run stage_suggestion");
     expect(plan.toolRequests.map((request) => request.tool)).toEqual([
       "inspect_current_note",

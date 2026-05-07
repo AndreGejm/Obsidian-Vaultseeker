@@ -594,6 +594,7 @@ export class VaultseerStudioView extends ItemView {
       lastAssistantMarkdownSuggestion,
       lastAssistantStageableMarkdownSuggestion
     });
+    const allowUnfencedRewriteDraft = actionPlan.agentMessage?.includes("Vaultseer active-note rewrite proposal task") === true;
     const actionPlanSplit = splitVaultseerChatActionPlan(actionPlan);
 
     if (this.chatAdapter.capabilities?.nativeToolLoop === true) {
@@ -634,7 +635,7 @@ export class VaultseerStudioView extends ItemView {
           context,
           attachments
         });
-        await this.applyCodexResponseAndAutoContinue(sendScope, response, 0);
+        await this.applyCodexResponseAndAutoContinue(sendScope, response, 0, allowUnfencedRewriteDraft);
       } catch (error) {
         if (this.isCurrentChatSend(sendScope)) {
           this.chatState = applyChatEvent(this.chatState, {
@@ -699,7 +700,7 @@ export class VaultseerStudioView extends ItemView {
         context,
         attachments
       });
-      await this.applyCodexResponseAndAutoContinue(sendScope, response, 0);
+      await this.applyCodexResponseAndAutoContinue(sendScope, response, 0, allowUnfencedRewriteDraft);
     } catch (error) {
       if (this.isCurrentChatSend(sendScope)) {
         this.chatState = applyChatEvent(this.chatState, {
@@ -719,7 +720,8 @@ export class VaultseerStudioView extends ItemView {
   private async applyCodexResponseAndAutoContinue(
     sendScope: CodexChatSendScope,
     response: Awaited<ReturnType<CodexChatAdapter["send"]>>,
-    iteration: number
+    iteration: number,
+    allowUnfencedRewriteDraft = false
   ): Promise<void> {
     if (!this.isCurrentChatSend(sendScope)) {
       return;
@@ -728,7 +730,8 @@ export class VaultseerStudioView extends ItemView {
     const toolRequests = appendAssistantRequestedStageSuggestion({
       content: response.content,
       activePath: sendScope.activePath,
-      toolRequests: response.toolRequests
+      toolRequests: response.toolRequests,
+      allowUnfencedRewriteDraft
     });
     const split = splitCodexToolRequestsForExecution(toolRequests);
     this.appendNativeAgentToolEvents(response.toolEvents);
@@ -780,7 +783,7 @@ export class VaultseerStudioView extends ItemView {
       message: buildVaultseerToolContinuationMessage(automaticToolResults),
       context
     });
-    await this.applyCodexResponseAndAutoContinue(sendScope, continuationResponse, iteration + 1);
+    await this.applyCodexResponseAndAutoContinue(sendScope, continuationResponse, iteration + 1, allowUnfencedRewriteDraft);
   }
 
   private appendNativeAgentToolEvents(

@@ -152,6 +152,12 @@ function buildQuickPrompts(activeNotePath: string | null): StudioChatQuickPrompt
 
   return [
     {
+      id: "draft-note",
+      label: "Draft note",
+      prompt: "write a useful first draft for this note from the title and path, then stage it for review",
+      title: "Create a reviewable first draft for the active note"
+    },
+    {
       id: "rewrite-note",
       label: "Rewrite note",
       prompt: "review this note and make it clearer, better structured, and easier to read",

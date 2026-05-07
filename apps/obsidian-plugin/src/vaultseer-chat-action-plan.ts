@@ -405,6 +405,7 @@ export type ExtractLastAssistantMarkdownSuggestionMessage = {
 export type BuildAssistantRequestedStageSuggestionInput = {
   content: string;
   activePath: string | null;
+  allowUnfencedRewriteDraft?: boolean;
 };
 
 export function extractLastAssistantMarkdownSuggestion(
@@ -446,11 +447,16 @@ export function extractLastAssistantStageableMarkdownSuggestion(
 export function buildAssistantRequestedStageSuggestion(
   input: BuildAssistantRequestedStageSuggestionInput
 ): CodexChatToolRequest | null {
-  if (input.activePath === null || !mentionsAssistantStageSuggestion(input.content)) {
+  if (input.activePath === null) {
     return null;
   }
 
-  const markdown = extractLastMarkdownFence(input.content);
+  const fencedMarkdown = extractLastMarkdownFence(input.content);
+  const markdown = mentionsAssistantStageSuggestion(input.content)
+    ? fencedMarkdown
+    : input.allowUnfencedRewriteDraft === true
+      ? fencedMarkdown ?? extractLikelyUnfencedMarkdownNoteDraft(input.content)
+      : null;
   if (!isNonblank(markdown)) {
     return null;
   }
@@ -461,7 +467,9 @@ export function buildAssistantRequestedStageSuggestion(
       kind: "rewrite",
       targetPath: input.activePath,
       markdown: markdown.trim(),
-      reason: "Assistant requested Vaultseer stage_suggestion for the active note."
+      reason: mentionsAssistantStageSuggestion(input.content)
+        ? "Assistant requested Vaultseer stage_suggestion for the active note."
+        : "Assistant returned a stageable active-note draft during a rewrite or create-note task."
     }
   };
 }
@@ -476,6 +484,55 @@ function extractLastMarkdownFence(content: string): string | null {
   }
 
   return null;
+}
+
+function extractLikelyUnfencedMarkdownNoteDraft(content: string): string | null {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const startIndex = findLikelyMarkdownNoteStart(lines);
+  if (startIndex < 0) {
+    return null;
+  }
+
+  const draftLines: string[] = [];
+  for (let index = startIndex; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (index > startIndex && startsPostDraftInstruction(line)) {
+      break;
+    }
+
+    draftLines.push(line);
+  }
+
+  const draft = draftLines.join("\n").trim();
+  if (!looksLikeFullNoteDraft(draft)) {
+    return null;
+  }
+
+  return draft;
+}
+
+function findLikelyMarkdownNoteStart(lines: string[]): number {
+  return lines.findIndex((line, index) => {
+    const trimmed = line.trim();
+    if (/^#\s+\S/.test(trimmed)) {
+      return true;
+    }
+
+    return (
+      trimmed === "---" &&
+      lines.slice(index + 1, index + 12).some((candidate) => /^#\s+\S/.test(candidate.trim()))
+    );
+  });
+}
+
+function startsPostDraftInstruction(line: string): boolean {
+  return /^(if you want|once (it|this)|after (it|this)|tell me|please run|open the|you can now)\b/i.test(
+    line.trim()
+  );
+}
+
+function looksLikeFullNoteDraft(markdown: string): boolean {
+  return /^#\s+\S/m.test(markdown) && markdown.length >= 60;
 }
 
 function mentionsAssistantStageSuggestion(content: string): boolean {
@@ -535,8 +592,10 @@ function buildActiveNoteRewriteProposalAgentMessage(message: string): string {
     "",
     "Vaultseer active-note rewrite proposal task",
     "Use liveNote.text as the active note body even if indexed chunks are empty.",
+    "If liveNote.text is empty or only a title/tags stub, create a useful first draft from the active note title, path, and available Vaultseer evidence.",
     "If the user asks for readability, formatting, headers, subheaders, cleanup, refactoring, or a write-review proposal, produce a complete replacement Markdown draft for the active note.",
     "When the draft is ready, request stage_suggestion with kind=rewrite, markdown set to the full replacement Markdown, and a concise reason.",
+    "A successful answer for this task stages a proposal; do not end with only instructions for the user to copy, paste, or manually run stage_suggestion.",
     "Do not ask the user to run stage_suggestion, paste content manually, rebuild the index, or open another panel before staging the proposal.",
     "Do not apply the proposal directly. Vaultseer will stage it into the guarded review flow so the user can inspect the diff."
   ].join("\n");

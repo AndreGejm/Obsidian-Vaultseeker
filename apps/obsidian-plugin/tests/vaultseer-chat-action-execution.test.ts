@@ -173,6 +173,90 @@ describe("vaultseer chat action execution", () => {
     ]);
   });
 
+  it("can stage an unfenced full-note draft during an active-note rewrite task", () => {
+    const requests = appendAssistantRequestedStageSuggestion({
+      activePath: "Electronics/Ohm's law.md",
+      content: [
+        "Here is the draft:",
+        "",
+        "# Ohm's law",
+        "",
+        "Ohm's law relates voltage, current, and resistance.",
+        "",
+        "## Formula",
+        "",
+        "V = I * R",
+        "",
+        "If you want, I can stage this for review."
+      ].join("\n"),
+      toolRequests: [],
+      allowUnfencedRewriteDraft: true
+    });
+
+    expect(requests).toEqual([
+      {
+        tool: "stage_suggestion",
+        input: {
+          kind: "rewrite",
+          targetPath: "Electronics/Ohm's law.md",
+          markdown: [
+            "# Ohm's law",
+            "",
+            "Ohm's law relates voltage, current, and resistance.",
+            "",
+            "## Formula",
+            "",
+            "V = I * R"
+          ].join("\n"),
+          reason: "Assistant returned a stageable active-note draft during a rewrite or create-note task."
+        }
+      }
+    ]);
+  });
+
+  it("can stage a fenced full-note draft during an active-note rewrite task even without a literal tool name", () => {
+    const requests = appendAssistantRequestedStageSuggestion({
+      activePath: "Electronics/Ohm's law.md",
+      content: [
+        "Here is the draft:",
+        "",
+        "```markdown",
+        "# Ohm's law",
+        "",
+        "Ohm's law relates voltage, current, and resistance.",
+        "```"
+      ].join("\n"),
+      toolRequests: [],
+      allowUnfencedRewriteDraft: true
+    });
+
+    expect(requests).toEqual([
+      {
+        tool: "stage_suggestion",
+        input: {
+          kind: "rewrite",
+          targetPath: "Electronics/Ohm's law.md",
+          markdown: "# Ohm's law\n\nOhm's law relates voltage, current, and resistance.",
+          reason: "Assistant returned a stageable active-note draft during a rewrite or create-note task."
+        }
+      }
+    ]);
+  });
+
+  it("does not stage unfenced Markdown from ordinary chat turns", () => {
+    const requests = appendAssistantRequestedStageSuggestion({
+      activePath: "Electronics/Ohm's law.md",
+      content: [
+        "# Ohm's law",
+        "",
+        "Ohm's law relates voltage, current, and resistance."
+      ].join("\n"),
+      toolRequests: []
+    });
+
+    expect(requests).toEqual([]);
+  });
+
   it("does not duplicate an explicit stage_suggestion tool request", () => {
     const explicitRequest = { tool: "stage_suggestion", input: { kind: "rewrite", markdown: "# Explicit" } };
 
