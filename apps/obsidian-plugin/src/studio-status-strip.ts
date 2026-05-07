@@ -1,4 +1,11 @@
-import type { CodexRuntimeStatus, GuardedVaultWriteOperation, IndexHealth } from "@vaultseer/core";
+import type {
+  CodexRuntimeStatus,
+  GuardedVaultWriteOperation,
+  IndexHealth,
+  VaultWriteApplyResultRecord,
+  VaultWriteDecisionRecord
+} from "@vaultseer/core";
+import { buildWriteReviewQueueState, type WriteReviewQueueState } from "./write-review-queue-state";
 
 export type StudioStatusStripTone = "ready" | "attention" | "danger" | "muted";
 
@@ -18,6 +25,8 @@ export type BuildStudioStatusStripInput = {
   activePath: string | null;
   notes: StudioStatusStripNote[];
   writeOperations: GuardedVaultWriteOperation[];
+  writeDecisions: VaultWriteDecisionRecord[];
+  writeApplyResults: VaultWriteApplyResultRecord[];
   codexRuntimeStatus: CodexRuntimeStatus;
 };
 
@@ -37,7 +46,13 @@ export function buildStudioStatusStrip(input: BuildStudioStatusStripInput): Stud
     {
       id: "review",
       label: "Review",
-      ...getReviewStatus(input.writeOperations.length)
+      ...getReviewStatus(
+        buildWriteReviewQueueState({
+          operations: input.writeOperations,
+          decisions: input.writeDecisions,
+          applyResults: input.writeApplyResults
+        })
+      )
     },
     {
       id: "codex",
@@ -62,12 +77,20 @@ function getCurrentNoteStatus(
   return { value: "Not indexed", tone: "attention" };
 }
 
-function getReviewStatus(count: number): Pick<StudioStatusStripItem, "value" | "tone"> {
-  if (count === 0) {
+function getReviewStatus(state: WriteReviewQueueState): Pick<StudioStatusStripItem, "value" | "tone"> {
+  if (state.totalCount === 0) {
     return { value: "No pending writes", tone: "muted" };
   }
 
-  return { value: `${count} pending`, tone: "attention" };
+  if (state.activeCount > 0) {
+    return { value: `${state.activeCount} pending`, tone: "attention" };
+  }
+
+  if (state.appliedCount === state.historyCount) {
+    return { value: "All written", tone: "ready" };
+  }
+
+  return { value: "Nothing to review", tone: "muted" };
 }
 
 function getCodexStatus(status: CodexRuntimeStatus): Pick<StudioStatusStripItem, "value" | "tone"> {

@@ -215,6 +215,8 @@ export class VaultseerStudioView extends ItemView {
           activePath,
           notes,
           writeOperations,
+          writeDecisions,
+          writeApplyResults,
           codexRuntimeStatus: this.getCodexRuntimeStatus()
         })
       );
