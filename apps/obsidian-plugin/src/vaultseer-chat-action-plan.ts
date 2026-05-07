@@ -237,8 +237,8 @@ function mentionsActiveNoteRewriteProposal(message: string): boolean {
     /\b(rewrite|refactor|reformat|format|make|improve|polish|clean up|cleanup)\b.*\b(note|this note|current note|active note)\b/.test(
       message
     ) ||
-    /\b(write|draft|create)\b.*\b(detailed|complete|full|new)\b.*\bnotes?\b/.test(message) ||
-    /\b(write|draft|create)\s+(a|an|the)\s+.*\bnotes?\b.*\b(for|about|on)\b/.test(message) ||
+    /\b(write|draft|create)\b.*\b(detailed|complete|full|new)\b.*\b(notes?|nores?)\b/.test(message) ||
+    /\b(write|draft|create)\s+(a|an|the)\s+.*\b(notes?|nores?)\b.*\b(for|about|on)\b/.test(message) ||
     /\b(note|this note|current note|active note)\b.*\b(readable|refactored|reformatted|structured|headers?|subheaders?)\b/.test(
       message
     ) ||
@@ -435,7 +435,7 @@ export function extractLastAssistantStageableMarkdownSuggestion(
       continue;
     }
 
-    const markdown = extractLastMarkdownFence(message.content);
+    const markdown = extractLastMarkdownFence(message.content) ?? extractLikelyUnfencedMarkdownNoteDraft(message.content);
     if (markdown !== null) {
       return markdown;
     }
@@ -545,6 +545,9 @@ function mentionsStageableAssistantDraft(content: string): boolean {
     /\bstage_suggestion\b/.test(normalized) ||
     /\b(stage|queue|approve|approval|review)\b.*\b(suggestion|proposal|draft|rewrite|write review|review queue)\b/.test(
       normalized
+    ) ||
+    /\bstage\b.*\b(for review|for approval|this)\b/.test(
+      normalized
     )
   );
 }
@@ -555,7 +558,7 @@ function chooseMarkdownDraftToStage(input: {
   lastAssistantStageableMarkdownSuggestion?: string | null;
 }): string | null {
   if (mentionsActiveNoteWriteIntent(input.message)) {
-    return input.lastAssistantMarkdownSuggestion ?? null;
+    return input.lastAssistantMarkdownSuggestion ?? input.lastAssistantStageableMarkdownSuggestion ?? null;
   }
 
   if (mentionsDraftConfirmation(input.message)) {

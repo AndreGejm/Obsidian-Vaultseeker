@@ -191,6 +191,55 @@ describe("buildVaultseerChatActionPlan", () => {
     ]);
   });
 
+  it("stages a previous unfenced assistant note draft when the user asks to write it", () => {
+    const lastAssistantStageableMarkdownSuggestion = extractLastAssistantStageableMarkdownSuggestion([
+      {
+        role: "assistant",
+        content: [
+          "Here is a useful first draft.",
+          "",
+          "# Ohm's law",
+          "",
+          "Ohm's law describes the relationship between voltage, current, and resistance.",
+          "",
+          "## Formula",
+          "",
+          "`V = I * R`",
+          "",
+          "If you want, I can stage this for review."
+        ].join("\n")
+      }
+    ]);
+
+    const plan = buildVaultseerChatActionPlan({
+      message: "write this to the actual note",
+      activePath: "Electronics/Ohm's law.md",
+      lastAssistantStageableMarkdownSuggestion
+    });
+
+    expect(plan.sendToCodex).toBe(false);
+    expect(plan.content).toContain("Vaultseer staged the previous draft.");
+    expect(plan.autoStageToolRequests).toEqual([
+      {
+        tool: "stage_suggestion",
+        input: {
+          kind: "rewrite",
+          targetPath: "Electronics/Ohm's law.md",
+          markdown: [
+            "# Ohm's law",
+            "",
+            "Ohm's law describes the relationship between voltage, current, and resistance.",
+            "",
+            "## Formula",
+            "",
+            "`V = I * R`"
+          ].join("\n"),
+          reason: "User explicitly asked Vaultseer chat to write the previous assistant draft to the active note."
+        }
+      }
+    ]);
+  });
+
   it("does not stage ordinary assistant Markdown examples from a vague confirmation", () => {
     const plan = buildVaultseerChatActionPlan({
       message: "yes",
@@ -305,6 +354,22 @@ describe("buildVaultseerChatActionPlan", () => {
     expect(plan.agentMessage).toContain("request stage_suggestion with kind=rewrite");
     expect(plan.agentMessage).toContain("If liveNote.text is empty");
     expect(plan.agentMessage).toContain("Do not ask the user to run stage_suggestion");
+    expect(plan.toolRequests.map((request) => request.tool)).toEqual([
+      "inspect_current_note",
+      "inspect_current_note_chunks",
+      "inspect_note_quality",
+      "search_notes"
+    ]);
+  });
+
+  it("treats the common 'nore' typo as note creation wording", () => {
+    const plan = buildVaultseerChatActionPlan({
+      message: "write a detailed nore for Ohm's law",
+      activePath: "Electronics/Ohm's law.md"
+    });
+
+    expect(plan.content).toContain("Vaultseer is preparing an active-note rewrite proposal.");
+    expect(plan.agentMessage).toContain("If liveNote.text is empty");
     expect(plan.toolRequests.map((request) => request.tool)).toEqual([
       "inspect_current_note",
       "inspect_current_note_chunks",
