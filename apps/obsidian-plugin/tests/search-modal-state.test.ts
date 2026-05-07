@@ -222,8 +222,9 @@ describe("buildSearchModalState", () => {
 
     expect(state).toMatchObject({
       status: "ready",
-      message: "1 result found. Semantic search failed: Ollama offline"
+      message: "1 result found. Semantic search is unavailable. Lexical search still works."
     });
+    expect(state.message).not.toContain("Ollama offline");
     expect(state.results).toHaveLength(1);
   });
 });

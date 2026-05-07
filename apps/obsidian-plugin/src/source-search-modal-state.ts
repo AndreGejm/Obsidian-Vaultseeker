@@ -176,7 +176,7 @@ function appendSemanticMessage(
   semantic: SourceSemanticSearchControllerResult | undefined
 ): string {
   if (!semantic || semantic.status !== "degraded") return message;
-  return `${message} ${semantic.message}`;
+  return `${message} Source semantic search is unavailable. Lexical search still works.`;
 }
 
 function joinReasons(left: string, right: string): string {

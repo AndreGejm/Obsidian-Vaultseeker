@@ -207,7 +207,7 @@ function formatSemanticExcerpt(result: SemanticSearchResult): string {
 
 function appendSemanticMessage(message: string, semantic: SemanticSearchControllerResult | undefined): string {
   if (!semantic || semantic.status !== "degraded") return message;
-  return `${message} ${semantic.message}`;
+  return `${message} Semantic search is unavailable. Lexical search still works.`;
 }
 
 function joinReasons(left: string, right: string): string {
