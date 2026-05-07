@@ -48,7 +48,6 @@ function renderChatHeader(containerEl: HTMLElement, input: StudioChatPanelInput)
     },
     cls: "vaultseer-codex-ghost-button"
   });
-  resetButton.disabled = input.chatSending;
   resetButton.addEventListener("click", () => {
     void input.onReset();
   });

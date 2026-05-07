@@ -374,7 +374,8 @@ export class VaultseerStudioView extends ItemView {
       activeNoteLabel: state.activeNoteLabel,
       activeNotePath: state.activeNotePath,
       codexRuntimeStatus: this.getCodexRuntimeStatus(),
-      ...this.getCodexModelSelection()
+      ...this.getCodexModelSelection(),
+      chatSending: this.chatSending
     });
     const composerState = buildStudioChatComposerState({
       chatSending: this.chatSending,

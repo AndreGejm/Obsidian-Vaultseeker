@@ -52,6 +52,7 @@ export type BuildStudioChatShellStateInput = {
   codexRuntimeStatus: CodexRuntimeStatus;
   codexModel: string;
   codexReasoningEffort: string;
+  chatSending: boolean;
 };
 
 export function buildStudioChatShellState(input: BuildStudioChatShellStateInput): StudioChatShellState {
@@ -67,8 +68,10 @@ export function buildStudioChatShellState(input: BuildStudioChatShellStateInput)
     modelLabel: input.codexModel,
     modeLabel: "Commands",
     reasoningLabel: titleCase(input.codexReasoningEffort),
-    resetLabel: "New chat",
-    resetTitle: "Clear this chat and start fresh",
+    resetLabel: input.chatSending ? "Stop" : "New chat",
+    resetTitle: input.chatSending
+      ? "Cancel this Vaultseer turn and reset the provider session"
+      : "Clear this chat and start fresh",
     quickPrompts: buildQuickPrompts(input.activeNotePath)
   };
 }

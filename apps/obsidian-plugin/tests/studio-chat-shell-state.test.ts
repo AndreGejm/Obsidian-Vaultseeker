@@ -12,7 +12,8 @@ describe("buildStudioChatShellState", () => {
       activeNotePath: "CLAUDE.md",
       codexRuntimeStatus: "running",
       codexModel: "gpt-5.4",
-      codexReasoningEffort: "medium"
+      codexReasoningEffort: "medium",
+      chatSending: false
     });
 
     expect(state.title).toBe("Vaultseer");
@@ -64,13 +65,28 @@ describe("buildStudioChatShellState", () => {
       activeNotePath: null,
       codexRuntimeStatus: "failed",
       codexModel: "gpt-5.5",
-      codexReasoningEffort: "xhigh"
+      codexReasoningEffort: "xhigh",
+      chatSending: false
     });
 
     expect(state.activeNoteMention).toBeNull();
     expect(state.activeNoteTitle).toBe("Open a note");
     expect(state.runtimeLabel).toBe("Needs attention");
     expect(state.quickPrompts).toEqual([]);
+  });
+
+  it("turns the reset control into a stop action while Vaultseer is thinking", () => {
+    const state = buildStudioChatShellState({
+      activeNoteLabel: "Ohm's law",
+      activeNotePath: "Electronics/Ohm's law.md",
+      codexRuntimeStatus: "running",
+      codexModel: "gpt-5.5",
+      codexReasoningEffort: "high",
+      chatSending: true
+    });
+
+    expect(state.resetLabel).toBe("Stop");
+    expect(state.resetTitle).toBe("Cancel this Vaultseer turn and reset the provider session");
   });
 
   it("keeps the composer selectable while a Codex turn is running", () => {
