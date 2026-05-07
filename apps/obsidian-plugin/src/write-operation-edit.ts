@@ -1,5 +1,10 @@
 import type { GuardedVaultWriteOperation, VaultWritePreview } from "@vaultseer/core";
-import { hashString, planNoteContentRewriteOperation } from "@vaultseer/core";
+import {
+  hashString,
+  planNoteContentRewriteOperation,
+  planNoteLinkUpdateOperation,
+  planNoteTagUpdateOperation
+} from "@vaultseer/core";
 
 export type EditVaultWriteOperationContentInput = {
   operation: GuardedVaultWriteOperation;
@@ -68,6 +73,41 @@ export function refreshRewriteOperationForCurrentContent(
     currentContent: input.currentContent,
     editedContent: input.operation.content
   });
+}
+
+export function refreshActiveNoteOperationForCurrentContent(
+  input: RefreshRewriteOperationForCurrentContentInput
+): GuardedVaultWriteOperation {
+  switch (input.operation.type) {
+    case "rewrite_note_content":
+      return editVaultWriteOperationContent({
+        operation: input.operation,
+        currentContent: input.currentContent,
+        editedContent: input.operation.content
+      });
+    case "update_note_tags":
+      return planNoteTagUpdateOperation({
+        targetPath: input.operation.targetPath,
+        currentContent: input.currentContent,
+        tagsToAdd: input.operation.tagUpdate.addedTags,
+        suggestionIds: input.operation.suggestionIds,
+        createdAt: input.operation.createdAt
+      });
+    case "update_note_links":
+      return planNoteLinkUpdateOperation({
+        targetPath: input.operation.targetPath,
+        currentContent: input.currentContent,
+        replacements: input.operation.linkUpdate.replacements.map((replacement) => ({
+          rawLink: replacement.rawLink,
+          unresolvedTarget: replacement.unresolvedTarget,
+          suggestedPath: replacement.suggestedPath
+        })),
+        suggestionIds: input.operation.suggestionIds,
+        createdAt: input.operation.createdAt
+      });
+    case "create_note_from_source":
+      return input.operation;
+  }
 }
 
 function createFilePreview(targetPath: string, content: string): VaultWritePreview {

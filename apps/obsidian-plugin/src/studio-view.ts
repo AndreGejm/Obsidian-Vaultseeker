@@ -87,7 +87,7 @@ import {
 import {
   editVaultWriteOperationContent,
   isEditableVaultWriteOperation,
-  refreshRewriteOperationForCurrentContent
+  refreshActiveNoteOperationForCurrentContent
 } from "./write-operation-edit";
 import { VaultseerWriteProposalEditModal } from "./write-proposal-edit-modal";
 import {
@@ -1172,7 +1172,7 @@ export class VaultseerStudioView extends ItemView {
         return;
       }
 
-      const operationToAccept = await this.refreshRewriteBeforeAccept(operation);
+      const operationToAccept = await this.refreshActiveNoteOperationBeforeAccept(operation);
       const summary = await acceptWriteReviewQueueOperation({
         store: this.store,
         writePort: this.writePort,
@@ -1266,14 +1266,20 @@ export class VaultseerStudioView extends ItemView {
     return operations.find((operation) => operation.id === operationId) ?? null;
   }
 
-  private async refreshRewriteBeforeAccept(operation: GuardedVaultWriteOperation): Promise<GuardedVaultWriteOperation> {
-    if (operation.type !== "rewrite_note_content") {
+  private async refreshActiveNoteOperationBeforeAccept(
+    operation: GuardedVaultWriteOperation
+  ): Promise<GuardedVaultWriteOperation> {
+    if (
+      operation.type !== "rewrite_note_content" &&
+      operation.type !== "update_note_tags" &&
+      operation.type !== "update_note_links"
+    ) {
       return operation;
     }
 
     const currentContent = await this.readVaultTextFile(operation.targetPath);
-    const refreshed = refreshRewriteOperationForCurrentContent({ operation, currentContent });
-    if (refreshed === null || refreshed.id === operation.id) {
+    const refreshed = refreshActiveNoteOperationForCurrentContent({ operation, currentContent });
+    if (refreshed.id === operation.id) {
       return operation;
     }
 

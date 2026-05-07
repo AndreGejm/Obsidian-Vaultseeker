@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { GuardedVaultWriteOperation, SourceNoteProposal } from "@vaultseer/core";
 import {
   planNoteContentRewriteOperation,
+  planNoteLinkUpdateOperation,
   planNoteTagUpdateOperation,
   planSourceNoteCreationOperation
 } from "@vaultseer/core";
 import {
   editVaultWriteOperationContent,
   isEditableVaultWriteOperation,
+  refreshActiveNoteOperationForCurrentContent,
   refreshRewriteOperationForCurrentContent
 } from "../src/write-operation-edit";
 
@@ -122,6 +124,75 @@ describe("refreshRewriteOperationForCurrentContent", () => {
     });
 
     expect(refreshRewriteOperationForCurrentContent({ operation, currentContent: "# Resistors\n" })).toBeNull();
+  });
+});
+
+describe("refreshActiveNoteOperationForCurrentContent", () => {
+  it("rebases an active-note tag proposal onto the current note text before accept", () => {
+    const operation = planNoteTagUpdateOperation({
+      targetPath: "Electronics/Resistors.md",
+      currentContent: "# Resistors\n",
+      tagsToAdd: ["electronics"],
+      suggestionIds: ["suggestion:tag"],
+      createdAt: "2026-05-07T10:00:00.000Z"
+    });
+
+    const refreshed = refreshActiveNoteOperationForCurrentContent({
+      operation,
+      currentContent: "# Resistors\n\nUser added a sentence after the proposal was drafted.\n"
+    });
+
+    expect(refreshed).toMatchObject({
+      type: "update_note_tags",
+      targetPath: operation.targetPath,
+      expectedCurrentHash: expect.not.stringMatching(operation.expectedCurrentHash),
+      content: expect.stringContaining("User added a sentence after the proposal was drafted."),
+      tagUpdate: {
+        addedTags: ["electronics"]
+      }
+    });
+    expect(refreshed.content).toContain("tags:");
+    expect(refreshed.content).toContain("- electronics");
+    expect(refreshed.id).not.toBe(operation.id);
+  });
+
+  it("rebases an active-note link proposal onto the current note text before accept", () => {
+    const operation = planNoteLinkUpdateOperation({
+      targetPath: "Electronics/Resistors.md",
+      currentContent: "# Resistors\n\nSee [[Ohm law]].\n",
+      replacements: [
+        {
+          rawLink: "[[Ohm law]]",
+          unresolvedTarget: "Ohm law",
+          suggestedPath: "Electronics/Ohm's law.md"
+        }
+      ],
+      suggestionIds: ["suggestion:link"],
+      createdAt: "2026-05-07T10:00:00.000Z"
+    });
+
+    const refreshed = refreshActiveNoteOperationForCurrentContent({
+      operation,
+      currentContent: "# Resistors\n\nUser added context.\n\nSee [[Ohm law]].\n"
+    });
+
+    expect(refreshed).toMatchObject({
+      type: "update_note_links",
+      targetPath: operation.targetPath,
+      expectedCurrentHash: expect.not.stringMatching(operation.expectedCurrentHash),
+      content: expect.stringContaining("User added context."),
+      linkUpdate: {
+        replacements: [
+          {
+            rawLink: "[[Ohm law]]",
+            unresolvedTarget: "Ohm law",
+            suggestedPath: "Electronics/Ohm's law.md"
+          }
+        ]
+      }
+    });
+    expect(refreshed.content).toContain("[[Electronics/Ohm's law|Ohm law]]");
+    expect(refreshed.id).not.toBe(operation.id);
   });
 });
 
