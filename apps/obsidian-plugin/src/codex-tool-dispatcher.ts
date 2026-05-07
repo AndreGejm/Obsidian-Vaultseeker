@@ -11,8 +11,7 @@ export type CodexReadOnlyTool =
   | "suggest_current_note_tags"
   | "suggest_current_note_links"
   | "inspect_note_quality"
-  | "list_current_note_proposals"
-  | "list_approved_scripts";
+  | "list_current_note_proposals";
 export type CodexCommandTool =
   | "run_vaultseer_command"
   | "rebuild_note_index"
@@ -22,8 +21,7 @@ export type CodexCommandTool =
   | "plan_pdf_source_extraction"
   | "run_pdf_source_extraction_batch"
   | "plan_source_semantic_index"
-  | "run_source_semantic_index_batch"
-  | "run_approved_script";
+  | "run_source_semantic_index_batch";
 export type CodexProposalTool = "stage_suggestion" | "review_current_note_proposal";
 export type AllowedCodexTool = CodexReadOnlyTool | CodexCommandTool | CodexProposalTool;
 export type CodexToolRequestClass = "read-only" | "command" | "proposal";
@@ -41,8 +39,7 @@ const READ_ONLY_CODEX_TOOLS = new Set<string>([
   "suggest_current_note_tags",
   "suggest_current_note_links",
   "inspect_note_quality",
-  "list_current_note_proposals",
-  "list_approved_scripts"
+  "list_current_note_proposals"
 ]);
 const COMMAND_CODEX_TOOLS = new Set<string>([
   "run_vaultseer_command",
@@ -53,8 +50,7 @@ const COMMAND_CODEX_TOOLS = new Set<string>([
   "plan_pdf_source_extraction",
   "run_pdf_source_extraction_batch",
   "plan_source_semantic_index",
-  "run_source_semantic_index_batch",
-  "run_approved_script"
+  "run_source_semantic_index_batch"
 ]);
 const PROPOSAL_CODEX_TOOLS = new Set<string>(["stage_suggestion", "review_current_note_proposal"]);
 const ALLOWED_CODEX_TOOLS = new Set<string>([
@@ -90,10 +86,8 @@ export type CodexToolImplementations = {
   suggestCurrentNoteLinks?(): Promise<unknown>;
   inspectNoteQuality?(): Promise<unknown>;
   listCurrentNoteProposals?(): Promise<unknown>;
-  listApprovedScripts?(): Promise<unknown>;
   runVaultseerCommand?(input: unknown): Promise<unknown>;
   importVaultTextSource?(input: unknown): Promise<unknown>;
-  runApprovedScript?(input: unknown): Promise<unknown>;
   rebuildNoteIndex?(): Promise<unknown>;
   planSemanticIndex?(): Promise<unknown>;
   runSemanticIndexBatch?(): Promise<unknown>;
@@ -221,8 +215,6 @@ export async function dispatchCodexToolRequest(input: {
       return runOptionalAllowedCodexTool("inspect_note_quality", input.tools.inspectNoteQuality);
     case "list_current_note_proposals":
       return runOptionalAllowedCodexTool("list_current_note_proposals", input.tools.listCurrentNoteProposals);
-    case "list_approved_scripts":
-      return runOptionalAllowedCodexTool("list_approved_scripts", input.tools.listApprovedScripts);
     case "rebuild_note_index":
       return runOptionalAllowedCodexTool("rebuild_note_index", input.tools.rebuildNoteIndex);
     case "plan_semantic_index":
@@ -262,19 +254,6 @@ export async function dispatchCodexToolRequest(input: {
         }
 
         return runAllowedCodexTool("run_vaultseer_command", () => runVaultseerCommand(input.request.input));
-      }
-    case "run_approved_script":
-      {
-        const runApprovedScript = input.tools.runApprovedScript;
-        if (runApprovedScript === undefined) {
-          return {
-            ok: false,
-            tool: input.request.tool,
-            message: "Codex tool 'run_approved_script' is not available in this Vaultseer session."
-          };
-        }
-
-        return runAllowedCodexTool("run_approved_script", () => runApprovedScript(input.request.input));
       }
     case "stage_suggestion":
       if (input.allowProposalTools !== true) {

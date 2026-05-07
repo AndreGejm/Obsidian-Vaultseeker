@@ -161,7 +161,7 @@ describe("VaultseerAgentEnvironment", () => {
     expect(message).toContain("Carbon film and metal film notes.");
     expect(message).toContain('"noteChunkCount": 0');
     expect(message).toContain("Use liveNote.text as the active-note body");
-    expect(message).toContain("Technical writer reference");
+    expect(message).toContain("Vaultseer note-maintenance reference");
   });
 
   it("keeps the optional profile reference out of casual turns", () => {
@@ -171,7 +171,7 @@ describe("VaultseerAgentEnvironment", () => {
     });
 
     expect(message).toContain('"profileReference": null');
-    expect(message).not.toContain("Technical writer reference");
+    expect(message).not.toContain("Vaultseer note-maintenance reference");
   });
 
   it("passes user image attachments to the native agent runtime", async () => {

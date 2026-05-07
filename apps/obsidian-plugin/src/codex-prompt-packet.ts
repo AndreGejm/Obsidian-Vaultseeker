@@ -45,7 +45,8 @@ export function buildCodexPromptPacket(input: BuildCodexPromptPacketInput): Code
     "Vaultseer Codex Prompt Packet",
     "",
     "Vaultseer Instruction",
-    "Obsidian is the source of truth. Use Vaultseer tools to inspect, search, propose, and stage; must not write files directly.",
+    "Obsidian is the source of truth. You may work freely inside the active note and vault through Vaultseer tools.",
+    "Hard boundary: stay vault-relative and must not run scripts, shells, terminals, binaries, or executables.",
     ...buildControlSurfaceLines(maxContextCharacters),
     "",
     "Untrusted Evidence Boundary",
@@ -66,6 +67,18 @@ export function buildCodexPromptPacket(input: BuildCodexPromptPacketInput): Code
     packetSeparator.length +
     userMessagePrefix.length +
     userMessageSuffix.length;
+  if (fixedTransportLength > maxContextCharacters) {
+    const boundedCompact = buildCompactPromptPacket(message, maxContextCharacters);
+    return {
+      displayContent: message,
+      agentContent: boundedCompact.text,
+      contextSummary: {
+        ...summaryBase,
+        truncated: true
+      }
+    };
+  }
+
   const payloadBudget = Math.max(0, maxContextCharacters - fixedTransportLength);
   const allocation = allocatePayloadBudget(contextBody.length, message.length, payloadBudget);
   const boundedContext = boundText(contextBody, allocation.contextCharacters);
@@ -89,6 +102,25 @@ export function buildCodexPromptPacket(input: BuildCodexPromptPacketInput): Code
   };
 }
 
+function buildCompactPromptPacket(message: string, maxCharacters: number): { text: string } {
+  const prefix = [
+    "Vaultseer Codex Prompt Packet",
+    "Instruction: work inside the active note and vault through Vaultseer tools; stay vault-relative; must not run scripts, shells, terminals, binaries, or executables.",
+    "Context: [truncated]",
+    "User Message",
+    "BEGIN_VAULTSEER_USER_MESSAGE"
+  ].join("\n");
+  const suffix = "\nEND_VAULTSEER_USER_MESSAGE";
+  const overhead = prefix.length + suffix.length + 1;
+  const boundedMessage = boundText(message, Math.max(0, maxCharacters - overhead));
+  const text = `${prefix}\n${boundedMessage.text}${suffix}`;
+  if (text.length <= maxCharacters) {
+    return { text };
+  }
+
+  return { text: boundText(text, maxCharacters).text };
+}
+
 function buildControlSurfaceLines(maxContextCharacters: number): string[] {
   if (maxContextCharacters < MIN_CONTROL_SURFACE_CONTEXT_CHARACTERS) {
     return [];
@@ -108,16 +140,18 @@ function buildControlSurfaceLines(maxContextCharacters: number): string[] {
     "- suggest_current_note_tags: draft deterministic tag suggestions for the active note.",
     "- suggest_current_note_links: draft deterministic internal-link suggestions for the active note.",
     "- inspect_note_quality: inspect narrow quality issues such as missing tags, duplicate aliases, malformed tags, and broken links.",
+    "- list_current_note_proposals: list staged proposals for the active note.",
     "- rebuild_note_index: request a read-only note index rebuild; the user must approve by clicking Run.",
     "- plan_semantic_index: request note embedding queue planning; the user must approve by clicking Run.",
     "- run_semantic_index_batch: request one semantic indexing batch; the user must approve by clicking Run.",
     "- run_vaultseer_command: request a Vaultseer Studio command by commandId; the user must approve by clicking Run.",
-    "- stage_suggestion: stage tag, link, or full current-note rewrite proposals for user review; it never writes directly and requires approval.",
+    "- stage_suggestion: stage tag, link, or full current-note rewrite proposals for user review.",
+    "- review_current_note_proposal: apply or reject a current-note proposal only when the user's message explicitly asks to apply, accept, approve, save, or write the staged change.",
     "Vaultseer Studio commands are available through the chat composer Commands button:",
     ...VAULTSEER_STUDIO_COMMAND_DEFINITIONS.map((command) => `- ${command.id}: ${command.name}`),
     "When asked whether Vaultseer commands are available, answer yes and explain this Vaultseer-native bridge and Commands menu.",
     "Never say Vaultseer tools are unavailable; if you cannot directly call a tool, request the matching Vaultseer action so Studio can show the user an approval card.",
-    "For write-like work, propose or stage changes through Vaultseer and wait for user approval."
+    "For write-like active-note work, stage changes through Vaultseer instead of asking the user to copy/paste or manually run tools."
   ];
 }
 

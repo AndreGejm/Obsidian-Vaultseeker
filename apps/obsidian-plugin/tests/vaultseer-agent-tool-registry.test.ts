@@ -24,7 +24,6 @@ describe("Vaultseer agent tool registry", () => {
       "suggest_current_note_links",
       "inspect_note_quality",
       "list_current_note_proposals",
-      "list_approved_scripts",
       "rebuild_note_index",
       "plan_semantic_index",
       "run_semantic_index_batch",
@@ -34,7 +33,6 @@ describe("Vaultseer agent tool registry", () => {
       "plan_source_semantic_index",
       "run_source_semantic_index_batch",
       "run_vaultseer_command",
-      "run_approved_script",
       "stage_suggestion",
       "review_current_note_proposal"
     ]);
@@ -46,10 +44,7 @@ describe("Vaultseer agent tool registry", () => {
       safety: "active-note-proposal",
       requestClass: "proposal"
     });
-    expect(definitions.find((definition) => definition.id === "list_approved_scripts")).toMatchObject({
-      safety: "read",
-      requestClass: "read-only"
-    });
+    expect(definitions.map((definition) => definition.id)).not.toContain("list_approved_scripts");
     expect(definitions.find((definition) => definition.id === "inspect_pdf_source_extraction_queue")).toMatchObject({
       safety: "read",
       requestClass: "read-only"
@@ -71,17 +66,7 @@ describe("Vaultseer agent tool registry", () => {
         })
       })
     });
-    expect(definitions.find((definition) => definition.id === "run_approved_script")).toMatchObject({
-      safety: "approved-script",
-      requestClass: "command",
-      inputSchema: expect.objectContaining({
-        properties: expect.objectContaining({
-          scriptId: expect.objectContaining({ type: "string" }),
-          input: expect.objectContaining({ type: "object" })
-        }),
-        required: ["scriptId"]
-      })
-    });
+    expect(definitions.map((definition) => definition.id)).not.toContain("run_approved_script");
     expect(definitions.find((definition) => definition.id === "import_vault_text_source")).toMatchObject({
       safety: "user-approved-command",
       requestClass: "command",
@@ -136,6 +121,8 @@ describe("Vaultseer agent tool registry", () => {
     expect(openAiTools.map((tool) => tool.name)).not.toContain("run_terminal");
     expect(openAiTools.map((tool) => tool.name)).not.toContain("execute_command");
     expect(openAiTools.map((tool) => tool.name)).not.toContain("write_file");
+    expect(openAiTools.map((tool) => tool.name)).not.toContain("list_approved_scripts");
+    expect(openAiTools.map((tool) => tool.name)).not.toContain("run_approved_script");
   });
 
   it("keeps apply-capable proposal review out of the autonomous provider tool list", () => {
@@ -154,15 +141,11 @@ describe("Vaultseer agent tool registry", () => {
     const searchNotes = vi.fn(async () => ({ status: "ready", results: [] }));
     const stageSuggestion = vi.fn(async () => ({ status: "planned" }));
     const reviewCurrentNoteProposal = vi.fn(async () => ({ status: "applied" }));
-    const listApprovedScripts = vi.fn(async () => [{ id: "normalize-frontmatter" }]);
-    const runApprovedScript = vi.fn(async () => ({ status: "completed", scriptId: "normalize-frontmatter" }));
     const registry = createVaultseerAgentToolRegistry({
       tools: {
         inspectCurrentNote: async () => ({ status: "ready" }),
         searchNotes,
         searchSources: async () => ({ status: "ready", results: [] }),
-        listApprovedScripts,
-        runApprovedScript,
         stageSuggestion,
         reviewCurrentNoteProposal
       }
@@ -176,22 +159,17 @@ describe("Vaultseer agent tool registry", () => {
     expect(searchNotes).toHaveBeenCalledWith({ query: "resistor", limit: 3 });
 
     await expect(registry.execute("list_approved_scripts", null)).resolves.toEqual({
-      ok: true,
+      ok: false,
       tool: "list_approved_scripts",
-      output: [{ id: "normalize-frontmatter" }]
+      message: "Codex tool 'list_approved_scripts' is not allowed by Vaultseer."
     });
-    expect(listApprovedScripts).toHaveBeenCalledTimes(1);
 
     await expect(
       registry.execute("run_approved_script", { scriptId: "normalize-frontmatter", input: { targetPath: "Notes/A.md" } })
     ).resolves.toEqual({
-      ok: true,
+      ok: false,
       tool: "run_approved_script",
-      output: { status: "completed", scriptId: "normalize-frontmatter" }
-    });
-    expect(runApprovedScript).toHaveBeenCalledWith({
-      scriptId: "normalize-frontmatter",
-      input: { targetPath: "Notes/A.md" }
+      message: "Codex tool 'run_approved_script' is not allowed by Vaultseer."
     });
 
     await expect(registry.execute("stage_suggestion", { kind: "rewrite", markdown: "# Draft" })).resolves.toMatchObject({

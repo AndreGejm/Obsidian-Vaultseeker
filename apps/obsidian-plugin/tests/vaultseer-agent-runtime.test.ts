@@ -1,7 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { InMemoryVaultseerStore } from "@vaultseer/core";
-import { createApprovedScriptRegistry } from "../src/approved-script-registry";
-import { createCodexReadOnlyToolImplementations } from "../src/codex-read-only-tool-implementations";
 import type { VaultseerAgentProvider } from "../src/vaultseer-agent-runtime";
 import { runVaultseerAgentTurn } from "../src/vaultseer-agent-runtime";
 import { createVaultseerAgentToolRegistry } from "../src/vaultseer-agent-tool-registry";
@@ -186,31 +183,7 @@ describe("runVaultseerAgentTurn", () => {
     expect(result.toolEvents).toHaveLength(1);
   });
 
-  it("lets the provider list approved scripts through the native Vaultseer tool runtime", async () => {
-    const approvedScriptRegistry = createApprovedScriptRegistry({
-      definitions: [
-        {
-          id: "tag-review",
-          title: "Tag review",
-          description: "Review tags for the active note.",
-          scope: "active-note",
-          permission: "active-note-proposal",
-          inputSchema: {
-            type: "object",
-            properties: {},
-            additionalProperties: false
-          },
-          enabled: true,
-          timeoutSeconds: 10
-        }
-      ],
-      handlers: {}
-    });
-    const tools = createCodexReadOnlyToolImplementations({
-      store: new InMemoryVaultseerStore(),
-      getActivePath: () => "Electronics/Resistor Types.md",
-      approvedScriptRegistry
-    });
+  it("does not let the provider inspect or run approved scripts through Codex chat", async () => {
     const provider: VaultseerAgentProvider = {
       respond: vi
         .fn()
@@ -219,13 +192,20 @@ describe("runVaultseerAgentTurn", () => {
           toolCalls: [{ id: "call-approved-scripts", name: "list_approved_scripts", input: {} }]
         })
         .mockResolvedValueOnce({
-          message: "Tag review is available."
+          message: "Scripts are not available to this chat."
         })
     };
 
     const result = await runVaultseerAgentTurn({
       provider,
-      registry: createVaultseerAgentToolRegistry({ tools }),
+      registry: createVaultseerAgentToolRegistry({
+        tools: {
+          inspectCurrentNote: async () => ({ status: "ready" }),
+          searchNotes: async () => ({ status: "ready", results: [] }),
+          searchSources: async () => ({ status: "ready", results: [] }),
+          stageSuggestion: async () => ({ status: "planned" })
+        }
+      }),
       userMessage: "what approved scripts can you use?"
     });
 
@@ -235,15 +215,9 @@ describe("runVaultseerAgentTurn", () => {
         callId: "call-approved-scripts",
         tool: "list_approved_scripts",
         result: {
-          ok: true,
+          ok: false,
           tool: "list_approved_scripts",
-          output: [
-            expect.objectContaining({
-              id: "tag-review",
-              title: "Tag review",
-              permission: "active-note-proposal"
-            })
-          ]
+          message: "Codex tool 'list_approved_scripts' is not allowed by Vaultseer."
         }
       }
     ]);

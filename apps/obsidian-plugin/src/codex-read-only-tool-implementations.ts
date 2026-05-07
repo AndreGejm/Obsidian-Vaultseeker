@@ -20,7 +20,6 @@ import { buildSourceSearchModalQueryState } from "./source-search-modal-query";
 import type { ApprovedScriptRegistry } from "./approved-script-registry";
 import type { CodexProposalToolExecutionContext, CodexToolImplementations } from "./codex-tool-dispatcher";
 import {
-  parseApprovedScriptRunInput,
   parseCodexReviewCurrentNoteProposalInput,
   parseCodexSearchToolInput,
   parseCodexStageSuggestionInput,
@@ -272,12 +271,6 @@ export function createCodexReadOnlyToolImplementations(
       };
     },
     listCurrentNoteProposals: async () => loadCurrentNoteProposalCards(input),
-    ...(input.approvedScriptRegistry === undefined
-      ? {}
-      : {
-          listApprovedScripts: async () => input.approvedScriptRegistry!.list(),
-          runApprovedScript: async (toolInput) => input.approvedScriptRegistry!.run(parseApprovedScriptRunInput(toolInput))
-        }),
     stageSuggestion: async (toolInput, context?: CodexProposalToolExecutionContext) => {
       const activePath = input.getActivePath();
       if (!activePath) {

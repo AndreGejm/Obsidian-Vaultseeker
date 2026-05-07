@@ -25,7 +25,8 @@ describe("buildCodexPromptPacket", () => {
     });
     expect(packet.agentContent).toContain("Vaultseer Codex Prompt Packet");
     expect(packet.agentContent).toContain("Obsidian is the source of truth.");
-    expect(packet.agentContent).toContain("must not write files directly");
+    expect(packet.agentContent).toContain("work freely inside the active note and vault");
+    expect(packet.agentContent).toContain("must not run scripts, shells, terminals, binaries, or executables");
     expect(packet.agentContent).toContain("Vaultseer Control Surface");
     expect(packet.agentContent).toContain("inspect_current_note");
     expect(packet.agentContent).toContain("inspect_index_health");
@@ -45,6 +46,8 @@ describe("buildCodexPromptPacket", () => {
     expect(packet.agentContent).toContain("rebuild-index");
     expect(packet.agentContent).toContain("run-source-extraction-batch");
     expect(packet.agentContent).toContain("Never say Vaultseer tools are unavailable");
+    expect(packet.agentContent).not.toContain("run_approved_script");
+    expect(packet.agentContent).not.toContain("list_approved_scripts");
     expect(packet.agentContent).toContain('"path": "Notes/VHDL.md"');
     expect(packet.agentContent).toContain('"title": "VHDL"');
     expect(packet.agentContent).toContain('"#vhdl"');
