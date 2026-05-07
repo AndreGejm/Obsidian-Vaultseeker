@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { restoreChatComposerFocus, shouldSubmitChatComposerKey } from "../src/chat-composer-focus";
 
 describe("restoreChatComposerFocus", () => {
-  it("schedules multiple focus attempts so Obsidian pane updates do not strand the composer", () => {
+  it("schedules enough focus attempts so delayed Obsidian pane updates do not strand the composer", () => {
     const callbacks: Array<() => void> = [];
     const delays: number[] = [];
     const input = fakeTextarea("draft");
@@ -14,13 +14,13 @@ describe("restoreChatComposerFocus", () => {
       }
     });
 
-    expect(delays).toEqual([0, 40, 140]);
+    expect(delays).toEqual([0, 40, 140, 360, 900]);
 
     for (const callback of callbacks) {
       callback();
     }
 
-    expect(input.focus).toHaveBeenCalledTimes(3);
+    expect(input.focus).toHaveBeenCalledTimes(5);
     expect(input.setSelectionRange).toHaveBeenLastCalledWith(5, 5);
   });
 

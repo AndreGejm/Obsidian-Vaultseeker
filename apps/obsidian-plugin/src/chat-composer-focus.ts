@@ -5,7 +5,7 @@ export type RestoreChatComposerFocusOptions = {
   delaysMs?: readonly number[];
 };
 
-const DEFAULT_FOCUS_RETRY_DELAYS_MS = [0, 40, 140] as const;
+const DEFAULT_FOCUS_RETRY_DELAYS_MS = [0, 40, 140, 360, 900] as const;
 
 export function restoreChatComposerFocus(
   input: HTMLTextAreaElement,
