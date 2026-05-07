@@ -34,11 +34,11 @@ export function renderStudioCurrentNoteProposalCards(
   }
 
   const proposalsEl = containerEl.createDiv({ cls: "vaultseer-studio-note-proposals" });
-  proposalsEl.createEl("h4", { text: surface === "chat" ? "Ready to write" : "Current-note proposals" });
+  proposalsEl.createEl("h4", { text: surface === "chat" ? "Ready to write to active note" : "Current-note proposals" });
   proposalsEl.createEl("p", {
     text:
       surface === "chat" && proposalState.cards.some((card) => card.queueSection === "active")
-        ? "Review the redline below, edit if needed, then write this active note."
+        ? "Review the redline, edit if needed, then press Accept and write."
         : proposalState.message
   });
 

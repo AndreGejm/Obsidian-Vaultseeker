@@ -75,7 +75,7 @@ function getCodexStatus(status: CodexRuntimeStatus): Pick<StudioStatusStripItem,
     case "running":
       return { value: "Connected", tone: "ready" };
     case "failed":
-      return { value: "Needs attention", tone: "attention" };
+      return { value: "Connection failed", tone: "attention" };
     case "starting":
       return { value: "Starting", tone: "attention" };
     case "stopping":

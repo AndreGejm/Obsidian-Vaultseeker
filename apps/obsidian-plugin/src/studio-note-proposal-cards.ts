@@ -151,7 +151,7 @@ function buildControls(item: WriteReviewQueueItem): StudioNoteProposalControl[] 
   return [
     {
       type: "accept",
-      label: item.applyState === "applied" ? "Written" : "Write to note",
+      label: item.applyState === "applied" ? "Written" : "Accept and write",
       enabled: canAccept(item),
       tone: "primary"
     },

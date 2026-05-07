@@ -49,7 +49,7 @@ describe("buildStudioNoteProposalCards", () => {
         queueSection: "active",
         previewDiff: expect.stringContaining("tags:"),
         controls: [
-          { type: "accept", label: "Write to note", enabled: true, tone: "primary" },
+          { type: "accept", label: "Accept and write", enabled: true, tone: "primary" },
           { type: "edit", label: "Edit draft", enabled: false, tone: "secondary" },
           { type: "defer", label: "Later", enabled: true, tone: "secondary" },
           { type: "reject", label: "Discard", enabled: true, tone: "secondary" }
@@ -72,7 +72,7 @@ describe("buildStudioNoteProposalCards", () => {
       canApply: false,
       canEdit: true,
       controls: [
-        { type: "accept", label: "Write to note", enabled: true, tone: "primary" },
+        { type: "accept", label: "Accept and write", enabled: true, tone: "primary" },
         { type: "edit", label: "Edit draft", enabled: true, tone: "secondary" },
         { type: "defer", label: "Later", enabled: true, tone: "secondary" },
         { type: "reject", label: "Discard", enabled: true, tone: "secondary" }
@@ -107,7 +107,7 @@ describe("buildStudioNoteProposalCards", () => {
       canApply: true,
       canEdit: true,
       controls: [
-        { type: "accept", label: "Write to note", enabled: true, tone: "primary" },
+        { type: "accept", label: "Accept and write", enabled: true, tone: "primary" },
         { type: "edit", label: "Edit draft", enabled: true, tone: "secondary" },
         { type: "defer", label: "Later", enabled: true, tone: "secondary" },
         { type: "reject", label: "Discard", enabled: true, tone: "secondary" }
@@ -141,7 +141,7 @@ describe("buildStudioNoteProposalCards", () => {
       canApply: true,
       canEdit: false,
       controls: [
-        { type: "accept", label: "Write to note", enabled: true, tone: "primary" },
+        { type: "accept", label: "Accept and write", enabled: true, tone: "primary" },
         { type: "edit", label: "Edit draft", enabled: false, tone: "secondary" },
         { type: "defer", label: "Later", enabled: true, tone: "secondary" },
         { type: "reject", label: "Discard", enabled: true, tone: "secondary" }

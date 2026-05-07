@@ -77,7 +77,7 @@ describe("buildStudioStatusStrip", () => {
       ["index", "Stale - 0 notes - 0 chunks", "attention"],
       ["active-note", "Not indexed", "attention"],
       ["review", "No pending writes", "muted"],
-      ["codex", "Needs attention", "attention"]
+      ["codex", "Connection failed", "attention"]
     ]);
   });
 });
