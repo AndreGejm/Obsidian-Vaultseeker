@@ -26,6 +26,12 @@ export type ObsidianVaultWriteVault = {
   modify(file: ObsidianVaultWriteFile, content: string): Promise<void>;
 };
 
+export type ObsidianVaultWriteActiveNote = {
+  getActivePath(): string | null;
+  readContent(path: string): string | null;
+  writeContent(path: string, content: string): boolean;
+};
+
 export class VaultWriteVerificationError extends Error {
   constructor(message: string) {
     super(message);
@@ -34,7 +40,10 @@ export class VaultWriteVerificationError extends Error {
 }
 
 export class ObsidianVaultWritePort implements VaultWritePort {
-  constructor(private readonly vault: ObsidianVaultWriteVault) {}
+  constructor(
+    private readonly vault: ObsidianVaultWriteVault,
+    private readonly activeNote?: ObsidianVaultWriteActiveNote
+  ) {}
 
   async dryRun(operation: GuardedVaultWriteOperation): Promise<VaultWriteDryRunResult> {
     this.verifyTargetPath(operation.targetPath);
@@ -100,7 +109,8 @@ export class ObsidianVaultWritePort implements VaultWritePort {
     }
 
     await this.vault.modify(file, operation.content);
-    const writtenContent = await this.vault.read(file);
+    this.writeActiveContent(operation.targetPath, operation.content);
+    const writtenContent = this.readActiveContent(operation.targetPath) ?? (await this.vault.read(file));
     const afterHash = hashString(writtenContent);
 
     if (afterHash !== approval.afterHash) {
@@ -171,11 +181,24 @@ export class ObsidianVaultWritePort implements VaultWritePort {
   }
 
   private async readCurrentHash(path: string): Promise<string | null> {
+    const activeContent = this.readActiveContent(path);
+    if (activeContent !== null) return hashString(activeContent);
+
     const file = this.vault.getAbstractFileByPath(path);
     if (!isVaultWriteFile(file)) return null;
 
     const content = await this.vault.read(file);
     return hashString(content);
+  }
+
+  private readActiveContent(path: string): string | null {
+    if (this.activeNote?.getActivePath() !== path) return null;
+    return this.activeNote.readContent(path);
+  }
+
+  private writeActiveContent(path: string, content: string): void {
+    if (this.activeNote?.getActivePath() !== path) return;
+    this.activeNote.writeContent(path, content);
   }
 
   private folderExists(path: string): boolean {

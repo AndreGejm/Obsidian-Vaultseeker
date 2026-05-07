@@ -102,6 +102,7 @@ import { VaultseerChatImageAttachmentModal } from "./chat-image-attachment-modal
 import { readVaultAssetRecords, type VaultAssetReaderApp, type VaultAssetRecord } from "./obsidian-adapter";
 import { formatCodexRuntimeFailure } from "./codex-runtime-state";
 import { shouldRefreshIndexAfterAcceptedWrite } from "./write-review-followup";
+import { readOpenMarkdownViewContent } from "./active-markdown-view";
 
 export const VAULTSEER_STUDIO_VIEW_TYPE = "vaultseer-studio";
 const MAX_CODEX_TOOL_CONTINUATION_ITERATIONS = 3;
@@ -1293,6 +1294,9 @@ export class VaultseerStudioView extends ItemView {
   }
 
   private async readVaultTextFile(path: string): Promise<string> {
+    const openViewContent = readOpenMarkdownViewContent(this.app, path);
+    if (openViewContent !== null) return openViewContent;
+
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) {
       throw new Error(`Could not find ${path} in the vault.`);

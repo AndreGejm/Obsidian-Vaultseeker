@@ -186,6 +186,44 @@ describe("ObsidianVaultWritePort", () => {
     expect(vault.files.get(operation.targetPath)).toBe(operation.content);
   });
 
+  it("uses the active editor content for active-note rewrite preconditions and updates the visible editor", async () => {
+    const savedContent = "# Ohm's law\n\nSaved text that has fallen behind the editor.\n";
+    const activeContent = "# Ohm's law\n";
+    const operation = planNoteContentRewriteOperation({
+      targetPath: "Electronics/Ohms law.md",
+      currentContent: activeContent,
+      proposedContent: "# Ohm's law\n\nOhm's law relates voltage, current, and resistance.\n",
+      reason: "Add the requested explanation.",
+      suggestionIds: ["suggestion:note-rewrite:Electronics/Ohms law.md:codex"],
+      createdAt: "2026-05-07T18:00:00.000Z"
+    });
+    const vault = new FakeVault([[operation.targetPath, savedContent]], ["Electronics"]);
+    const activeNote = new FakeActiveNote(operation.targetPath, activeContent);
+    const port = new ObsidianVaultWritePort(vault, activeNote);
+
+    await expect(port.dryRun(operation)).resolves.toMatchObject({
+      precondition: { ok: true },
+      preview: operation.preview
+    });
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-07T18:05:00.000Z"
+      })
+    ).resolves.toEqual({
+      operationId: operation.id,
+      targetPath: operation.targetPath,
+      beforeHash: operation.expectedCurrentHash,
+      afterHash: operation.preview.afterHash,
+      appliedAt: "2026-05-07T18:05:00.000Z"
+    });
+    expect(vault.files.get(operation.targetPath)).toBe(operation.content);
+    expect(activeNote.content).toBe(operation.content);
+  });
+
   it("verifies modified notes with an uncached read so stale cached content does not fail apply", async () => {
     const currentContent = "# Resistor Types\n\nOriginal text.\n";
     const operation = planNoteContentRewriteOperation({
@@ -337,6 +375,27 @@ class FakeVault {
     if (!this.files.has(file.path)) throw new Error(`missing file ${file.path}`);
     this.modifyCount += 1;
     this.files.set(file.path, content);
+  }
+}
+
+class FakeActiveNote {
+  constructor(
+    private readonly path: string,
+    public content: string
+  ) {}
+
+  getActivePath(): string | null {
+    return this.path;
+  }
+
+  readContent(path: string): string | null {
+    return path === this.path ? this.content : null;
+  }
+
+  writeContent(path: string, content: string): boolean {
+    if (path !== this.path) return false;
+    this.content = content;
+    return true;
   }
 }
 

@@ -21,6 +21,7 @@ import {
   getWriteReviewQueueApplyButtonLabel,
   getWriteReviewQueueSummaryHelpText
 } from "./write-review-queue-copy";
+import { readOpenMarkdownViewContent } from "./active-markdown-view";
 
 export class VaultseerWriteReviewQueueModal extends Modal {
   private focusedOperationId: string | null = null;
@@ -277,6 +278,9 @@ export class VaultseerWriteReviewQueueModal extends Modal {
   }
 
   private async readVaultTextFile(path: string): Promise<string> {
+    const openViewContent = readOpenMarkdownViewContent(this.app, path);
+    if (openViewContent !== null) return openViewContent;
+
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) {
       throw new Error(`Could not find ${path} in the vault.`);

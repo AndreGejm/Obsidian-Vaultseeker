@@ -27,7 +27,11 @@ import { VaultseerSourceFilePickerModal } from "./source-file-picker-modal";
 import { VaultseerSourcePreviewModal } from "./source-preview-modal";
 import { VaultseerSourceSearchModal } from "./source-search-modal";
 import { VaultseerWriteReviewQueueModal } from "./write-review-queue-modal";
-import { ObsidianVaultWritePort, type ObsidianVaultWriteVault } from "./obsidian-vault-write-port";
+import {
+  ObsidianVaultWritePort,
+  type ObsidianVaultWriteActiveNote,
+  type ObsidianVaultWriteVault
+} from "./obsidian-vault-write-port";
 import { importVaultTextSourceWorkspace } from "./source-intake-controller";
 import { OllamaEmbeddingProvider } from "./ollama-embedding-provider";
 import {
@@ -83,6 +87,7 @@ import {
   buildSelectedNoteAgentActionPrompt,
   type SelectedNoteAgentActionRequest
 } from "./selected-note-agent-action";
+import { readOpenMarkdownViewContent, writeOpenMarkdownViewContent } from "./active-markdown-view";
 
 const SEMANTIC_RETRY_DELAY_MS = 30_000;
 const SEMANTIC_MAX_ATTEMPTS = 3;
@@ -146,7 +151,7 @@ export default class VaultseerPlugin extends Plugin {
             const summary = await stageNoteTagUpdateProposal({
               store: this.store,
               targetPath: currentNote.path,
-              currentContent: await this.app.vault.cachedRead(file),
+              currentContent: await this.readActiveNoteContent(currentNote.path),
               tagSuggestions,
               now: () => new Date().toISOString()
             });
@@ -161,7 +166,7 @@ export default class VaultseerPlugin extends Plugin {
             const summary = await stageNoteLinkUpdateProposal({
               store: this.store,
               targetPath: currentNote.path,
-              currentContent: await this.app.vault.cachedRead(file),
+              currentContent: await this.readActiveNoteContent(currentNote.path),
               linkSuggestions,
               now: () => new Date().toISOString()
             });
@@ -172,7 +177,7 @@ export default class VaultseerPlugin extends Plugin {
     this.registerView(
       VAULTSEER_STUDIO_VIEW_TYPE,
       (leaf) => {
-        const writePort = new ObsidianVaultWritePort(this.app.vault as unknown as ObsidianVaultWriteVault);
+        const writePort = this.createVaultWritePort();
         let codexTools: CodexToolImplementations;
         const approvedScriptRegistry = createApprovedScriptRegistry({
           definitions: mergeApprovedScriptDefinitions(this.settings.approvedScripts),
@@ -397,7 +402,7 @@ export default class VaultseerPlugin extends Plugin {
     new VaultseerWriteReviewQueueModal(
       this.app,
       this.store,
-      new ObsidianVaultWritePort(this.app.vault as unknown as ObsidianVaultWriteVault)
+      this.createVaultWritePort()
     ).open();
   }
 
@@ -849,8 +854,40 @@ export default class VaultseerPlugin extends Plugin {
       throw new Error("Open the current active note before using Vaultseer note actions.");
     }
 
-    const content = await this.app.vault.cachedRead(file);
+    const content = await this.readActiveNoteContent(path);
     return mapObsidianFileToNoteInput(file, content, this.app.metadataCache.getFileCache(file));
+  }
+
+  private async readActiveNoteContent(path: string): Promise<string> {
+    const file = this.app.workspace.getActiveFile();
+    if (!file || file.path !== path) {
+      throw new Error("Open the current active note before using Vaultseer note actions.");
+    }
+
+    return this.readActiveMarkdownViewContent(path) ?? (await this.app.vault.cachedRead(file));
+  }
+
+  private createVaultWritePort(): ObsidianVaultWritePort {
+    return new ObsidianVaultWritePort(
+      this.app.vault as unknown as ObsidianVaultWriteVault,
+      this.createActiveNoteWriteAccess()
+    );
+  }
+
+  private createActiveNoteWriteAccess(): ObsidianVaultWriteActiveNote {
+    return {
+      getActivePath: () => this.app.workspace.getActiveFile()?.path ?? null,
+      readContent: (path) => this.readActiveMarkdownViewContent(path),
+      writeContent: (path, content) => this.writeActiveMarkdownViewContent(path, content)
+    };
+  }
+
+  private readActiveMarkdownViewContent(path: string): string | null {
+    return readOpenMarkdownViewContent(this.app, path);
+  }
+
+  private writeActiveMarkdownViewContent(path: string, content: string): boolean {
+    return writeOpenMarkdownViewContent(this.app, path, content);
   }
 
   private async readVaultBinaryFile(path: string): Promise<ArrayBuffer> {
