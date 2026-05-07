@@ -100,7 +100,7 @@ export function buildVaultseerToolContinuationMessage(results: CodexToolResult[]
 export function buildVaultseerStagedProposalMessage(results: CodexToolResult[]): string {
   const failures = results.filter((result) => !result.ok);
   if (failures.length === 0) {
-    return "Vaultseer drafted the active-note change. Review the redline card below, edit if needed, then press Accept and write.";
+    return "Vaultseer drafted the active-note change. Review the redline card below, edit if needed, then press Write to note.";
   }
 
   return [

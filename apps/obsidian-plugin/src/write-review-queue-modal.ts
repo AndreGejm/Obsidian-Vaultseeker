@@ -17,6 +17,10 @@ import {
   type WriteReviewQueueItem,
   type WriteReviewQueueState
 } from "./write-review-queue-state";
+import {
+  getWriteReviewQueueApplyButtonLabel,
+  getWriteReviewQueueSummaryHelpText
+} from "./write-review-queue-copy";
 
 export class VaultseerWriteReviewQueueModal extends Modal {
   private focusedOperationId: string | null = null;
@@ -81,9 +85,7 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     summaryEl.createEl("div", { text: `Applied records: ${state.appliedCount}` });
     summaryEl.createEl("div", { text: `Needs review: ${state.activeCount}` });
     summaryEl.createEl("div", { text: `History: ${state.historyCount}` });
-    summaryEl.createEl("p", {
-      text: "Accept applies the proposal after re-checking the target note. Edit updates the proposed Markdown before accepting."
-    });
+    summaryEl.createEl("p", { text: getWriteReviewQueueSummaryHelpText() });
 
     this.focusedOperationId = normalizeFocusedOperationId(state, this.focusedOperationId);
     const focusedItem = state.items.find((item) => item.operationId === this.focusedOperationId) ?? null;
@@ -183,7 +185,7 @@ export class VaultseerWriteReviewQueueModal extends Modal {
 
     const actionsEl = itemEl.createEl("div", { cls: "vaultseer-write-review-queue-actions" });
     const acceptButton = actionsEl.createEl("button", {
-      text: item.applyState === "applied" ? "Written" : "Accept and write"
+      text: getWriteReviewQueueApplyButtonLabel(item)
     });
     acceptButton.disabled = !operation || item.queueSection !== "active";
     acceptButton.addEventListener("click", () => {
