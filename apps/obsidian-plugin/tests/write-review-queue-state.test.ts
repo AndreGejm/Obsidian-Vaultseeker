@@ -11,8 +11,8 @@ describe("buildWriteReviewQueueState", () => {
   it("returns an empty read-only queue state when there are no proposed operations", () => {
     expect(buildWriteReviewQueueState({ operations: [], decisions: [], applyResults: [] })).toEqual({
       status: "empty",
-      title: "Guarded Write Review Queue",
-      message: "No guarded write proposals are stored.",
+      title: "Review note changes",
+      message: "No note changes are waiting for review.",
       totalCount: 0,
       pendingCount: 0,
       deferredCount: 0,
@@ -64,6 +64,7 @@ describe("buildWriteReviewQueueState", () => {
 
     expect(state).toMatchObject({
       status: "ready",
+      title: "Review note changes",
       totalCount: 3,
       pendingCount: 1,
       deferredCount: 0,

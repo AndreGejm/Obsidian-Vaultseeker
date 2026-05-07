@@ -41,8 +41,8 @@ export class VaultseerWriteReviewQueueModal extends Modal {
   private async loadAndRender(): Promise<void> {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("h2", { text: "Guarded Write Review Queue" });
-    contentEl.createEl("p", { text: "Loading proposed operations..." });
+    contentEl.createEl("h2", { text: "Review note changes" });
+    contentEl.createEl("p", { text: "Loading note changes..." });
 
     try {
       const [operations, decisions, applyResults] = await Promise.all([
@@ -54,9 +54,9 @@ export class VaultseerWriteReviewQueueModal extends Modal {
       this.renderState(state, operations);
     } catch (error) {
       contentEl.empty();
-      contentEl.createEl("h2", { text: "Guarded Write Review Queue" });
+      contentEl.createEl("h2", { text: "Review note changes" });
       contentEl.createEl("p", { text: `Vaultseer could not load write proposals: ${getErrorMessage(error)}` });
-      new Notice("Vaultseer could not load guarded write proposals.");
+      new Notice("Vaultseer could not load note changes.");
     }
   }
 
@@ -71,8 +71,8 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     }
 
     const summaryEl = contentEl.createEl("section", { cls: "vaultseer-write-review-queue-summary" });
-    summaryEl.createEl("h3", { text: "Queue Summary" });
-    summaryEl.createEl("div", { text: `Total proposals: ${state.totalCount}` });
+    summaryEl.createEl("h3", { text: "Summary" });
+    summaryEl.createEl("div", { text: `Total changes: ${state.totalCount}` });
     summaryEl.createEl("div", { text: `Pending: ${state.pendingCount}` });
     summaryEl.createEl("div", { text: `Deferred: ${state.deferredCount}` });
     summaryEl.createEl("div", { text: `Approved: ${state.approvedCount}` });
@@ -91,7 +91,7 @@ export class VaultseerWriteReviewQueueModal extends Modal {
 
     const operationById = new Map(operations.map((operation) => [operation.id, operation]));
     const listEl = contentEl.createEl("section", { cls: "vaultseer-write-review-queue-items" });
-    listEl.createEl("h3", { text: focusedItem ? "Selected Proposal" : "Proposals" });
+    listEl.createEl("h3", { text: focusedItem ? "Selected change" : "Changes" });
     if (!focusedItem) {
       listEl.createEl("p", { text: "No proposal is selected." });
     } else {
@@ -106,28 +106,28 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     focusedItem: WriteReviewQueueItem | null
   ): void {
     const navEl = parent.createEl("section", { cls: "vaultseer-write-review-queue-navigation" });
-    navEl.createEl("h3", { text: "Queue Navigation" });
+    navEl.createEl("h3", { text: "Change navigation" });
 
     if (!focusedItem) {
-      navEl.createEl("p", { text: "No active guarded write proposals are available." });
+      navEl.createEl("p", { text: "No note changes are waiting for review." });
       return;
     }
 
     const activeItems = state.items.filter((item) => item.queueSection === "active");
     const focusedIndex = activeItems.findIndex((item) => item.operationId === focusedItem.operationId);
     navEl.createEl("div", {
-      text: `Active proposal ${focusedIndex + 1} of ${activeItems.length} - ${focusedItem.queueSectionLabel}`
+      text: `Change ${focusedIndex + 1} of ${activeItems.length} - ${focusedItem.queueSectionLabel}`
     });
 
     const actionsEl = navEl.createEl("div", { cls: "vaultseer-write-review-queue-navigation-actions" });
-    const previousButton = actionsEl.createEl("button", { text: "Previous proposal" });
+    const previousButton = actionsEl.createEl("button", { text: "Previous change" });
     previousButton.disabled = activeItems.length < 2;
     previousButton.addEventListener("click", () => {
       this.focusedOperationId = getNextWriteReviewQueueOperationId(state, focusedItem.operationId, "previous");
       this.renderState(state, operations);
     });
 
-    const nextButton = actionsEl.createEl("button", { text: "Next proposal" });
+    const nextButton = actionsEl.createEl("button", { text: "Next change" });
     nextButton.disabled = activeItems.length < 2;
     nextButton.addEventListener("click", () => {
       this.focusedOperationId = getNextWriteReviewQueueOperationId(state, focusedItem.operationId, "next");
@@ -135,7 +135,7 @@ export class VaultseerWriteReviewQueueModal extends Modal {
     });
 
     const firstActiveOperationId = getDefaultWriteReviewQueueOperationId(state);
-    const firstActiveButton = actionsEl.createEl("button", { text: "First needing review" });
+    const firstActiveButton = actionsEl.createEl("button", { text: "First change" });
     firstActiveButton.disabled = state.activeCount === 0 || focusedItem.operationId === firstActiveOperationId;
     firstActiveButton.addEventListener("click", () => {
       this.focusedOperationId = getDefaultWriteReviewQueueOperationId(state);
@@ -173,7 +173,7 @@ export class VaultseerWriteReviewQueueModal extends Modal {
 
     const actionsEl = itemEl.createEl("div", { cls: "vaultseer-write-review-queue-actions" });
     const acceptButton = actionsEl.createEl("button", {
-      text: item.applyState === "applied" ? "Written" : "Accept and write to note"
+      text: item.applyState === "applied" ? "Written" : "Accept and write"
     });
     acceptButton.disabled = !operation || item.queueSection !== "active";
     acceptButton.addEventListener("click", () => {

@@ -43,9 +43,9 @@ export const VAULTSEER_STUDIO_COMMAND_DEFINITIONS: VaultseerStudioCommandDefinit
   },
   {
     id: "open-write-review-queue",
-    name: "Open guarded write review queue",
+    name: "Review note changes",
     group: "review",
-    quickActionLabel: "Review writes"
+    quickActionLabel: "Review changes"
   },
   { id: "import-active-text-source", name: "Import active text/code file as source workspace", group: "sources" },
   { id: "choose-text-source-file", name: "Choose text/code file to import as source workspace", group: "sources" },

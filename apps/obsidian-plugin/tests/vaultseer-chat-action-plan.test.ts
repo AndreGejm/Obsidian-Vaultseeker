@@ -66,7 +66,7 @@ describe("buildVaultseerChatActionPlan", () => {
 
     expect(plan.sendToCodex).toBe(false);
     expect(plan.content).toContain("Vaultseer staged the previous draft.");
-    expect(plan.content).toContain("Review the redline below, then press Accept and write to note.");
+    expect(plan.content).toContain("Review the redline card below, then press Accept and write.");
     expect(plan.autoStageToolRequests).toEqual([
       {
         tool: "stage_suggestion",
@@ -139,7 +139,7 @@ describe("buildVaultseerChatActionPlan", () => {
 
     expect(plan.sendToCodex).toBe(false);
     expect(plan.content).toContain("Vaultseer staged the previous draft.");
-    expect(plan.content).toContain("Review the redline below, then press Accept and write to note.");
+    expect(plan.content).toContain("Review the redline card below, then press Accept and write.");
     expect(plan.autoStageToolRequests).toEqual([
       {
         tool: "stage_suggestion",
@@ -177,7 +177,7 @@ describe("buildVaultseerChatActionPlan", () => {
 
     expect(plan.sendToCodex).toBe(false);
     expect(plan.content).toContain("Vaultseer staged the previous draft.");
-    expect(plan.content).toContain("Review the redline below, then press Accept and write to note.");
+    expect(plan.content).toContain("Review the redline card below, then press Accept and write.");
     expect(plan.autoStageToolRequests).toEqual([
       {
         tool: "stage_suggestion",

@@ -69,4 +69,11 @@ describe("VAULTSEER_STUDIO_COMMAND_DEFINITIONS", () => {
       "plan-semantic-index"
     ]);
   });
+
+  it("uses plain-language labels for reviewing note changes", () => {
+    expect(VAULTSEER_STUDIO_COMMAND_DEFINITIONS.find((command) => command.id === "open-write-review-queue")).toMatchObject({
+      name: "Review note changes",
+      quickActionLabel: "Review changes"
+    });
+  });
 });

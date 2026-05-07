@@ -45,7 +45,7 @@ export function buildVaultseerChatActionPlan(input: BuildVaultseerChatActionPlan
 
   if (input.activePath !== null && isNonblank(draftToStage)) {
     return {
-      content: "Vaultseer staged the previous draft. Review the redline below, then press Accept and write to note.",
+      content: "Vaultseer staged the previous draft. Review the redline card below, then press Accept and write.",
       toolRequests: [],
       autoStageToolRequests: [
         {

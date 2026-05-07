@@ -55,8 +55,8 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
   if (input.operations.length === 0) {
     return {
       status: "empty",
-      title: "Guarded Write Review Queue",
-      message: "No guarded write proposals are stored.",
+      title: "Review note changes",
+      message: "No note changes are waiting for review.",
       totalCount: 0,
       pendingCount: 0,
       deferredCount: 0,
@@ -115,7 +115,7 @@ export function buildWriteReviewQueueState(input: BuildWriteReviewQueueStateInpu
 
   return {
     status: "ready",
-    title: "Guarded Write Review Queue",
+    title: "Review note changes",
     message: `${pendingCount} pending, ${deferredCount} deferred, ${approvedCount} approved, ${rejectedCount} rejected.`,
     totalCount: sortedItems.length,
     pendingCount,

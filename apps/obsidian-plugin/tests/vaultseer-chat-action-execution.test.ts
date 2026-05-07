@@ -121,7 +121,7 @@ describe("vaultseer chat action execution", () => {
     ]);
 
     expect(message).toBe(
-      "Vaultseer drafted the active-note change. Review the redline below, edit if needed, then press Accept and write to note."
+      "Vaultseer drafted the active-note change. Review the redline card below, edit if needed, then press Accept and write."
     );
     expect(message).not.toContain("Tool result");
   });
