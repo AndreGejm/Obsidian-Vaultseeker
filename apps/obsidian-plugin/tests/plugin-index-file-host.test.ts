@@ -65,4 +65,30 @@ describe("NodeVaultseerIndexFileHost", () => {
     expect(quarantinedFiles).toHaveLength(1);
     await expect(readFile(path.join(tempDir, quarantinedFiles[0]), "utf8")).resolves.toBe('{"schemaVersion":1}}');
   });
+
+  it("handles concurrent saves without sharing one temporary file", async () => {
+    const indexPath = path.join(tempDir, "vaultseer-index.json");
+    const host = new NodeVaultseerIndexFileHost(indexPath);
+
+    const saves = Array.from({ length: 32 }, (_, noteCount) =>
+      host.saveIndexData({
+        ...storedIndex,
+        health: {
+          ...storedIndex.health,
+          noteCount
+        }
+      })
+    );
+
+    await expect(Promise.all(saves)).resolves.toHaveLength(32);
+
+    const loaded = await host.loadIndexData();
+    expect(loaded).toMatchObject({
+      schemaVersion: 1,
+      health: {
+        status: "ready"
+      }
+    });
+    expect((await readdir(tempDir)).filter((name) => name.includes(".tmp"))).toEqual([]);
+  });
 });

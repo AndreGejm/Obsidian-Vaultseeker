@@ -6,6 +6,8 @@ import type { VaultseerPluginIndexDataHost } from "./plugin-data-store";
 export const VAULTSEER_INDEX_FILE_NAME = "vaultseer-index.json";
 
 export class NodeVaultseerIndexFileHost implements VaultseerPluginIndexDataHost {
+  private saveQueue: Promise<void> = Promise.resolve();
+
   constructor(private readonly indexPath: string) {}
 
   async loadIndexData(): Promise<unknown> {
@@ -26,10 +28,24 @@ export class NodeVaultseerIndexFileHost implements VaultseerPluginIndexDataHost 
   }
 
   async saveIndexData(data: StoredVaultIndex): Promise<void> {
+    const pendingSave = this.saveQueue.then(
+      () => this.writeIndexData(data),
+      () => this.writeIndexData(data)
+    );
+    this.saveQueue = pendingSave.catch(() => undefined);
+    await pendingSave;
+  }
+
+  private async writeIndexData(data: StoredVaultIndex): Promise<void> {
     await mkdir(path.dirname(this.indexPath), { recursive: true });
-    const tempPath = `${this.indexPath}.tmp`;
-    await writeFile(tempPath, JSON.stringify(data), "utf8");
-    await rename(tempPath, this.indexPath);
+    const tempPath = createTempIndexPath(this.indexPath);
+    try {
+      await writeFile(tempPath, JSON.stringify(data), "utf8");
+      await rename(tempPath, this.indexPath);
+    } catch (error) {
+      await rm(tempPath, { force: true });
+      throw error;
+    }
   }
 
   async clearIndexData(): Promise<void> {
@@ -49,6 +65,11 @@ export class NodeVaultseerIndexFileHost implements VaultseerPluginIndexDataHost 
 
 export function getVaultseerIndexFilePath(vaultBasePath: string, pluginId: string): string {
   return path.join(vaultBasePath, ".obsidian", "plugins", pluginId, VAULTSEER_INDEX_FILE_NAME);
+}
+
+function createTempIndexPath(indexPath: string): string {
+  const nonce = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${indexPath}.${nonce}.tmp`;
 }
 
 function isFileNotFoundError(error: unknown): boolean {
