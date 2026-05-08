@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -49,5 +49,20 @@ describe("NodeVaultseerIndexFileHost", () => {
 
     await host.clearIndexData();
     await expect(host.loadIndexData()).resolves.toBeNull();
+  });
+
+  it("quarantines corrupt index JSON and lets the plugin start with an empty index", async () => {
+    const indexPath = path.join(tempDir, "vaultseer-index.json");
+    await writeFile(indexPath, '{"schemaVersion":1}}', "utf8");
+    const host = new NodeVaultseerIndexFileHost(indexPath);
+
+    await expect(host.loadIndexData()).resolves.toBeNull();
+
+    await expect(readFile(indexPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    const quarantinedFiles = (await readdir(tempDir)).filter((name) =>
+      name.startsWith("vaultseer-index.json.corrupt-")
+    );
+    expect(quarantinedFiles).toHaveLength(1);
+    await expect(readFile(path.join(tempDir, quarantinedFiles[0]), "utf8")).resolves.toBe('{"schemaVersion":1}}');
   });
 });

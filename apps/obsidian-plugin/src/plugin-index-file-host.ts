@@ -16,6 +16,11 @@ export class NodeVaultseerIndexFileHost implements VaultseerPluginIndexDataHost 
         return null;
       }
 
+      if (error instanceof SyntaxError) {
+        await this.quarantineCorruptIndexFile();
+        return null;
+      }
+
       throw error;
     }
   }
@@ -29,6 +34,16 @@ export class NodeVaultseerIndexFileHost implements VaultseerPluginIndexDataHost 
 
   async clearIndexData(): Promise<void> {
     await rm(this.indexPath, { force: true });
+  }
+
+  private async quarantineCorruptIndexFile(): Promise<void> {
+    const quarantinePath = `${this.indexPath}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    try {
+      await rename(this.indexPath, quarantinePath);
+    } catch (error) {
+      if (isFileNotFoundError(error)) return;
+      await rm(this.indexPath, { force: true });
+    }
   }
 }
 
