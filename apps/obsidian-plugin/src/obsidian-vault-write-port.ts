@@ -192,13 +192,11 @@ export class ObsidianVaultWritePort implements VaultWritePort {
   }
 
   private readActiveContent(path: string): string | null {
-    if (this.activeNote?.getActivePath() !== path) return null;
-    return this.activeNote.readContent(path);
+    return this.activeNote?.readContent(path) ?? null;
   }
 
   private writeActiveContent(path: string, content: string): void {
-    if (this.activeNote?.getActivePath() !== path) return;
-    this.activeNote.writeContent(path, content);
+    this.activeNote?.writeContent(path, content);
   }
 
   private folderExists(path: string): boolean {

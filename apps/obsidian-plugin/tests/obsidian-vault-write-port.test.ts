@@ -224,6 +224,44 @@ describe("ObsidianVaultWritePort", () => {
     expect(activeNote.content).toBe(operation.content);
   });
 
+  it("uses open editor content for rewrite preconditions even when the target note is not the active pane", async () => {
+    const savedContent = "# Ohm's law\n\nSaved text that has fallen behind the editor.\n";
+    const openEditorContent = "# Ohm's law\n";
+    const operation = planNoteContentRewriteOperation({
+      targetPath: "Electronics/Ohms law.md",
+      currentContent: openEditorContent,
+      proposedContent: "# Ohm's law\n\nOhm's law relates voltage, current, and resistance.\n",
+      reason: "Add the requested explanation.",
+      suggestionIds: ["suggestion:note-rewrite:Electronics/Ohms law.md:codex"],
+      createdAt: "2026-05-08T07:00:00.000Z"
+    });
+    const vault = new FakeVault([[operation.targetPath, savedContent]], ["Electronics"]);
+    const openNote = new FakeOpenMarkdownNoteAccess("Electronics/Other.md", operation.targetPath, openEditorContent);
+    const port = new ObsidianVaultWritePort(vault, openNote);
+
+    await expect(port.dryRun(operation)).resolves.toMatchObject({
+      precondition: { ok: true },
+      preview: operation.preview
+    });
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-08T07:05:00.000Z"
+      })
+    ).resolves.toEqual({
+      operationId: operation.id,
+      targetPath: operation.targetPath,
+      beforeHash: operation.expectedCurrentHash,
+      afterHash: operation.preview.afterHash,
+      appliedAt: "2026-05-08T07:05:00.000Z"
+    });
+    expect(vault.files.get(operation.targetPath)).toBe(operation.content);
+    expect(openNote.content).toBe(operation.content);
+  });
+
   it("verifies modified notes with an uncached read so stale cached content does not fail apply", async () => {
     const currentContent = "# Resistor Types\n\nOriginal text.\n";
     const operation = planNoteContentRewriteOperation({
@@ -394,6 +432,28 @@ class FakeActiveNote {
 
   writeContent(path: string, content: string): boolean {
     if (path !== this.path) return false;
+    this.content = content;
+    return true;
+  }
+}
+
+class FakeOpenMarkdownNoteAccess {
+  constructor(
+    private readonly activePath: string,
+    private readonly openPath: string,
+    public content: string
+  ) {}
+
+  getActivePath(): string | null {
+    return this.activePath;
+  }
+
+  readContent(path: string): string | null {
+    return path === this.openPath ? this.content : null;
+  }
+
+  writeContent(path: string, content: string): boolean {
+    if (path !== this.openPath) return false;
     this.content = content;
     return true;
   }
