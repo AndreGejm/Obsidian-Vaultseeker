@@ -224,6 +224,41 @@ describe("ObsidianVaultWritePort", () => {
     expect(activeNote.content).toBe(operation.content);
   });
 
+  it("normalizes active editor content before checking rewrite preconditions", async () => {
+    const activeContent = "# Ohm's law";
+    const operation = planNoteContentRewriteOperation({
+      targetPath: "Electronics/Ohms law.md",
+      currentContent: activeContent,
+      proposedContent: "# Ohm's law\n\nOhm's law relates voltage, current, and resistance.\n",
+      reason: "Add the requested explanation.",
+      suggestionIds: ["suggestion:note-rewrite:Electronics/Ohms law.md:codex"],
+      createdAt: "2026-05-08T09:00:00.000Z"
+    });
+    const vault = new FakeVault([[operation.targetPath, activeContent]], ["Electronics"]);
+    const activeNote = new FakeActiveNote(operation.targetPath, activeContent);
+    const port = new ObsidianVaultWritePort(vault, activeNote);
+
+    await expect(port.dryRun(operation)).resolves.toMatchObject({
+      precondition: { ok: true },
+      preview: operation.preview
+    });
+    await expect(
+      port.apply(operation, {
+        operationId: operation.id,
+        targetPath: operation.targetPath,
+        expectedCurrentHash: operation.expectedCurrentHash,
+        afterHash: operation.preview.afterHash,
+        approvedAt: "2026-05-08T09:05:00.000Z"
+      })
+    ).resolves.toMatchObject({
+      operationId: operation.id,
+      targetPath: operation.targetPath,
+      afterHash: operation.preview.afterHash
+    });
+    expect(vault.files.get(operation.targetPath)).toBe(operation.content);
+    expect(activeNote.content).toBe(operation.content);
+  });
+
   it("uses open editor content for rewrite preconditions even when the target note is not the active pane", async () => {
     const savedContent = "# Ohm's law\n\nSaved text that has fallen behind the editor.\n";
     const openEditorContent = "# Ohm's law\n";

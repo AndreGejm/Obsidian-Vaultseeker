@@ -182,13 +182,13 @@ export class ObsidianVaultWritePort implements VaultWritePort {
 
   private async readCurrentHash(path: string): Promise<string | null> {
     const activeContent = this.readActiveContent(path);
-    if (activeContent !== null) return hashString(activeContent);
+    if (activeContent !== null) return hashVaultWriteContent(activeContent);
 
     const file = this.vault.getAbstractFileByPath(path);
     if (!isVaultWriteFile(file)) return null;
 
     const content = await this.vault.read(file);
-    return hashString(content);
+    return hashVaultWriteContent(content);
   }
 
   private readActiveContent(path: string): string | null {
@@ -221,4 +221,9 @@ function getParentFolderPath(path: string): string | null {
   const lastSlash = normalizedPath.lastIndexOf("/");
   if (lastSlash <= 0) return null;
   return normalizedPath.slice(0, lastSlash);
+}
+
+function hashVaultWriteContent(content: string): string {
+  const normalizedContent = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return hashString(normalizedContent.endsWith("\n") ? normalizedContent : `${normalizedContent}\n`);
 }
